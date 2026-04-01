@@ -1,0 +1,38 @@
+{
+  "name": "@claude-code-kit/shared",
+  "version": "0.0.1",
+  "description": "Shared utilities for claude-code-kit — Yoga layout TS port, logger, env helpers",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./yoga-layout": {
+      "types": "./dist/yoga-layout/index.d.ts",
+      "import": "./dist/yoga-layout/index.mjs",
+      "require": "./dist/yoga-layout/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@alcalzone/ansi-tokenize": "*",
+    "emoji-regex": "*",
+    "get-east-asian-width": "*",
+    "semver": "*",
+    "strip-ansi": "*"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "@types/semver": "*",
+    "tsup": "*",
+    "typescript": "*"
+  }
+}

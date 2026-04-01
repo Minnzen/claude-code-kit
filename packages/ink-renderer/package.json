@@ -1,0 +1,51 @@
+{
+  "name": "@claude-code-kit/ink-renderer",
+  "version": "0.0.1",
+  "description": "Terminal rendering engine extracted from Claude Code — React reconciler + Yoga layout + TTY output",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@claude-code-kit/shared": "workspace:*",
+    "@alcalzone/ansi-tokenize": "*",
+    "auto-bind": "*",
+    "bidi-js": "*",
+    "chalk": "*",
+    "cli-boxes": "*",
+    "code-excerpt": "*",
+    "emoji-regex": "*",
+    "get-east-asian-width": "*",
+    "indent-string": "*",
+    "lodash-es": "*",
+    "semver": "*",
+    "signal-exit": "*",
+    "stack-utils": "*",
+    "strip-ansi": "*",
+    "supports-hyperlinks": "*",
+    "type-fest": "*",
+    "usehooks-ts": "*",
+    "wrap-ansi": "*"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-reconciler": ">=0.29.0"
+  },
+  "devDependencies": {
+    "react": "*",
+    "react-reconciler": "*",
+    "tsup": "*",
+    "typescript": "*"
+  }
+}

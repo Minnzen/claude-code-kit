@@ -1,0 +1,43 @@
+{
+  "name": "@claude-code-kit/ui",
+  "version": "0.0.1",
+  "description": "Terminal UI component library for claude-code-kit — Spinner, ProgressBar, Divider and more",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@claude-code-kit/ink-renderer": "workspace:*",
+    "@claude-code-kit/shared": "workspace:*",
+    "chalk": "*",
+    "chokidar": "*",
+    "figures": "*",
+    "lodash-es": "^4.17.23",
+    "marked": "*",
+    "strip-ansi": "*",
+    "usehooks-ts": "^3.1.1",
+    "zod": "*"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/marked": "*",
+    "react": "*",
+    "tsup": "*",
+    "typescript": "*"
+  }
+}
