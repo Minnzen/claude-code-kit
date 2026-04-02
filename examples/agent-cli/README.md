@@ -1,13 +1,13 @@
-# agent-cli-example
+# cck-agent
 
-Minimal example showing `@claude-code-kit/agent` and `@claude-code-kit/ui` working together.
+A mini coding assistant built with claude-code-kit -- a tiny Claude Code in ~120 lines.
 
-## What it demonstrates
+## What it does
 
-- Creating an `Agent` with a `MockProvider` (no API key needed)
-- Defining a custom tool (`get_time`) with Zod schema validation
-- Using `AgentREPL` to render a full interactive CLI with streaming, tool use display, and slash commands
-- The complete agent loop: user input -> LLM response -> tool execution -> final response
+- Reads, searches, and edits files using real tools from `@claude-code-kit/tools`
+- Auto-detects API keys from environment variables (Anthropic, OpenAI, DeepSeek, SiliconFlow, Groq, Ollama)
+- Falls back to a realistic mock demo when no API key is found
+- Read-only tools (glob, grep, read) auto-approve; destructive tools (bash, edit, write) prompt for permission
 
 ## Run
 
@@ -16,13 +16,52 @@ pnpm install
 pnpm --filter agent-cli-example start
 ```
 
-## Swap in a real provider
+## Connect a real LLM
 
-Replace `MockProvider` with `AnthropicProvider` or `OpenAIProvider` to connect to a real LLM:
+Set any supported provider's API key:
 
-```ts
-import { AnthropicProvider } from '@claude-code-kit/agent'
+```bash
+# Anthropic (default)
+export ANTHROPIC_API_KEY=sk-ant-...
 
-const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! })
-const agent = new Agent({ provider, model: 'claude-sonnet-4-20250514', tools: [getTimeTool] })
+# OpenAI
+export OPENAI_API_KEY=sk-...
+
+# DeepSeek
+export DEEPSEEK_API_KEY=sk-...
+
+# SiliconFlow
+export SILICONFLOW_API_KEY=sk-...
+
+# Groq
+export GROQ_API_KEY=gsk_...
+
+# Ollama (no key needed, just run ollama locally)
 ```
+
+The CLI checks providers in order and uses the first one with a valid env var. No key found = demo mode with mock responses.
+
+## Tools
+
+| Tool  | Permission   | Description          |
+| ----- | ------------ | -------------------- |
+| glob  | Auto-approve | Find files by pattern |
+| grep  | Auto-approve | Search file contents  |
+| read  | Auto-approve | Read file contents    |
+| bash  | Ask user     | Run shell commands    |
+| edit  | Ask user     | Edit existing files   |
+| write | Ask user     | Write new files       |
+
+## How it works
+
+```
+createAuth() -> try env vars -> fall back to MockProvider
+                    |
+                    v
+          Agent({ provider, tools, permissionHandler })
+                    |
+                    v
+              AgentREPL (interactive TUI)
+```
+
+All the auth, tools, permission, and UI come from claude-code-kit packages. The example just wires them together.
