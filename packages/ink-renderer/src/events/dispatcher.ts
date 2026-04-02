@@ -3,10 +3,10 @@ import {
   DefaultEventPriority,
   DiscreteEventPriority,
   NoEventPriority,
-} from 'react-reconciler/constants'
+} from 'react-reconciler/constants.js'
 import { logError } from '@claude-code-kit/shared'
-import { HANDLER_FOR_EVENT } from './event-handlers'
-import type { EventTarget, TerminalEvent } from './terminal-event'
+import { HANDLER_FOR_EVENT } from './event-handlers.js'
+import type { EventTarget, TerminalEvent } from './terminal-event.js'
 
 // --
 
@@ -139,12 +139,12 @@ function getEventPriority(eventType: string): number {
 
 // --
 
-type DiscreteUpdates = <A, B>(
-  fn: (a: A, b: B) => boolean,
+type DiscreteUpdates = <A, B, C, D>(
+  fn: (a: A, b: B, c: C, d: D) => boolean,
   a: A,
   b: B,
-  c: undefined,
-  d: undefined,
+  c: C,
+  d: D,
 ) => boolean
 
 /**
@@ -231,4 +231,3 @@ export class Dispatcher {
     }
   }
 }
-

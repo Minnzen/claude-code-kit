@@ -1,0 +1,42 @@
+{
+  "name": "@claude-code-kit/tools",
+  "version": "0.1.0",
+  "description": "Built-in tool collection for claude-code-kit agent framework",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "biome check src/"
+  },
+  "dependencies": {
+    "@claude-code-kit/agent": "workspace:*",
+    "fast-glob": "^3.3.0",
+    "zod": "*"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "tsup": "*",
+    "typescript": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Minnzen/claude-code-kit.git",
+    "directory": "packages/tools"
+  },
+  "homepage": "https://github.com/Minnzen/claude-code-kit",
+  "bugs": "https://github.com/Minnzen/claude-code-kit/issues",
+  "keywords": ["tools", "agent", "claude", "bash", "file", "glob", "grep"],
+  "engines": { "node": ">=18" },
+  "publishConfig": { "access": "public" }
+}

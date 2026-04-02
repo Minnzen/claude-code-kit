@@ -44,3 +44,5 @@ temp/
 # Claude / AI tools
 .claude/
 docs/superpowers/
+docs/blog-devto.md
+docs/agent-architecture-research.md

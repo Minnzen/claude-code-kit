@@ -241,10 +241,11 @@ export function FuzzyPicker<T>({
 
 type ListProps<T> = Pick<
   Props<T>,
-  'visibleCount' | 'direction' | 'getKey' | 'renderItem'
+  'direction' | 'getKey' | 'renderItem'
 > & {
   visible: readonly T[]
   windowStart: number
+  visibleCount: number
   total: number
   focusedIndex: number
   emptyText: string

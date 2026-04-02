@@ -4,7 +4,7 @@ import noop from 'lodash-es/noop';
 import throttle from 'lodash-es/throttle';
 import React, { type ReactNode } from 'react';
 import type { FiberRoot } from 'react-reconciler';
-import { ConcurrentRoot } from 'react-reconciler/constants';
+import { ConcurrentRoot } from 'react-reconciler/constants.js';
 import { onExit } from 'signal-exit';
 import { getYogaCounters } from '@claude-code-kit/shared/yoga-layout';
 import { logForDebugging } from '@claude-code-kit/shared';

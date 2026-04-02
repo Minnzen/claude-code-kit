@@ -19,6 +19,7 @@ export function execFileNoThrow(
     timeout?: number
     input?: string
     env?: NodeJS.ProcessEnv
+    useCwd?: boolean
   } = {},
 ): Promise<ExecResult> {
   return new Promise(resolve => {

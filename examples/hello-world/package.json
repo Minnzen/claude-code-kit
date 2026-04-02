@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "start": "tsx index.tsx",
-    "dev": "tsx index.tsx"
+    "dev": "tsx index.tsx",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "pnpm run typecheck"
   },
   "dependencies": {
     "@claude-code-kit/ink-renderer": "workspace:*",

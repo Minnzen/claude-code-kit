@@ -1,12 +1,15 @@
 {
   "name": "@claude-code-kit/ink-renderer",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Terminal rendering engine extracted from Claude Code — React reconciler + Yoga layout + TTY output",
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,11 +18,13 @@
     }
   },
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "biome check src/"
   },
   "dependencies": {
-    "@claude-code-kit/shared": "workspace:*",
     "@alcalzone/ansi-tokenize": "*",
+    "@claude-code-kit/shared": "workspace:*",
     "auto-bind": "*",
     "bidi-js": "*",
     "chalk": "*",
@@ -43,9 +48,32 @@
     "react-reconciler": ">=0.29.0"
   },
   "devDependencies": {
+    "@types/react-reconciler": "0.33.0",
     "react": "*",
     "react-reconciler": "*",
     "tsup": "*",
     "typescript": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Minnzen/claude-code-kit.git",
+    "directory": "packages/ink-renderer"
+  },
+  "homepage": "https://github.com/Minnzen/claude-code-kit",
+  "bugs": "https://github.com/Minnzen/claude-code-kit/issues",
+  "keywords": [
+    "terminal",
+    "cli",
+    "tui",
+    "react",
+    "ink",
+    "renderer",
+    "claude-code"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

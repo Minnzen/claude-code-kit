@@ -42,7 +42,7 @@ export function isProgressReportingAvailable(): boolean {
     return true
   }
 
-  const version = coerce(process.env.TERM_PROGRAM_VERSION)
+  const version = coerce(process.env.TERM_PROGRAM_VERSION ?? null)
   if (!version) {
     return false
   }
@@ -245,4 +245,3 @@ export function writeDiffToTerminal(
   if (useSync) buffer += ESU
   terminal.stdout.write(buffer)
 }
-

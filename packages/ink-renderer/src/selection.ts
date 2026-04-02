@@ -10,9 +10,9 @@
  * the cursor is now). The rendered highlight normalizes to start ≤ end.
  */
 
-import { clamp } from './layout/geometry'
+import { clamp } from './layout/geometry.js'
 import type { Screen, StylePool } from './screen'
-import { CellWidth, cellAt, cellAtIndex, setCellStyleId } from './screen'
+import { CellWidth, cellAt, cellAtIndex, setCellStyleId } from './screen.js'
 
 type Point = { col: number; row: number }
 
@@ -334,7 +334,7 @@ export function findPlainTextUrlAt(
   // if unbalanced — `/wiki/Foo_(bar)` keeps `)`, `/arr[0]` keeps `]`.
   const OPENER: Record<string, string> = { ')': '(', ']': '[', '}': '{' }
   while (url.length > 0) {
-    const last = url.at(-1)!
+    const last = url.charAt(url.length - 1)
     if ('.,;:!?'.includes(last)) {
       url = url.slice(0, -1)
       continue
@@ -915,4 +915,3 @@ export function applySelectionOverlay(
     }
   }
 }
-

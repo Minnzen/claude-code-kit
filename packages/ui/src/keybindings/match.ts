@@ -1,5 +1,5 @@
 import type { Key } from '@claude-code-kit/ink-renderer'
-import type { ParsedBinding, ParsedKeystroke } from './types'
+import type { ParsedBinding, ParsedKeystroke } from './types.js'
 
 /**
  * Modifier keys from Ink's Key type that we care about for matching.

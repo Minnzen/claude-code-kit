@@ -1,4 +1,4 @@
-import { Event } from './event'
+import { Event } from './event.js'
 
 type EventPhase = 'none' | 'capturing' | 'at_target' | 'bubbling'
 
@@ -105,4 +105,3 @@ export type EventTarget = {
   parentNode: EventTarget | undefined
   _eventHandlers?: Record<string, unknown>
 }
-

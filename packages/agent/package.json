@@ -1,0 +1,49 @@
+{
+  "name": "@claude-code-kit/agent",
+  "version": "0.1.0",
+  "description": "Headless agent framework for claude-code-kit — LLM query loop, tool execution, multi-provider",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "biome check src/"
+  },
+  "dependencies": {
+    "zod": "*"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.30.0",
+    "openai": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": { "optional": true },
+    "openai": { "optional": true }
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "*",
+    "openai": "*",
+    "tsup": "*",
+    "typescript": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Minnzen/claude-code-kit.git",
+    "directory": "packages/agent"
+  },
+  "homepage": "https://github.com/Minnzen/claude-code-kit",
+  "bugs": "https://github.com/Minnzen/claude-code-kit/issues",
+  "keywords": ["agent", "llm", "claude", "openai", "tool-use", "ai"],
+  "engines": { "node": ">=18" },
+  "publishConfig": { "access": "public" }
+}

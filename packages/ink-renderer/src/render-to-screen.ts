@@ -1,6 +1,6 @@
 import noop from 'lodash-es/noop'
 import type { ReactElement } from 'react'
-import { LegacyRoot } from 'react-reconciler/constants'
+import { LegacyRoot } from 'react-reconciler/constants.js'
 import { logForDebugging } from '@claude-code-kit/shared'
 import { createNode, type DOMElement } from './dom'
 import { FocusManager } from './focus'
@@ -229,4 +229,3 @@ export function applyPositionedHighlight(
   }
   return true
 }
-

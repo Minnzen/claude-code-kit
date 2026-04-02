@@ -51,23 +51,6 @@ declare module 'stack-utils' {
   export = StackUtils
 }
 
-declare module 'react-reconciler' {
-  export interface FiberRoot {
-    current: any
-    containerInfo: any
-    pendingChildren: any
-    [key: string]: any
-  }
-  const createReconciler: any
-  export default createReconciler
-}
-
-declare module 'react-reconciler/constants' {
-  export const ConcurrentRoot: number
-  export const LegacyRoot: number
-  export const DefaultEventPriority: number
-}
-
 declare module 'lodash-es/noop' {
   const noop: () => void
   export default noop

@@ -1,0 +1,20 @@
+{
+  "name": "alt-screen-dashboard",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx index.tsx",
+    "dev": "tsx index.tsx",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "pnpm run typecheck"
+  },
+  "dependencies": {
+    "@claude-code-kit/ink-renderer": "workspace:*",
+    "@claude-code-kit/ui": "workspace:*",
+    "react": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0"
+  }
+}

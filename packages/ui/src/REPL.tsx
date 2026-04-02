@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useRef } from 'react'
-import { Box, Text, useInput, useApp, type Key } from '@claude-code-kit/ink-renderer'
+import { Box, useInput, useApp, type Key } from '@claude-code-kit/ink-renderer'
 import { MessageList, type Message } from './MessageList'
 import { PromptInput } from './PromptInput'
 import { Spinner } from './Spinner'
 import { StatusLine, type StatusLineSegment } from './StatusLine'
 import { Divider } from './Divider'
+import { PermissionRequest, type PermissionAction } from './PermissionRequest'
+import { SearchOverlay, computeMatches } from './SearchOverlay'
 
 type REPLCommand = {
   name: string
@@ -12,27 +14,34 @@ type REPLCommand = {
   onExecute: (args: string) => void
 }
 
+type PermissionRequestState = {
+  toolName: string
+  description: string
+  details?: string
+  preview?: React.ReactNode
+  onDecision: (action: PermissionAction) => void
+}
+
 export type REPLProps = {
-  // Core
   onSubmit: (message: string) => Promise<void> | void
   onExit?: () => void
 
-  // State (consumer manages these)
   messages: Message[]
   isLoading?: boolean
   streamingContent?: string | null
 
-  // Customization
+  welcome?: React.ReactNode
+
+  permissionRequest?: PermissionRequestState
+
   commands?: REPLCommand[]
   model?: string
   statusSegments?: StatusLineSegment[]
 
-  // Prompt
   prefix?: string
   placeholder?: string
   history?: string[]
 
-  // Rendering
   renderMessage?: (message: Message) => React.ReactNode
   spinner?: React.ReactNode
 }
@@ -43,6 +52,8 @@ export function REPL({
   messages,
   isLoading = false,
   streamingContent,
+  welcome,
+  permissionRequest,
   commands = [],
   model,
   statusSegments,
@@ -55,9 +66,14 @@ export function REPL({
   const { exit } = useApp()
   const [inputValue, setInputValue] = useState('')
   const [internalHistory, setInternalHistory] = useState<string[]>([])
+  const [searchOpen, setSearchOpen] = useState(false)
   const submittingRef = useRef(false)
 
   const history = externalHistory ?? internalHistory
+
+  const messageContents = messages.map((m) =>
+    typeof m.content === 'string' ? m.content : m.content.map((b) => ('text' in b ? (b as { text: string }).text : '')).join(' '),
+  )
 
   const promptCommands = commands.map((c) => ({
     name: c.name,
@@ -114,15 +130,25 @@ export function REPL({
           exit()
         }
       }
+      if (key.ctrl && _input === 'f') {
+        setSearchOpen(true)
+      }
     },
-    { isActive: true },
+    // Deactivate when search overlay is open so only SearchOverlay handles input.
+    { isActive: !searchOpen },
   )
 
   const resolvedSegments = statusSegments ?? buildDefaultSegments(model)
+  const showWelcome = welcome && messages.length === 0 && !isLoading
+  const showPermission = !!permissionRequest
 
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box flexDirection="column" flexGrow={1}>
+        {showWelcome && (
+          <Box marginBottom={1}>{welcome}</Box>
+        )}
+
         <MessageList
           messages={messages}
           streamingContent={streamingContent}
@@ -136,18 +162,37 @@ export function REPL({
         )}
       </Box>
 
+      {searchOpen && (
+        <SearchOverlay
+          isOpen={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          onSearch={(q) => computeMatches(messageContents, q)}
+          onNavigate={() => {}}
+        />
+      )}
+
       <Divider />
 
-      <PromptInput
-        value={inputValue}
-        onChange={setInputValue}
-        onSubmit={handleSubmit}
-        prefix={prefix}
-        placeholder={placeholder}
-        disabled={isLoading}
-        commands={promptCommands}
-        history={history}
-      />
+      {showPermission ? (
+        <PermissionRequest
+          toolName={permissionRequest.toolName}
+          description={permissionRequest.description}
+          details={permissionRequest.details}
+          preview={permissionRequest.preview}
+          onDecision={permissionRequest.onDecision}
+        />
+      ) : (
+        <PromptInput
+          value={inputValue}
+          onChange={setInputValue}
+          onSubmit={handleSubmit}
+          prefix={prefix}
+          placeholder={placeholder}
+          disabled={isLoading || searchOpen}
+          commands={promptCommands}
+          history={history}
+        />
+      )}
 
       <Divider />
 

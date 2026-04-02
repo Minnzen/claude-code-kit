@@ -1,13 +1,14 @@
 {
   "name": "@claude-code-kit/ui",
-  "version": "0.0.1",
-  "description": "Terminal UI component library for claude-code-kit — Spinner, ProgressBar, Divider and more",
+  "version": "0.1.0",
+  "description": "Terminal UI component library for claude-code-kit \u2014 Spinner, ProgressBar, Divider and more",
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "exports": {
     ".": {
@@ -17,7 +18,9 @@
     }
   },
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "biome check src/"
   },
   "dependencies": {
     "@claude-code-kit/ink-renderer": "workspace:*",
@@ -32,12 +35,44 @@
     "zod": "*"
   },
   "peerDependencies": {
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "@claude-code-kit/agent": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@claude-code-kit/agent": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "@claude-code-kit/agent": "workspace:*",
     "@types/marked": "*",
     "react": "*",
     "tsup": "*",
     "typescript": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Minnzen/claude-code-kit.git",
+    "directory": "packages/ui"
+  },
+  "homepage": "https://github.com/Minnzen/claude-code-kit",
+  "bugs": "https://github.com/Minnzen/claude-code-kit/issues",
+  "keywords": [
+    "terminal",
+    "cli",
+    "tui",
+    "react",
+    "components",
+    "repl",
+    "select",
+    "spinner",
+    "claude-code",
+    "ai-agent"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

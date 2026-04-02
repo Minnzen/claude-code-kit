@@ -1,6 +1,26 @@
+[English](./README.md) | [中文](./README.zh-CN.md)
+
+<div align="center">
+
 # claude-code-kit
 
-A terminal UI toolkit for building rich CLI applications with React. Inspired by the architecture behind Claude Code.
+[![npm version](https://img.shields.io/npm/v/@claude-code-kit/ui.svg?style=flat-square&color=DA7756)](https://www.npmjs.com/package/@claude-code-kit/ui)
+[![npm downloads](https://img.shields.io/npm/dm/@claude-code-kit/ui.svg?style=flat-square)](https://www.npmjs.com/package/@claude-code-kit/ui)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933.svg?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-18+-61DAFB.svg?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+
+**A terminal UI toolkit for building rich CLI applications with React.**
+**Inspired by the architecture behind Claude Code.**
+
+[Getting Started](#quick-start) -- [Components](#components) -- [Examples](#usage-examples) -- [Documentation](./docs/components.md)
+
+<img src="./demo.gif" alt="claude-code-kit demo" width="600" />
+
+</div>
+
+---
 
 Build interactive REPLs, selection menus, streaming dashboards, and full-featured terminal interfaces using a familiar component model -- React components, Flexbox layout via Yoga, and hooks for input handling.
 
@@ -25,23 +45,14 @@ Build interactive REPLs, selection menus, streaming dashboards, and full-feature
 
 ## Quick Start
 
-### From source (current)
-
 ```bash
-git clone https://github.com/Minnzen/claude-code-kit.git
-cd claude-code-kit
-pnpm install
-pnpm build
-
-# Run the interactive demo
-cd examples/hello-world
-npx tsx index.tsx
+pnpm add @claude-code-kit/ui react
 ```
 
-### From npm (when published)
+Or install all packages individually:
 
 ```bash
-pnpm add @claude-code-kit/ink-renderer @claude-code-kit/ui react
+pnpm add @claude-code-kit/shared @claude-code-kit/ink-renderer @claude-code-kit/ui react
 ```
 
 ### Hello World

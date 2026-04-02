@@ -46,7 +46,9 @@ const diff = (before: AnyObject, after: AnyObject): AnyObject | undefined => {
   let isChanged = false
 
   for (const key of Object.keys(before)) {
-    const isDeleted = after ? !Object.hasOwn(after, key) : true
+    const isDeleted = after
+      ? !Object.prototype.hasOwnProperty.call(after, key)
+      : true
 
     if (isDeleted) {
       changed[key] = undefined
@@ -484,4 +486,3 @@ const reconciler = createReconciler<
 dispatcher.discreteUpdates = reconciler.discreteUpdates.bind(reconciler)
 
 export default reconciler
-

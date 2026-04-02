@@ -303,6 +303,7 @@ export default class Output {
     }
 
     const clips: Clip[] = []
+    const getCurrentClip = (): Clip | undefined => clips[clips.length - 1]
 
     for (const operation of this.operations) {
       switch (operation.type) {
@@ -318,7 +319,7 @@ export default class Output {
           // layout bounds, already translated by -scrollTop) which can
           // extend below the scrollbox viewport — writes escape into
           // the sibling bottom section's rows.
-          clips.push(intersectClip(clips.at(-1), operation.clip))
+          clips.push(intersectClip(getCurrentClip(), operation.clip))
           continue
 
         case 'unclip':
@@ -340,7 +341,7 @@ export default class Output {
           // cached rect, but the parent ScrollBox may have shrunk (pill mount).
           // Without this, the blit writes past the ScrollBox's new bottom edge
           // into the pill's row.
-          const clip = clips.at(-1)
+          const clip = getCurrentClip()
           const startX = Math.max(regionX, clip?.x1 ?? 0)
           const startY = Math.max(regionY, clip?.y1 ?? 0)
           const maxY = Math.min(
@@ -399,7 +400,7 @@ export default class Output {
           let swFrom = 0
           let prevContentEnd = 0
 
-          const clip = clips.at(-1)
+          const clip = getCurrentClip()
 
           if (clip) {
             const clipHorizontally =
@@ -793,4 +794,3 @@ function writeLineToScreen(
 
   return offsetX
 }
-

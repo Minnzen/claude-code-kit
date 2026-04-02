@@ -33,7 +33,7 @@ export function osc(...parts: (string | number)[]): string {
  */
 export function wrapForMultiplexer(sequence: string): string {
   if (process.env['TMUX']) {
-    const escaped = sequence.replaceAll('\x1b', '\x1b\x1b')
+    const escaped = sequence.split('\x1b').join('\x1b\x1b')
     return `\x1bPtmux;${escaped}\x1b\\`
   }
   if (process.env['STY']) {
@@ -75,7 +75,7 @@ export function getClipboardPath(): ClipboardPath {
  * ~/.tmux.conf; without it, tmux silently drops the whole DCS (no regression).
  */
 function tmuxPassthrough(payload: string): string {
-  return `${ESC}Ptmux;${payload.replaceAll(ESC, ESC + ESC)}${ST}`
+  return `${ESC}Ptmux;${payload.split(ESC).join(ESC + ESC)}${ST}`
 }
 
 /**
@@ -476,11 +476,13 @@ export function tabStatus(fields: TabStatusAction): string {
     c.type === 'rgb'
       ? `#${[c.r, c.g, c.b].map(n => n.toString(16).padStart(2, '0')).join('')}`
       : ''
+  const escapeStatusValue = (value: string): string =>
+    value.split('\\').join('\\\\').split(';').join('\\;')
   if ('indicator' in fields)
     parts.push(`indicator=${fields.indicator ? rgb(fields.indicator) : ''}`)
   if ('status' in fields)
     parts.push(
-      `status=${fields.status?.replaceAll('\\', '\\\\').replaceAll(';', '\\;') ?? ''}`,
+      `status=${fields.status ? escapeStatusValue(fields.status) : ''}`,
     )
   if ('statusColor' in fields)
     parts.push(
@@ -488,4 +490,3 @@ export function tabStatus(fields: TabStatusAction): string {
     )
   return osc(OSC.TAB_STATUS, parts.join(';'))
 }
-

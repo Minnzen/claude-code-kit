@@ -1,12 +1,15 @@
 {
   "name": "@claude-code-kit/shared",
-  "version": "0.0.1",
-  "description": "Shared utilities for claude-code-kit — Yoga layout TS port, logger, env helpers",
+  "version": "0.1.0",
+  "description": "Shared utilities for claude-code-kit \u2014 Yoga layout TS port, logger, env helpers",
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -20,7 +23,9 @@
     }
   },
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "biome check src/"
   },
   "dependencies": {
     "@alcalzone/ansi-tokenize": "*",
@@ -34,5 +39,26 @@
     "@types/semver": "*",
     "tsup": "*",
     "typescript": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Minnzen/claude-code-kit.git",
+    "directory": "packages/shared"
+  },
+  "homepage": "https://github.com/Minnzen/claude-code-kit",
+  "bugs": "https://github.com/Minnzen/claude-code-kit/issues",
+  "keywords": [
+    "terminal",
+    "cli",
+    "tui",
+    "yoga",
+    "layout",
+    "claude-code"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

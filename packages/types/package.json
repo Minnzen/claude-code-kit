@@ -1,0 +1,40 @@
+{
+  "name": "@claude-code-kit/types",
+  "version": "0.1.0",
+  "description": "Type definitions for claude-code-kit agent framework",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "biome check src/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Minnzen/claude-code-kit.git",
+    "directory": "packages/types"
+  },
+  "homepage": "https://github.com/Minnzen/claude-code-kit",
+  "bugs": "https://github.com/Minnzen/claude-code-kit/issues",
+  "keywords": ["terminal", "cli", "agent", "llm", "types", "claude-code"],
+  "engines": { "node": ">=18" },
+  "publishConfig": { "access": "public" },
+  "devDependencies": {
+    "tsup": "*",
+    "typescript": "*",
+    "zod": "*"
+  },
+  "peerDependencies": {
+    "zod": ">=3.0.0"
+  }
+}

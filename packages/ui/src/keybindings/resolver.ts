@@ -1,11 +1,11 @@
 import type { Key } from '@claude-code-kit/ink-renderer'
-import { getKeyName, matchesBinding } from './match'
-import { chordToString } from './parser'
+import { getKeyName, matchesBinding } from './match.js'
+import { chordToString } from './parser.js'
 import type {
   KeybindingContextName,
   ParsedBinding,
   ParsedKeystroke,
-} from './types'
+} from './types.js'
 
 export type ResolveResult =
   | { type: 'match'; action: string }
@@ -69,11 +69,14 @@ export function getBindingDisplayText(
   context: KeybindingContextName,
   bindings: ParsedBinding[],
 ): string | undefined {
-  // Find the last binding for this action in this context
-  const binding = bindings.findLast(
-    b => b.action === action && b.context === context,
-  )
-  return binding ? chordToString(binding.chord) : undefined
+  for (let i = bindings.length - 1; i >= 0; i--) {
+    const binding = bindings[i]
+    if (binding && binding.action === action && binding.context === context) {
+      return chordToString(binding.chord)
+    }
+  }
+
+  return undefined
 }
 
 /**
