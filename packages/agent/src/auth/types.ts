@@ -1,22 +1,94 @@
 import type { LLMProvider } from "../types.js";
 
-export type AuthType = "api-key" | "oauth" | "token" | "none";
+// ---------------------------------------------------------------------------
+// Auth methods — each provider can support multiple methods
+// ---------------------------------------------------------------------------
+
+export type AuthMethodApiKey = {
+  type: "api-key";
+  envVar?: string;
+  inputLabel?: string;
+};
+
+export type AuthMethodOAuth = {
+  type: "oauth";
+  authURL: string;
+  tokenURL: string;
+  scopes?: string[];
+};
+
+export type AuthMethodBaseUrlKey = {
+  type: "base-url-key";
+  defaultBaseURL: string;
+  envVar?: string;
+  inputLabel?: string;
+};
+
+export type AuthMethodNone = {
+  type: "none";
+};
+
+export type AuthMethod =
+  | AuthMethodApiKey
+  | AuthMethodOAuth
+  | AuthMethodBaseUrlKey
+  | AuthMethodNone;
+
+export type AuthType = AuthMethod["type"];
+
+// ---------------------------------------------------------------------------
+// Provider registration — multi-method, model-aware
+// ---------------------------------------------------------------------------
 
 export interface ProviderRegistration {
-  type: AuthType;
-  displayName?: string;
+  displayName: string;
   description?: string;
-  /** Environment variable to check for API key */
-  envVar?: string;
-  /** Base URL for OpenAI-compatible providers */
-  baseURL?: string;
+  authMethods: AuthMethod[];
   defaultModel?: string;
-  /** Factory that creates a configured LLMProvider from a credential string */
-  createProvider: (credential: string) => LLMProvider;
-  authURL?: string;
-  tokenURL?: string;
-  scopes?: string[];
+  models?: string[];
+  /** Factory that creates a configured LLMProvider from resolved credentials */
+  createProvider: (config: {
+    apiKey?: string;
+    baseURL?: string;
+    token?: string;
+  }) => LLMProvider;
 }
+
+// ---------------------------------------------------------------------------
+// Interactive auth flow
+// ---------------------------------------------------------------------------
+
+export type AuthFlowStep =
+  | "select-provider"
+  | "select-auth-method"
+  | "input-credentials"
+  | "select-model"
+  | "done";
+
+export interface AuthFlowProviderOption {
+  name: string;
+  displayName: string;
+  description?: string;
+}
+
+export interface AuthFlowState {
+  step: AuthFlowStep;
+  providers?: AuthFlowProviderOption[];
+  authMethods?: AuthMethod[];
+  models?: string[];
+  currentProvider?: string;
+  currentAuthMethod?: AuthMethod;
+  currentModel?: string;
+  result?: {
+    provider: LLMProvider;
+    model: string;
+    providerName: string;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Storage & options (unchanged)
+// ---------------------------------------------------------------------------
 
 export interface AuthStorage {
   get(provider: string): Promise<string | null>;

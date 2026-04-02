@@ -219,14 +219,20 @@ export function PromptInput({
       {renderContent()}
       {hasSuggestions && (
         <Box flexDirection="column" marginLeft={2}>
-          {suggestions.map((cmd, i) => (
-            <Box key={cmd.name}>
-              <Text inverse={i === suggestionIndex} color={i === suggestionIndex ? 'cyan' : undefined}>
-                {`  /${cmd.name}`}
-              </Text>
-              <Text dimColor>{`  ${cmd.description}`}</Text>
-            </Box>
-          ))}
+          {suggestions.map((cmd, i) => {
+            const isFocused = i === suggestionIndex
+            return (
+              <Box key={cmd.name}>
+                <Text color={isFocused ? 'cyan' : undefined}>
+                  {isFocused ? '❯' : ' '}{' '}
+                </Text>
+                <Text color={isFocused ? 'cyan' : undefined} bold={isFocused}>
+                  {`/${cmd.name}`}
+                </Text>
+                <Text dimColor>{`  ${cmd.description}`}</Text>
+              </Box>
+            )
+          })}
         </Box>
       )}
     </Box>

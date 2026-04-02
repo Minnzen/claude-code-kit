@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Text, Box } from '@claude-code-kit/ink-renderer'
 
-const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+const DEFAULT_CHARACTERS = process.platform === 'darwin'
+  ? ['·', '✢', '✳', '✶', '✻', '✽']
+  : ['·', '✢', '*', '✶', '✻', '✽']
+const FRAMES = [...DEFAULT_CHARACTERS, ...[...DEFAULT_CHARACTERS].reverse()]
 const SPINNER_INTERVAL = 80
 const VERB_ROTATE_INTERVAL = 4000
 const ELAPSED_SHOW_AFTER = 1000

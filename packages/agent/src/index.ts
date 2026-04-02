@@ -32,8 +32,16 @@ export { PRESET_PROVIDERS } from "./auth/presets.js";
 export type {
   ProviderRegistration,
   AuthType,
+  AuthMethod,
+  AuthMethodApiKey,
+  AuthMethodOAuth,
+  AuthMethodBaseUrlKey,
+  AuthMethodNone,
   AuthStorage,
   AuthOptions,
+  AuthFlowStep,
+  AuthFlowState,
+  AuthFlowProviderOption,
 } from "./auth/types.js";
 export type { ProviderInfo } from "./auth/registry.js";
 

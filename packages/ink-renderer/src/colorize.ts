@@ -165,6 +165,25 @@ export const colorize = (
       : chalk.bgRgb(firstValue, secondValue, thirdValue)(str)
   }
 
+  // Fallback: treat plain color names (e.g. "cyan", "red") as ANSI colors.
+  // This allows <Text color="cyan"> without requiring the "ansi:" prefix.
+  const PLAIN_ANSI: Record<string, ((s: string) => string) | undefined> = {
+    black: type === 'foreground' ? chalk.black : chalk.bgBlack,
+    red: type === 'foreground' ? chalk.red : chalk.bgRed,
+    green: type === 'foreground' ? chalk.green : chalk.bgGreen,
+    yellow: type === 'foreground' ? chalk.yellow : chalk.bgYellow,
+    blue: type === 'foreground' ? chalk.blue : chalk.bgBlue,
+    magenta: type === 'foreground' ? chalk.magenta : chalk.bgMagenta,
+    cyan: type === 'foreground' ? chalk.cyan : chalk.bgCyan,
+    white: type === 'foreground' ? chalk.white : chalk.bgWhite,
+    gray: type === 'foreground' ? chalk.gray : chalk.bgBlackBright,
+    grey: type === 'foreground' ? chalk.gray : chalk.bgBlackBright,
+  }
+  const fn = PLAIN_ANSI[color]
+  if (fn) {
+    return fn(str)
+  }
+
   return str
 }
 

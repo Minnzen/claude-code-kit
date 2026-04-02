@@ -11,7 +11,10 @@ export type StatusLineProps = {
   segments?: StatusLineSegment[]
   text?: string
   paddingX?: number
+  /** @deprecated Use separator instead. Gap between segments in columns. */
   gap?: number
+  /** Separator string between segments (default: ' · ') */
+  separator?: string
   borderStyle?: 'none' | 'single' | 'round'
   borderColor?: Color
 }
@@ -24,7 +27,7 @@ export function StatusLine({
   segments,
   text,
   paddingX = 1,
-  gap = 1,
+  separator = ' \u00B7 ',
   borderStyle = 'none',
   borderColor,
 }: StatusLineProps): React.ReactNode {
@@ -41,13 +44,16 @@ export function StatusLine({
         hasAnsi(text) ? <Ansi>{text}</Ansi> : <Text dimColor>{text}</Text>
       ) : (
         segments?.map((seg, i) => (
-          <Box key={i} flexGrow={seg.flex ? 1 : 0} marginRight={i < (segments.length - 1) ? gap : 0}>
-            {hasAnsi(seg.content) ? (
-              <Ansi>{seg.content}</Ansi>
-            ) : (
-              <Text dimColor color={seg.color}>{seg.content}</Text>
-            )}
-          </Box>
+          <React.Fragment key={i}>
+            {i > 0 && <Text dimColor>{separator}</Text>}
+            <Box flexGrow={seg.flex ? 1 : 0}>
+              {hasAnsi(seg.content) ? (
+                <Ansi>{seg.content}</Ansi>
+              ) : (
+                <Text dimColor color={seg.color}>{seg.content}</Text>
+              )}
+            </Box>
+          </React.Fragment>
         ))
       )}
     </Box>

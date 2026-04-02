@@ -114,7 +114,7 @@ export function ListItem({
     }
 
     if (isFocused) {
-      return <Text color="suggestion">{figures.pointer}</Text>
+      return <Text color="cyan">{figures.pointer}</Text>
     }
 
     if (showScrollDown) {
@@ -128,9 +128,9 @@ export function ListItem({
     return <Text> </Text>
   }
 
-  function getTextColor(): 'success' | 'suggestion' | 'inactive' | undefined {
+  function getTextColor(): string | undefined {
     if (disabled) {
-      return 'inactive'
+      return undefined
     }
 
     if (!styled) {
@@ -138,11 +138,11 @@ export function ListItem({
     }
 
     if (isSelected) {
-      return 'success'
+      return 'green'
     }
 
     if (isFocused) {
-      return 'suggestion'
+      return 'cyan'
     }
 
     return undefined
@@ -171,12 +171,12 @@ export function ListItem({
           children
         )}
         {isSelected && !disabled && (
-          <Text color="success">{figures.tick}</Text>
+          <Text color="green">{figures.tick}</Text>
         )}
       </Box>
       {description && (
         <Box paddingLeft={2}>
-          <Text color="inactive">{description}</Text>
+          <Text dimColor>{description}</Text>
         </Box>
       )}
     </Box>

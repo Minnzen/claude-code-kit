@@ -2,7 +2,20 @@ export { AuthRegistry } from "./registry.js";
 export type { ProviderInfo } from "./registry.js";
 export { FileAuthStorage, MemoryAuthStorage } from "./storage.js";
 export { PRESET_PROVIDERS } from "./presets.js";
-export type { AuthType, ProviderRegistration, AuthStorage, AuthOptions } from "./types.js";
+export type {
+  AuthType,
+  AuthMethod,
+  AuthMethodApiKey,
+  AuthMethodOAuth,
+  AuthMethodBaseUrlKey,
+  AuthMethodNone,
+  ProviderRegistration,
+  AuthStorage,
+  AuthOptions,
+  AuthFlowStep,
+  AuthFlowState,
+  AuthFlowProviderOption,
+} from "./types.js";
 
 import type { AuthOptions } from "./types.js";
 import { AuthRegistry } from "./registry.js";
@@ -16,7 +29,7 @@ import { PRESET_PROVIDERS } from "./presets.js";
  * const auth = createAuth();
  * const provider = await auth.authenticate('anthropic');
  * // or register your own
- * auth.register('my-llm', { type: 'api-key', ... });
+ * auth.register('my-llm', { displayName: 'My LLM', authMethods: [...], ... });
  * ```
  */
 export function createAuth(options?: AuthOptions): AuthRegistry {
