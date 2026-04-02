@@ -11,7 +11,6 @@ packages/
   shared/         — Yoga layout engine (pure TS), utilities
   ink-renderer/   — Terminal rendering engine (React reconciler + TTY)
   ui/             — 30+ UI components (REPL, Select, PromptInput, etc.)
-  types/            — Pure interfaces for agent layer (zero runtime)
   agent/            — Headless agent framework (Agent class, providers, tools)
   tools/            — Built-in tool collection (Bash, Read, Edit, Glob, Grep, WebFetch)
 examples/
@@ -54,7 +53,6 @@ docs/
 
 ### Agent Layer (Phase 1 completed)
 - AsyncGenerator-based agent loop (best pattern from Claude Code)
-- `@claude-code-kit/types` package for pure interfaces (prevents cascading breaking changes)
 - Provider adapters: AnthropicProvider, OpenAIProvider (with baseURL for Ollama/vLLM)
 - Tool interface: Zod schema + execute function, no UI rendering
 - Permission: tiered model (alwaysAllow list + sessionApprove + per-call callback)
@@ -86,8 +84,7 @@ pnpm release:check  # Full pre-release validation
 ```
 shared          — depends on nothing
 ink-renderer    — depends on shared
-types           — depends on nothing (pure interfaces)
-agent           — depends on types, shared (NEVER ui or ink-renderer)
+agent           — depends on shared (NEVER ui or ink-renderer)
 tools           — depends on agent (for ToolDefinition types)
 ui              — depends on ink-renderer, shared; optionally agent (for bridge hooks)
 ```
@@ -95,7 +92,7 @@ ui              — depends on ink-renderer, shared; optionally agent (for bridg
 ## Current Phase
 
 Completed: Agent Phase 1 + Phase 2
-- Phase 1: types + agent packages
+- Phase 1: agent package
 - Phase 2: tools package, UI-Agent bridge (useAgent/AgentProvider/AgentREPL), FileSession, SummarizationCompactor, 16 tests passing
 Next: npm v0.2.0 publish, agent CLI example, Phase 3 (multi-agent, MCP)
 See: `docs/roadmap.md` for detailed plan
@@ -121,7 +118,7 @@ import { Agent, AnthropicProvider } from '@claude-code-kit/agent'
 
 Scope: `@claude-code-kit/*`
 Current version: 0.1.0
-Publish order: shared → types → ink-renderer → agent → tools → ui (dependency order)
+Publish order: shared → ink-renderer → agent → tools → ui (dependency order)
 Use `pnpm publish --access public --no-git-checks` per package
 
 ## Git Conventions

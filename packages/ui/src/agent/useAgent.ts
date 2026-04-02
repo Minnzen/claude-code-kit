@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Agent, AgentEvent, Message as AgentMessage, ToolCall } from '@claude-code-kit/agent'
 import type { Message, MessageContent } from '../MessageList'
 
@@ -60,11 +60,32 @@ export function useAgent({ agent, onError }: UseAgentOptions): UseAgentResult {
   const [streamingContent, setStreamingContent] = useState<string | null>(null)
   const [permissionRequest, setPermissionRequest] = useState<PermissionUIRequest | null>(null)
 
+  // Guard against concurrent runs (Bug 3 fix)
+  const isRunningRef = useRef(false)
+
   // Map tool-call id -> message id so we can update on tool_result
   const toolMsgMap = useRef<Map<string, string>>(new Map())
 
+  // Wire the permission handler on the agent (Bug 1 fix)
+  useEffect(() => {
+    agent.setPermissionHandler(async (request) => {
+      return new Promise<{ decision: 'allow' | 'deny'; reason?: string }>((resolve) => {
+        setPermissionRequest({
+          toolName: request.tool,
+          description: `Tool "${request.tool}" wants to execute`,
+          details: JSON.stringify(request.input, null, 2),
+          resolve: (decision) => {
+            setPermissionRequest(null)
+            resolve({ decision })
+          },
+        })
+      })
+    })
+  }, [agent])
+
   const cancel = useCallback(() => {
     agent.abort()
+    isRunningRef.current = false
     setIsLoading(false)
     setStreamingContent(null)
     setPermissionRequest(null)
@@ -79,7 +100,8 @@ export function useAgent({ agent, onError }: UseAgentOptions): UseAgentResult {
 
   const submit = useCallback(
     (input: string) => {
-      if (isLoading) return
+      // Bug 3 fix: prevent concurrent runs
+      if (isRunningRef.current) return
       const trimmed = input.trim()
       if (!trimmed) return
 
@@ -91,6 +113,7 @@ export function useAgent({ agent, onError }: UseAgentOptions): UseAgentResult {
         timestamp: Date.now(),
       }
       setMessages((prev) => [...prev, userMsg])
+      isRunningRef.current = true
       setIsLoading(true)
       setStreamingContent(null)
 
@@ -171,12 +194,13 @@ export function useAgent({ agent, onError }: UseAgentOptions): UseAgentResult {
           const error = err instanceof Error ? err : new Error(String(err))
           onError?.(error)
         } finally {
+          isRunningRef.current = false
           setIsLoading(false)
           setStreamingContent(null)
         }
       })()
     },
-    [agent, isLoading, onError],
+    [agent, onError],
   )
 
   return {

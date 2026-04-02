@@ -55,29 +55,12 @@ export class SummarizationCompaction implements CompactionStrategy {
   }
 
   /**
-   * Synchronous compaction conforming to the CompactionStrategy interface.
-   * Falls back to dropping older messages when async summarization is not possible
-   * in a synchronous context. For full LLM-based summarization, use `compactAsync()`.
+   * Async compaction conforming to the CompactionStrategy interface.
+   * Uses the LLM provider to summarize older messages before dropping them.
    */
-  compact(messages: Message[], _maxTokens: number): Message[] {
-    // Separate system messages (always kept verbatim)
-    const systemMessages = messages.filter((m) => m.role === "system");
-    const conversationMessages = messages.filter((m) => m.role !== "system");
-
-    // If there is nothing to summarize, return as-is
-    if (conversationMessages.length <= this.keepRecentN) {
-      return messages;
-    }
-
-    // In the synchronous path, keep system + recent messages (no LLM summary)
-    const toKeep = conversationMessages.slice(-this.keepRecentN);
-
-    // Ensure we don't start with a tool result (orphaned from its assistant)
-    while (toKeep.length > 0 && toKeep[0]!.role === "tool") {
-      toKeep.shift();
-    }
-
-    return [...systemMessages, ...toKeep];
+  async compact(messages: Message[], _maxTokens: number): Promise<Message[]> {
+    const result = await this.compactAsync(messages);
+    return result.messages;
   }
 
   /**

@@ -72,7 +72,6 @@ export class AuthRegistry {
     method: AuthMethod,
   ): { apiKey?: string; baseURL?: string } | null {
     if (method.type === "none") return {};
-    if (method.type === "oauth") return null; // OAuth needs interactive flow
 
     const envVar =
       method.type === "api-key" ? method.envVar : method.envVar;

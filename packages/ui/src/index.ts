@@ -67,3 +67,6 @@ export { WelcomeScreen, ClawdLogo, type WelcomeScreenProps } from './WelcomeScre
 export { useAgent, type UseAgentOptions, type UseAgentResult, type PermissionUIRequest } from './agent/useAgent'
 export { AgentProvider, AgentContext, useAgentContext, type AgentContextValue, type AgentProviderProps } from './agent/AgentProvider'
 export { AgentREPL, type AgentREPLProps } from './agent/AgentREPL'
+
+// Auth flow UI (requires @claude-code-kit/agent as optional peer dependency)
+export { AuthFlowUI, type AuthFlowUIProps } from './AuthFlow'

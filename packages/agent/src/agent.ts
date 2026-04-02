@@ -100,6 +100,7 @@ export class Agent {
 
       let accumulatedText = "";
       const accumulatedToolCalls: ToolCall[] = [];
+      const toolParseErrors = new Map<string, string>();
       let currentToolId: string | undefined;
       let currentToolName: string | undefined;
       let currentToolArgs = "";
@@ -144,8 +145,12 @@ export class Agent {
                 let input: Record<string, unknown>;
                 try {
                   input = currentToolArgs ? JSON.parse(currentToolArgs) : {};
-                } catch {
+                } catch (err) {
                   input = {};
+                  toolParseErrors.set(
+                    currentToolId,
+                    `Failed to parse tool input JSON: ${err instanceof Error ? err.message : String(err)}. Raw input: ${currentToolArgs}`,
+                  );
                 }
 
                 const toolCall: ToolCall = {
@@ -186,7 +191,7 @@ export class Agent {
       } catch (error) {
         // Handle context too long errors with reactive compaction
         if (isContextTooLongError(error)) {
-          const compacted = this.contextManager.forceCompact(this.session.getMessages());
+          const compacted = await this.contextManager.forceCompact(this.session.getMessages());
           this.session.setMessages(compacted);
           continue; // Retry the loop
         }
@@ -210,7 +215,7 @@ export class Agent {
 
       // Step 5: If tool calls, execute them and loop
       if (accumulatedToolCalls.length > 0) {
-        const toolResults = await this.executeToolCalls(accumulatedToolCalls);
+        const toolResults = await this.executeToolCalls(accumulatedToolCalls, toolParseErrors);
 
         // Yield tool results and add to history
         const currentMsgs = this.session.getMessages();
@@ -290,14 +295,34 @@ export class Agent {
     return this.toolRegistry.unregister(name);
   }
 
+  /** Replace the permission handler at runtime. */
+  setPermissionHandler(handler: PermissionHandler): void {
+    this.permissionHandler = handler;
+  }
+
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
 
-  private async executeToolCalls(toolCalls: ToolCall[]): Promise<ToolResultMessage[]> {
+  private async executeToolCalls(
+    toolCalls: ToolCall[],
+    parseErrors?: Map<string, string>,
+  ): Promise<ToolResultMessage[]> {
     const results: ToolResultMessage[] = [];
 
     for (const tc of toolCalls) {
+      // If the tool input had a JSON parse error, report it back to the LLM
+      const parseError = parseErrors?.get(tc.id);
+      if (parseError) {
+        results.push({
+          role: "tool",
+          toolCallId: tc.id,
+          content: parseError,
+          isError: true,
+        });
+        continue;
+      }
+
       const toolDef = this.toolRegistry.get(tc.name);
 
       // Check permission

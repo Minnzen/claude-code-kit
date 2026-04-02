@@ -10,13 +10,6 @@ export type AuthMethodApiKey = {
   inputLabel?: string;
 };
 
-export type AuthMethodOAuth = {
-  type: "oauth";
-  authURL: string;
-  tokenURL: string;
-  scopes?: string[];
-};
-
 export type AuthMethodBaseUrlKey = {
   type: "base-url-key";
   defaultBaseURL: string;
@@ -30,7 +23,6 @@ export type AuthMethodNone = {
 
 export type AuthMethod =
   | AuthMethodApiKey
-  | AuthMethodOAuth
   | AuthMethodBaseUrlKey
   | AuthMethodNone;
 

@@ -1,6 +1,6 @@
 /**
- * Local type definitions for @claude-code-kit/agent.
- * These will be replaced by imports from @claude-code-kit/types once that package is wired in.
+ * Type definitions for @claude-code-kit/agent.
+ * This is the single source of truth for all agent-related types.
  */
 
 import type { z } from "zod";
@@ -211,7 +211,7 @@ export interface Session {
 // ---------------------------------------------------------------------------
 
 export interface CompactionStrategy {
-  compact(messages: Message[], maxTokens: number): Message[];
+  compact(messages: Message[], maxTokens: number): Message[] | Promise<Message[]>;
 }
 
 // ---------------------------------------------------------------------------

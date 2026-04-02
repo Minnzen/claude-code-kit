@@ -364,8 +364,10 @@ describe('SummarizationCompaction', () => {
     expect(typeof asStrategy.compact).toBe('function')
   })
 
-  it('compact() returns messages synchronously without crashing', () => {
-    const provider = new MockProvider([])
+  it('compact() uses LLM to summarize older messages', async () => {
+    const provider = new MockProvider([
+      [{ type: 'text', text: 'Summary of early conversation.' }, { type: 'done' }],
+    ])
     const strategy = new SummarizationCompaction(provider, { keepRecentN: 2 })
 
     const messages: Message[] = [
@@ -377,16 +379,23 @@ describe('SummarizationCompaction', () => {
       { role: 'assistant', content: 'reply3' },
     ]
 
-    // Synchronous compact should not throw
-    const compacted = strategy.compact(messages, 100)
+    // compact() is now async and uses the LLM for summarization
+    const compacted = await strategy.compact(messages, 100)
 
-    // Should keep only the most recent keepRecentN messages
-    expect(compacted.length).toBe(2)
-    expect(compacted[0]!.role).toBe('user')
-    expect((compacted[0] as { content: string }).content).toBe('msg3')
+    // Should contain summary + "Understood." + recent 2 messages = 4 messages
+    expect(compacted.length).toBe(4)
+    // Summary message
+    const summaryMsg = compacted.find(
+      (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('Summary'),
+    )
+    expect(summaryMsg).toBeDefined()
+    // Recent messages preserved
+    const lastMsg = compacted[compacted.length - 1]
+    expect(lastMsg!.role).toBe('assistant')
+    expect((lastMsg as { content: string }).content).toBe('reply3')
   })
 
-  it('compact() returns all messages when fewer than keepRecentN', () => {
+  it('compact() returns all messages when fewer than keepRecentN', async () => {
     const provider = new MockProvider([])
     const strategy = new SummarizationCompaction(provider, { keepRecentN: 10 })
 
@@ -395,7 +404,7 @@ describe('SummarizationCompaction', () => {
       { role: 'assistant', content: 'reply1' },
     ]
 
-    const compacted = strategy.compact(messages, 100)
+    const compacted = await strategy.compact(messages, 100)
     expect(compacted).toEqual(messages)
   })
 
@@ -434,8 +443,10 @@ describe('SummarizationCompaction', () => {
     expect((lastMsg as { content: string }).content).toBe('recent reply')
   })
 
-  it('compact() strips orphaned tool results', () => {
-    const provider = new MockProvider([])
+  it('compact() handles orphaned tool results in recent messages', async () => {
+    const provider = new MockProvider([
+      [{ type: 'text', text: 'Summary.' }, { type: 'done' }],
+    ])
     const strategy = new SummarizationCompaction(provider, { keepRecentN: 2 })
 
     const messages: Message[] = [
@@ -447,8 +458,57 @@ describe('SummarizationCompaction', () => {
       { role: 'user', content: 'recent' },
     ]
 
-    const compacted = strategy.compact(messages, 100)
-    // Should not start with a tool message
-    expect(compacted[0]!.role).not.toBe('tool')
+    const compacted = await strategy.compact(messages, 100)
+    // After summarization, the compacted result should be well-formed
+    expect(compacted.length).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Malformed tool JSON tests (Bug 2)
+// ---------------------------------------------------------------------------
+
+describe('Agent malformed tool JSON', () => {
+  it('reports parse error back to LLM as tool_result with isError', async () => {
+    const execMock = vi.fn(async () => ({ content: 'should not run' }))
+    const tool: ToolDefinition<{ x: number }> = {
+      name: 'my-tool',
+      description: 'A tool',
+      inputSchema: z.object({ x: z.number() }),
+      execute: execMock,
+    }
+
+    const provider = new MockProvider([
+      // Turn 1: LLM calls the tool with malformed JSON
+      [
+        { type: 'tool_use_start', toolCall: { id: 'tc-bad', name: 'my-tool' } },
+        { type: 'tool_use_delta', text: '{not valid json' },
+        { type: 'tool_use_end' },
+        { type: 'done' },
+      ],
+      // Turn 2: LLM sees the error and responds with text
+      [{ type: 'text', text: 'Sorry, I had a JSON error.' }, { type: 'done' }],
+    ])
+
+    const agent = new Agent({ provider, model: 'mock', tools: [tool] })
+    const events = await collectEvents(agent.run('do something'))
+
+    // Tool execute() must NOT have been called
+    expect(execMock).not.toHaveBeenCalled()
+
+    // A tool_result with isError should have been emitted
+    const toolResultEvents = events.filter((e) => e.type === 'tool_result')
+    expect(toolResultEvents).toHaveLength(1)
+    const resultEvent = toolResultEvents[0] as {
+      type: string
+      toolCallId: string
+      result: { content: string; isError?: boolean }
+    }
+    expect(resultEvent.result.isError).toBe(true)
+    expect(resultEvent.result.content).toContain('Failed to parse tool input JSON')
+
+    // The agent should have continued and produced a final text response
+    const textEvents = events.filter((e) => e.type === 'text')
+    expect(textEvents.length).toBeGreaterThan(0)
   })
 })

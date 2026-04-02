@@ -8,7 +8,6 @@
 | `@claude-code-kit/shared` | 0.1.0 | Published |
 | `@claude-code-kit/ink-renderer` | 0.1.0 | Published |
 | `@claude-code-kit/ui` | 0.1.0 | Published |
-| `@claude-code-kit/types` | 0.1.0 | Built, unpublished |
 | `@claude-code-kit/agent` | 0.1.0 | Built, unpublished |
 | `@claude-code-kit/tools` | 0.1.0 | Built, unpublished |
 
@@ -21,8 +20,7 @@
 
 ## Phase 1: Agent Core (v0.2.0) -- COMPLETED
 
-- `@claude-code-kit/types` — Pure interfaces (Message, Tool, Provider, Agent, Permission)
-- `@claude-code-kit/agent` — Agent class, AnthropicProvider, OpenAIProvider, MockProvider, ToolRegistry, ContextManager, Permission handler
+- `@claude-code-kit/agent` — Agent class, AnthropicProvider, OpenAIProvider, MockProvider, ToolRegistry, ContextManager, Permission handler (types defined in `agent/src/types.ts`)
 
 ---
 

@@ -78,7 +78,7 @@ export class ContextManager {
 
     if (tokenCount > threshold) {
       const targetTokens = Math.floor(this.contextLimit * 0.6);
-      return this.compactionStrategy.compact(messages, targetTokens);
+      return await this.compactionStrategy.compact(messages, targetTokens);
     }
 
     return messages;
@@ -87,9 +87,9 @@ export class ContextManager {
   /**
    * Force compaction (e.g. after receiving a "context too long" error from the API).
    */
-  forceCompact(messages: Message[]): Message[] {
+  async forceCompact(messages: Message[]): Promise<Message[]> {
     const targetTokens = Math.floor(this.contextLimit * 0.5);
-    return this.compactionStrategy.compact(messages, targetTokens);
+    return await this.compactionStrategy.compact(messages, targetTokens);
   }
 
   setContextLimit(limit: number): void {

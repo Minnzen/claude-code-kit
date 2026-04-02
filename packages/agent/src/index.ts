@@ -34,7 +34,6 @@ export type {
   AuthType,
   AuthMethod,
   AuthMethodApiKey,
-  AuthMethodOAuth,
   AuthMethodBaseUrlKey,
   AuthMethodNone,
   AuthStorage,
