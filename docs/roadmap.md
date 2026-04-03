@@ -11,42 +11,55 @@
 | `@claude-code-kit/agent` | 0.1.0 | Built, unpublished |
 | `@claude-code-kit/tools` | 0.1.0 | Built, unpublished |
 
-### UI Completion: ~70%
-- 30+ components: REPL, Select, PromptInput, MessageList, Spinner, DiffView, PermissionRequest, etc.
-- Design system: ThemeProvider (4 themes, 33 tokens), Dialog, Tabs, FuzzyPicker
-- Commands framework, keybindings system, virtual scroll
+### Stats
+- 181 tests passing across 10 test files
+- 0 security vulnerabilities (pnpm audit clean)
+- 3 examples (hello-world, agent-cli, alt-screen-dashboard)
 
 ---
 
-## Phase 1: Agent Core (v0.2.0) -- COMPLETED
+## Completed
 
-- `@claude-code-kit/agent` — Agent class, AnthropicProvider, OpenAIProvider, MockProvider, ToolRegistry, ContextManager, Permission handler (types defined in `agent/src/types.ts`)
+### Phase 1: Agent Core
+- Agent class (AsyncGenerator loop, stateful multi-turn, chat() API)
+- AnthropicProvider, OpenAIProvider (with baseURL), MockProvider
+- ToolRegistry, ContextManager, SlidingWindowCompactor
+- Tiered permission handler (allowReadOnly default)
+
+### Phase 2: Tools + Enhancement
+- 7 built-in tools (Bash, Read, Edit, Write, Glob, Grep, WebFetch)
+- UI-Agent bridge (useAgent, AgentProvider, AgentREPL)
+- SummarizationCompactor (async LLM-based), FileSessionStore (JSONL)
+- Auth framework with 8 preset providers + interactive flow UI
+- AuthFlowUI component for provider selection + credential input
+
+### Security hardening
+- Path traversal protection in file tools
+- SSRF protection in web-fetch (private IP blocking)
+- Default permission changed to allowReadOnly
+- Credential directory permissions (0o700)
+- lodash-es dependency removed (inline replacements)
 
 ---
 
-## Phase 2: Tools + Enhancement (v0.3.0) -- COMPLETED
+## Next: v0.2.0 Release
 
-- `@claude-code-kit/tools` — 7 built-in tools (Bash, Read, Edit, Write, Glob, Grep, WebFetch)
-- UI-Agent bridge — useAgent hook, AgentProvider, AgentREPL
-- SummarizationCompactor, FileSessionStore (JSONL)
-- Agent tests — 16 tests passing with MockProvider
+- [ ] Publish agent + tools to npm
+- [ ] Update README with npm install instructions for all packages
+- [ ] Record new demo GIF showing agent features
 
----
+## Phase 3: Multi-Agent + Ecosystem
 
-## Phase 3: Multi-Agent + Ecosystem (v0.4.0)
-
-- Multi-agent coordinator (SubagentManager, task delegation)
-- MessageBus + BusAgentRunner (Slack, Telegram, webhooks)
-- MCP client integration
-- Structured output / response format
-
----
+- [ ] Multi-agent coordinator (SubagentManager, task delegation)
+- [ ] MessageBus + BusAgentRunner (Slack, Telegram, webhooks)
+- [ ] MCP client integration (dynamic tool discovery)
+- [ ] Structured output / response format
+- [ ] Retry logic with exponential backoff
 
 ## Phase 4: Polish (v1.0.0)
 
-- Documentation site
-- `npx create-cck-app` scaffolding
-- Plugin system
-- Performance benchmarks
-- Comprehensive test suite (>80% coverage)
-- Stable API contract
+- [ ] Documentation site (Bolt/Lovable)
+- [ ] `npx create-cck-app` scaffolding
+- [ ] UI component tests
+- [ ] Performance benchmarks
+- [ ] Stable API contract
