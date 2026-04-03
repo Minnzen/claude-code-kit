@@ -28,7 +28,6 @@
     "chalk": "*",
     "chokidar": "*",
     "figures": "*",
-    "lodash-es": "^4.17.23",
     "marked": "*",
     "strip-ansi": "*",
     "usehooks-ts": "^3.1.1",

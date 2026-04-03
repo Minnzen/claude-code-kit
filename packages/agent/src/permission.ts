@@ -49,6 +49,20 @@ export function createPermissionHandler(config: PermissionConfig): PermissionHan
 export const allowAll: PermissionHandler = async () => ({ decision: "allow" });
 
 /**
+ * Default permission handler: allows read-only tools, denies everything else.
+ * Used when no permissionHandler is configured in AgentConfig.
+ */
+export const allowReadOnly: PermissionHandler = async (request) => {
+  if (request.isReadOnly) {
+    return { decision: "allow" };
+  }
+  return {
+    decision: "deny",
+    reason: "No permission handler configured. Set permissionHandler in AgentConfig.",
+  };
+};
+
+/**
  * Permission handler that denies everything. Useful for dry-run / audit mode.
  */
 export const denyAll: PermissionHandler = async () => ({

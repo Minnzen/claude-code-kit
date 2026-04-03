@@ -33,7 +33,6 @@
     "emoji-regex": "*",
     "get-east-asian-width": "*",
     "indent-string": "*",
-    "lodash-es": "*",
     "semver": "*",
     "signal-exit": "*",
     "stack-utils": "*",

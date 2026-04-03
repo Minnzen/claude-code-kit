@@ -7,6 +7,7 @@ import { editTool } from '../packages/tools/src/edit.ts'
 import { globTool } from '../packages/tools/src/glob.ts'
 import { grepTool } from '../packages/tools/src/grep.ts'
 import { readTool } from '../packages/tools/src/read.ts'
+import { webFetchTool } from '../packages/tools/src/web-fetch.ts'
 import { writeTool } from '../packages/tools/src/write.ts'
 import type { ToolContext } from '../packages/agent/src/types.ts'
 
@@ -257,5 +258,131 @@ describe('bashTool', () => {
 
     expect(addCount).toBe(1)
     expect(removeCount).toBe(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Path traversal prevention
+// ---------------------------------------------------------------------------
+
+describe('path traversal prevention', () => {
+  it('readTool blocks ../ traversal', async () => {
+    const result = await readTool.execute!({ path: '../../../etc/passwd' }, makeCtx())
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/path traversal denied/)
+  })
+
+  it('writeTool blocks ../ traversal', async () => {
+    const result = await writeTool.execute!(
+      { path: '../../../tmp/evil.txt', content: 'pwned' },
+      makeCtx(),
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/path traversal denied/)
+  })
+
+  it('editTool blocks ../ traversal', async () => {
+    const result = await editTool.execute!(
+      { path: '../../../etc/hosts', oldString: 'a', newString: 'b' },
+      makeCtx(),
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/path traversal denied/)
+  })
+
+  it('readTool blocks absolute paths outside working directory', async () => {
+    const result = await readTool.execute!({ path: '/etc/passwd' }, makeCtx())
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/path traversal denied/)
+  })
+
+  it('readTool allows files inside working directory', async () => {
+    writeFile('allowed.txt', 'safe content')
+    const result = await readTool.execute!(
+      { path: path.join(tmpDir, 'allowed.txt') },
+      makeCtx(),
+    )
+    expect(result.isError).toBeFalsy()
+    expect(result.content).toContain('safe content')
+  })
+
+  it('readTool allows relative paths inside working directory', async () => {
+    writeFile('sub/nested.txt', 'nested content')
+    const result = await readTool.execute!({ path: 'sub/nested.txt' }, makeCtx())
+    expect(result.isError).toBeFalsy()
+    expect(result.content).toContain('nested content')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SSRF prevention (web_fetch)
+// ---------------------------------------------------------------------------
+
+describe('web_fetch SSRF prevention', () => {
+  it('blocks localhost', async () => {
+    const result = await webFetchTool.execute!(
+      { url: 'http://localhost:8080/secret' },
+      makeCtx(),
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/private\/internal address denied/)
+  })
+
+  it('blocks 127.0.0.1', async () => {
+    const result = await webFetchTool.execute!(
+      { url: 'http://127.0.0.1/admin' },
+      makeCtx(),
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/private\/internal address denied/)
+  })
+
+  it('blocks 10.x.x.x private range', async () => {
+    const result = await webFetchTool.execute!(
+      { url: 'http://10.0.0.1/internal' },
+      makeCtx(),
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/private\/internal address denied/)
+  })
+
+  it('blocks 192.168.x.x private range', async () => {
+    const result = await webFetchTool.execute!(
+      { url: 'http://192.168.1.1/router' },
+      makeCtx(),
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/private\/internal address denied/)
+  })
+
+  it('blocks 172.16-31.x.x private range', async () => {
+    const result = await webFetchTool.execute!(
+      { url: 'http://172.16.0.1/internal' },
+      makeCtx(),
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/private\/internal address denied/)
+  })
+
+  it('blocks cloud metadata endpoint (169.254.169.254)', async () => {
+    const result = await webFetchTool.execute!(
+      { url: 'http://169.254.169.254/latest/meta-data/' },
+      makeCtx(),
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/private\/internal address denied/)
+  })
+
+  it('blocks IPv6 loopback (::1)', async () => {
+    const result = await webFetchTool.execute!(
+      { url: 'http://[::1]:3000/api' },
+      makeCtx(),
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/private\/internal address denied/)
+  })
+
+  it('web_fetch isReadOnly is false (can POST)', () => {
+    expect(webFetchTool.isReadOnly).toBe(false)
   })
 })

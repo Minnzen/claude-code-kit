@@ -51,24 +51,6 @@ declare module 'stack-utils' {
   export = StackUtils
 }
 
-declare module 'lodash-es/noop' {
-  const noop: () => void
-  export default noop
-}
-
-declare module 'lodash-es/throttle' {
-  interface ThrottleSettings {
-    leading?: boolean
-    trailing?: boolean
-  }
-  function throttle<T extends (...args: any[]) => any>(
-    func: T,
-    wait?: number,
-    options?: ThrottleSettings,
-  ): T & { cancel: () => void; flush: () => void }
-  export default throttle
-}
-
 declare module 'semver' {
   export function satisfies(version: string, range: string): boolean
   export function valid(version: string | null): string | null

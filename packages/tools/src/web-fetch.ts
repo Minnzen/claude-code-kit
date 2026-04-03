@@ -3,6 +3,21 @@ import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/a
 
 const MAX_RESULT_SIZE = 50_000;
 
+/**
+ * Check if a URL points to a private/internal network address.
+ * Blocks SSRF attacks targeting localhost, private IPs, link-local, and cloud metadata endpoints.
+ */
+function isPrivateUrl(urlStr: string): boolean {
+  const url = new URL(urlStr);
+  const hostname = url.hostname;
+  const blocked = [
+    /^127\./, /^10\./, /^172\.(1[6-9]|2\d|3[01])\./, /^192\.168\./,
+    /^169\.254\./, /^0\./, /^localhost$/i, /^::1$/, /^\[::1\]$/,
+    /^metadata\.google/, /^169\.254\.169\.254$/,
+  ];
+  return blocked.some(re => re.test(hostname));
+}
+
 export const inputSchema = z.object({
   url: z.string().url().describe("URL to fetch"),
   method: z.string().optional().default("GET").describe("HTTP method"),
@@ -14,6 +29,15 @@ type Input = z.infer<typeof inputSchema>;
 
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
+
+  // Block requests to private/internal network addresses (SSRF prevention)
+  try {
+    if (isPrivateUrl(input.url)) {
+      return { content: `Error: request to private/internal address denied — ${input.url}`, isError: true };
+    }
+  } catch {
+    return { content: `Error: invalid URL — ${input.url}`, isError: true };
+  }
 
   try {
     const res = await fetch(input.url, {
@@ -45,6 +69,6 @@ export const webFetchTool: ToolDefinition<Input> = {
   description: "Make HTTP requests and return the response body",
   inputSchema,
   execute,
-  isReadOnly: true,
+  isReadOnly: false,
   timeout: 30_000,
 };

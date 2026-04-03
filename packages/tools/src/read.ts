@@ -18,6 +18,11 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
   const filePath = path.resolve(ctx.workingDirectory, input.path);
 
+  // Prevent path traversal outside the working directory
+  if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
+    return { content: `Error: path traversal denied — ${input.path} escapes working directory`, isError: true };
+  }
+
   try {
     const raw = await fs.readFile(filePath, "utf-8");
     let lines = raw.split("\n");

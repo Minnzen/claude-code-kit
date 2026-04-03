@@ -3,7 +3,6 @@ export { Agent } from "./agent.js";
 
 // Tool system
 export { ToolRegistry } from "./tool-registry.js";
-export { zodToInputSchema, toolToProviderFormat } from "./tool-formatter.js";
 
 // Context management
 export { ContextManager, estimateTokens, estimateTotalTokens } from "./context-manager.js";
@@ -19,7 +18,7 @@ export { InMemorySession } from "./session/memory.js";
 export { FileSession, FileSessionStore } from "./session/file.js";
 
 // Permission
-export { createPermissionHandler, allowAll, denyAll } from "./permission.js";
+export { createPermissionHandler, allowAll, allowReadOnly, denyAll } from "./permission.js";
 
 // Providers
 export { AnthropicProvider } from "./providers/anthropic.js";

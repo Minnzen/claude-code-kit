@@ -51,6 +51,15 @@ export interface ToolResultMessage {
   isError?: boolean;
 }
 
+/**
+ * Protocol-level message used in the agent loop and LLM provider communication.
+ *
+ * This type represents the canonical message format for agent conversations,
+ * tool calls, and tool results. It is distinct from the display-oriented
+ * `Message` type in `@claude-code-kit/ui`, which adds fields like `id` and
+ * `timestamp` for rendering. The `useAgent` bridge handles conversion between
+ * the two formats automatically.
+ */
 export type Message = SystemMessage | UserMessage | AssistantMessage | ToolResultMessage;
 
 // ---------------------------------------------------------------------------
@@ -90,15 +99,15 @@ export interface ToolDefinition<TInput = unknown> {
 // Provider interface
 // ---------------------------------------------------------------------------
 
-export interface StreamChunk {
-  type: "text" | "tool_use_start" | "tool_use_delta" | "tool_use_end" | "thinking" | "usage" | "done";
-  /** Text delta for text/thinking/tool_use_delta chunks */
-  text?: string;
-  /** Tool call metadata for tool_use_start */
-  toolCall?: { id: string; name: string };
-  /** Usage stats for usage chunks */
-  usage?: { inputTokens: number; outputTokens: number };
-}
+export type StreamChunk =
+  | { type: "text"; text: string }
+  | { type: "tool_use_start"; toolCall: { id: string; name: string } }
+  | { type: "tool_use_delta"; text: string }
+  | { type: "tool_use_end" }
+  | { type: "thinking"; text: string }
+  | { type: "usage"; usage: { inputTokens: number; outputTokens: number } }
+  | { type: "done"; stopReason?: string }
+  | { type: "error"; error: Error };
 
 export interface ProviderTool {
   name: string;

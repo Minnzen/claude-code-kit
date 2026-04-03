@@ -45,7 +45,7 @@ export class FileAuthStorage implements AuthStorage {
 
   private async write(data: Record<string, string>): Promise<void> {
     const dir = path.dirname(this.filePath);
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), { mode: 0o600 });
   }
 }

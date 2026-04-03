@@ -1,7 +1,6 @@
 import autoBind from 'auto-bind';
 import { closeSync, constants as fsConstants, openSync, readSync, writeSync } from 'fs';
-import noop from 'lodash-es/noop';
-import throttle from 'lodash-es/throttle';
+import { noop, throttle } from './lodash-replacements';
 import React, { type ReactNode } from 'react';
 import type { FiberRoot } from 'react-reconciler';
 import { ConcurrentRoot } from 'react-reconciler/constants.js';

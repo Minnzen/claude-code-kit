@@ -15,6 +15,11 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
   const filePath = path.resolve(ctx.workingDirectory, input.path);
 
+  // Prevent path traversal outside the working directory
+  if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
+    return { content: `Error: path traversal denied — ${input.path} escapes working directory`, isError: true };
+  }
+
   try {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, input.content, "utf-8");

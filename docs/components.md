@@ -251,11 +251,13 @@ Renders a list of chat messages with role-based styling. Supports custom rendere
 
 ### Message
 
+Display-oriented message type for the UI layer. Distinct from the protocol-level `Message` in `@claude-code-kit/agent` -- the `useAgent` hook converts between them automatically.
+
 ```ts
 type Message = {
   id: string
   role: 'user' | 'assistant' | 'system'
-  content: string
+  content: string | MessageContent[]
   timestamp?: number
 }
 ```

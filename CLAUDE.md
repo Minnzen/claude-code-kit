@@ -33,7 +33,7 @@ docs/
 
 4. **useInterval/useAnimationTimer depend on ClockContext** — ink-renderer's hooks need a ClockProvider. UI components (Spinner, StreamingText) must use standard `setInterval` instead.
 
-5. **Claude Code source is at** `/Users/minnzen/Documents/trail/claude-code-source/src/` — useful for reference but never copy compiled output directly.
+5. **Claude Code source** can be found in the sibling `claude-code-source` directory if available — useful for reference but never copy compiled output directly.
 
 ## Architecture Principles
 
@@ -41,7 +41,7 @@ docs/
 2. **Composable** — Every component works standalone. REPL is a thin composition layer (164 lines), not a monolith.
 3. **State externalized** — Components receive state via props. No internal global store. Consumer chooses state management.
 4. **Provider agnostic** — Agent supports any LLM via adapter pattern. OpenAI message format as canonical.
-5. **Zero stubs** — All UI components are clean rewrites. No stub dependencies.
+5. **Clean rewrites** — All UI components are rewritten from scratch. No extracted compiled code.
 
 ## Key Design Decisions
 

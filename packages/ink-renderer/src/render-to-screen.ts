@@ -1,4 +1,4 @@
-import noop from 'lodash-es/noop'
+import { noop } from './lodash-replacements'
 import type { ReactElement } from 'react'
 import { LegacyRoot } from 'react-reconciler/constants.js'
 import { logForDebugging } from '@claude-code-kit/shared'

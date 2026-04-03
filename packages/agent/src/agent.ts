@@ -1,5 +1,5 @@
 import { ContextManager } from "./context-manager.js";
-import { allowAll } from "./permission.js";
+import { allowReadOnly } from "./permission.js";
 import { InMemorySession } from "./session/memory.js";
 import { ToolRegistry } from "./tool-registry.js";
 import type {
@@ -46,7 +46,7 @@ export class Agent {
     this.temperature = config.temperature;
     this.maxTurns = config.maxTurns ?? DEFAULT_MAX_TURNS;
     this.session = config.session ?? new InMemorySession();
-    this.permissionHandler = config.permissionHandler ?? allowAll;
+    this.permissionHandler = config.permissionHandler ?? allowReadOnly;
     this.workingDirectory = config.workingDirectory ?? process.cwd();
 
     this.toolRegistry = new ToolRegistry();

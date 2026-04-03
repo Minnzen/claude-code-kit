@@ -117,6 +117,7 @@ import { readTool, globTool, grepTool, bashTool } from "@claude-code-kit/tools";
 
 const agent = new Agent({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+  model: "claude-sonnet-4-20250514",
   tools: [readTool, globTool, grepTool, bashTool],
   systemPrompt: "你是一个简洁的编程助手。",
 });
@@ -135,6 +136,7 @@ import { readTool, globTool, grepTool, bashTool, editTool, writeTool } from "@cl
 
 const agent = new Agent({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+  model: "claude-sonnet-4-20250514",
   tools: [bashTool, readTool, editTool, writeTool, globTool, grepTool],
   permissionHandler: createPermissionHandler({ autoApproveReadOnly: true }),
 });

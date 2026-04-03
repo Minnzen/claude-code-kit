@@ -10,6 +10,15 @@ export type MessageContent =
   | { type: 'code'; language?: string; code: string }
   | { type: 'error'; message: string; details?: string }
 
+/**
+ * Display-oriented message type for rendering in the terminal UI.
+ *
+ * This type adds `id` and `timestamp` fields for UI purposes and supports
+ * rich `MessageContent[]` for rendering tool calls, diffs, code blocks, etc.
+ * It is distinct from the protocol-level `Message` type in
+ * `@claude-code-kit/agent`, which represents raw LLM conversation messages.
+ * The `useAgent` hook handles conversion between the two formats automatically.
+ */
 export type Message = {
   id: string
   role: 'user' | 'assistant' | 'system'
