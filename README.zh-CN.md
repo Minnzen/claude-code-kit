@@ -44,10 +44,8 @@
 | `@claude-code-kit/shared` | 已发布 | Yoga 布局引擎（纯 TS 移植版）、文字测量、ANSI 工具 |
 | `@claude-code-kit/ink-renderer` | 已发布 | 终端渲染引擎 -- React reconciler、布局、差量输出、输入处理 |
 | `@claude-code-kit/ui` | 已发布 | UI 组件库 -- REPL、Select、Spinner、PromptInput、AgentREPL 以及 20+ 个组件 |
-| `@claude-code-kit/agent` | 暂未发布 npm | 无头 Agent 框架 -- Agent 类、多 Provider、工具接口、权限模型 |
-| `@claude-code-kit/tools` | 暂未发布 npm | 内置工具 -- Bash、Read、Edit、Write、Glob、Grep |
-
-`agent` 和 `tools` 目前可从源码使用，计划在 v0.2.0 发布到 npm。
+| `@claude-code-kit/agent` | 已发布 | 无头 Agent 框架 -- Agent 类、多 Provider、工具接口、权限模型 |
+| `@claude-code-kit/tools` | 已发布 | 内置工具 -- Bash、Read、Edit、Write、Glob、Grep |
 
 ## 快速开始
 
@@ -99,14 +97,12 @@ function App() {
 await render(<App />);
 ```
 
-### Agent（源码使用，npm 发布前）
+### Agent
 
-先克隆并构建：
+从 npm 安装 agent 和 tools：
 
 ```bash
-git clone https://github.com/Minnzen/claude-code-kit.git
-cd claude-code-kit
-pnpm install && pnpm build
+pnpm add @claude-code-kit/agent @claude-code-kit/tools
 ```
 
 接入无头 Agent 和工具：

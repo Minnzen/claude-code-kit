@@ -1,6 +1,6 @@
 {
   "name": "@claude-code-kit/tools",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Built-in tool collection for claude-code-kit agent framework",
   "license": "MIT",
   "main": "./dist/index.js",
@@ -22,7 +22,7 @@
   "dependencies": {
     "@claude-code-kit/agent": "workspace:*",
     "fast-glob": "^3.3.0",
-    "zod": "*"
+    "zod": ">=3.20.0"
   },
   "devDependencies": {
     "@types/node": "*",

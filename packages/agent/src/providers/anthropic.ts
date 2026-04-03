@@ -43,17 +43,17 @@ export class AnthropicProvider implements LLMProvider {
     const { systemPrompt, messages: rawMessages, tools, model, maxTokens, temperature, signal } =
       options;
 
+    // Safe cast: system messages are filtered out, so only User/Assistant/ToolResult remain
     const anthropicMessages = rawMessages
       .filter((m) => m.role !== "system")
       .map((m) => toAnthropicMessage(m as UserMessage | AssistantMessage | ToolResultMessage));
 
     const anthropicTools = tools?.map(toAnthropicTool);
 
-    // Cast to `any` at the SDK boundary — we construct the correct shapes
-    // in toAnthropicMessage/toAnthropicTool, but the Anthropic SDK types are
-    // too strict for our generic Record-based translation layer.
-    // biome-ignore lint/suspicious/noExplicitAny: SDK boundary cast
-    const params: any = {
+    // SDK boundary: we construct correct shapes in toAnthropicMessage/toAnthropicTool,
+    // but the Anthropic SDK types are too strict for our generic Record-based
+    // translation layer. Using Record<string, unknown> for the params object.
+    const params: Record<string, unknown> = {
       model,
       max_tokens: maxTokens ?? 4096,
       ...(temperature !== undefined ? { temperature } : {}),
@@ -61,7 +61,8 @@ export class AnthropicProvider implements LLMProvider {
       messages: anthropicMessages,
       ...(anthropicTools?.length ? { tools: anthropicTools } : {}),
     };
-    const stream = client.messages.stream(params, { signal });
+    // biome-ignore lint/suspicious/noExplicitAny: Anthropic SDK .stream() expects specific param types that cannot be expressed with our generic translation layer
+    const stream = client.messages.stream(params as any, { signal });
 
     // Accumulate tool call input JSON across deltas
     let currentToolId: string | undefined;

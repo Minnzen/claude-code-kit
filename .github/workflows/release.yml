@@ -43,7 +43,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           TAG_VERSION="${RELEASE_TAG#v}"
-          PACKAGE_VERSION="$(node -e "const versions = ['packages/shared/package.json', 'packages/ink-renderer/package.json', 'packages/ui/package.json'].map(path => require('./' + path).version); const unique = [...new Set(versions)]; if (unique.length !== 1) { console.error('Package versions differ:', versions.join(', ')); process.exit(1); } process.stdout.write(unique[0]);")"
+          PACKAGE_VERSION="$(node -e "const versions = ['packages/shared/package.json', 'packages/ink-renderer/package.json', 'packages/ui/package.json', 'packages/agent/package.json', 'packages/tools/package.json'].map(path => require('./' + path).version); const unique = [...new Set(versions)]; if (unique.length !== 1) { console.error('Package versions differ:', versions.join(', ')); process.exit(1); } process.stdout.write(unique[0]);")"
 
           if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
             echo "Tag version $TAG_VERSION does not match package version $PACKAGE_VERSION"

@@ -53,6 +53,7 @@ export class OpenAIProvider implements LLMProvider {
       if (msg.role === "system") {
         openaiMessages.push({ role: "system", content: msg.content });
       } else {
+        // Safe cast: the if-branch handles SystemMessage, so msg is narrowed here
         openaiMessages.push(
           toOpenAIMessage(msg as UserMessage | AssistantMessage | ToolResultMessage),
         );
@@ -61,11 +62,10 @@ export class OpenAIProvider implements LLMProvider {
 
     const openaiTools = tools?.map(toOpenAITool);
 
-    // Cast to `any` at the SDK boundary — we construct the correct shapes
-    // in toOpenAIMessage/toOpenAITool, but the OpenAI SDK types are too
-    // strict for our generic Record-based translation layer.
-    // biome-ignore lint/suspicious/noExplicitAny: SDK boundary cast
-    const params: any = {
+    // SDK boundary: we construct correct shapes in toOpenAIMessage/toOpenAITool,
+    // but the OpenAI SDK types are too strict for our generic Record-based
+    // translation layer. Using Record<string, unknown> for the params object.
+    const params: Record<string, unknown> = {
       model,
       messages: openaiMessages,
       ...(maxTokens ? { max_tokens: maxTokens } : {}),
@@ -73,8 +73,8 @@ export class OpenAIProvider implements LLMProvider {
       ...(openaiTools?.length ? { tools: openaiTools } : {}),
       stream: true,
     };
-    // biome-ignore lint/suspicious/noExplicitAny: stream type from dynamic params
-    const stream: any = await client.chat.completions.create(params, { signal });
+    // biome-ignore lint/suspicious/noExplicitAny: OpenAI SDK stream type varies across versions and cannot be statically typed when params are dynamic
+    const stream: any = await client.chat.completions.create(params as never, { signal });
 
     // Track tool calls being built up across deltas
     const toolCalls = new Map<number, { id: string; name: string; args: string }>();
@@ -184,8 +184,8 @@ function toOpenAIMessage(
       result.content = msg.content || null;
     } else {
       const text = msg.content
-        .filter((p) => p.type === "text")
-        .map((p) => (p as { type: "text"; text: string }).text)
+        .filter((p): p is import("../types.js").TextContentPart => p.type === "text")
+        .map((p) => p.text)
         .join("");
       result.content = text || null;
     }

@@ -12,11 +12,14 @@ let cliHighlightPromise: Promise<CliHighlight | null> | undefined
 
 async function loadCliHighlight(): Promise<CliHighlight | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cliHighlight = await import('cli-highlight' as any) as any
+    // Dynamic import of optional dependency. The `as string` cast on the module
+    // specifier bypasses TypeScript's module resolution since cli-highlight may
+    // not be installed and has no bundled type declarations.
+    const mod = await import('cli-highlight' as string)
+    const cliHighlight = mod as CliHighlight
     return {
-      highlight: cliHighlight.highlight as CliHighlight['highlight'],
-      supportsLanguage: cliHighlight.supportsLanguage as CliHighlight['supportsLanguage'],
+      highlight: cliHighlight.highlight,
+      supportsLanguage: cliHighlight.supportsLanguage,
     }
   } catch {
     return null

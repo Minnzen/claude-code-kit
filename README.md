@@ -44,10 +44,8 @@ Build interactive REPLs, selection menus, streaming dashboards, and LLM-powered 
 | `@claude-code-kit/shared` | published | Yoga layout engine (pure TS port), text measurement, ANSI utilities |
 | `@claude-code-kit/ink-renderer` | published | Terminal rendering engine -- React reconciler, layout, diffed output, input handling |
 | `@claude-code-kit/ui` | published | UI component library -- REPL, Select, Spinner, PromptInput, AgentREPL, and 20+ more |
-| `@claude-code-kit/agent` | not yet on npm | Headless agent framework -- Agent class, providers, tool interface, permissions |
-| `@claude-code-kit/tools` | not yet on npm | Built-in tools -- Bash, Read, Edit, Write, Glob, Grep |
-
-`agent` and `tools` are available from source now. npm publish is planned for v0.2.0.
+| `@claude-code-kit/agent` | published | Headless agent framework -- Agent class, providers, tool interface, permissions |
+| `@claude-code-kit/tools` | published | Built-in tools -- Bash, Read, Edit, Write, Glob, Grep |
 
 ## Quick Start
 
@@ -99,14 +97,12 @@ function App() {
 await render(<App />);
 ```
 
-### Agent (from source, pre-npm)
+### Agent
 
-Clone and build first:
+Install agent and tools from npm:
 
 ```bash
-git clone https://github.com/Minnzen/claude-code-kit.git
-cd claude-code-kit
-pnpm install && pnpm build
+pnpm add @claude-code-kit/agent @claude-code-kit/tools
 ```
 
 Wire up a headless agent with tools:

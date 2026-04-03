@@ -2,6 +2,11 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Message, Session } from "../types.js";
 
+/** Type guard for Node.js filesystem errors with an error code. */
+function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
+  return err instanceof Error && "code" in err;
+}
+
 /**
  * JSONL-backed session that persists conversation messages to disk.
  * Each session is stored as `{directory}/{id}.jsonl`, one JSON message per line.
@@ -49,7 +54,7 @@ export class FileSession implements Session {
         .filter((line) => line.trim().length > 0)
         .map((line) => JSON.parse(line) as Message);
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      if (isErrnoException(err) && err.code === "ENOENT") {
         this.messages = [];
       } else {
         throw err;
@@ -122,7 +127,7 @@ export class FileSessionStore {
         .filter((f) => f.endsWith(".jsonl"))
         .map((f) => f.slice(0, -".jsonl".length));
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      if (isErrnoException(err) && err.code === "ENOENT") {
         return [];
       }
       throw err;
@@ -135,7 +140,7 @@ export class FileSessionStore {
     try {
       await fs.unlink(filePath);
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      if (!isErrnoException(err) || err.code !== "ENOENT") {
         throw err;
       }
     }

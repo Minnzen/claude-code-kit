@@ -10,16 +10,17 @@ import type { ProviderTool, ToolDefinition } from "./types.js";
 export function zodToInputSchema(schema: z.ZodType): Record<string, unknown> {
   // Zod v4 has built-in toJSONSchema
   if (typeof z.toJSONSchema === "function") {
+    // toJSONSchema returns a JSON Schema object; cast to Record for destructuring
     const jsonSchema = z.toJSONSchema(schema) as Record<string, unknown>;
     const { $schema: _, ...rest } = jsonSchema;
     return rest;
   }
 
-  // Fallback: try zod-to-json-schema (for Zod v3)
+  // Fallback: try zod-to-json-schema (for Zod v3).
+  // Install `zod-to-json-schema` as an optional peer dependency when using Zod v3.
   try {
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic import fallback
-    const { zodToJsonSchema } = require("zod-to-json-schema") as any;
-    const jsonSchema = zodToJsonSchema(schema, { target: "openApi3" }) as Record<string, unknown>;
+    const mod = require("zod-to-json-schema") as { zodToJsonSchema: (schema: z.ZodType, opts?: Record<string, unknown>) => Record<string, unknown> };
+    const jsonSchema = mod.zodToJsonSchema(schema, { target: "openApi3" });
     const { $schema: _, ...rest } = jsonSchema;
     return rest;
   } catch {

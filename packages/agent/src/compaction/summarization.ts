@@ -33,6 +33,7 @@ export class SummarizationCompaction implements CompactionStrategy {
   private keepRecentN: number;
   private thresholdFraction: number;
   private summaryMaxTokens: number;
+  private summaryModel: string;
   private provider: LLMProvider;
 
   constructor(
@@ -41,12 +42,15 @@ export class SummarizationCompaction implements CompactionStrategy {
       keepRecentN?: number;
       thresholdFraction?: number;
       summaryMaxTokens?: number;
+      /** Model to use for generating summaries. Defaults to "claude-3-5-haiku-20241022". */
+      summaryModel?: string;
     } = {},
   ) {
     this.provider = provider;
     this.keepRecentN = options.keepRecentN ?? 10;
     this.thresholdFraction = options.thresholdFraction ?? 0.75;
     this.summaryMaxTokens = options.summaryMaxTokens ?? 2000;
+    this.summaryModel = options.summaryModel ?? "claude-3-5-haiku-20241022";
   }
 
   /** Return true when the current usage exceeds the configured threshold. */
@@ -111,7 +115,7 @@ export class SummarizationCompaction implements CompactionStrategy {
 
     let summaryText = "";
     const stream = this.provider.chat({
-      model: "claude-3-5-haiku-20241022",
+      model: this.summaryModel,
       messages: summaryMessages,
       maxTokens: this.summaryMaxTokens,
     });

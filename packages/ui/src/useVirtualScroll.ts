@@ -130,7 +130,7 @@ export function VirtualList<T>(props: VirtualListProps<T>): ReactNode {
 
   const visibleSlice: ReactNode[] = []
   for (let i = startIndex; i < endIndex && i < items.length; i++) {
-    visibleSlice.push(renderItem(items[i] as T, i))
+    visibleSlice.push(renderItem(items[i]!, i))
   }
 
   return React.createElement(

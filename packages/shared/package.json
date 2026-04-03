@@ -1,6 +1,6 @@
 {
   "name": "@claude-code-kit/shared",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shared utilities for claude-code-kit \u2014 Yoga layout TS port, logger, env helpers",
   "license": "MIT",
   "main": "./dist/index.js",

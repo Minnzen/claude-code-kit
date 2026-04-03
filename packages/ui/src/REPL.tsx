@@ -72,7 +72,7 @@ export function REPL({
   const history = externalHistory ?? internalHistory
 
   const messageContents = messages.map((m) =>
-    typeof m.content === 'string' ? m.content : m.content.map((b) => ('text' in b ? (b as { text: string }).text : '')).join(' '),
+    typeof m.content === 'string' ? m.content : m.content.map((b) => ('text' in b ? b.text : '')).join(' '),
   )
 
   const promptCommands = commands.map((c) => ({
