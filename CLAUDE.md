@@ -107,11 +107,15 @@ ui              — depends on ink-renderer, shared; optionally agent (for bridg
 - All 5 packages published on npm v0.2.0
 - Linear project: https://linear.app/minnzen/project/claude-code-kit-964b8fbcd194
 
+## Feature Parity Principle
+
+When adding new features, prioritize capabilities that Claude Code already has. Use Claude Code as the reference implementation for agent features (MCP, multi-agent, context management, hooks, etc.) and UI patterns. Adapt to our framework architecture — don't copy code, copy concepts.
+
 ## Next Steps (see docs/roadmap.md + Linear)
 
-1. npm publish v0.2.0 (agent + tools)
-2. Documentation site (Bolt/Lovable)
-3. Phase 3: multi-agent coordinator, MessageBus, MCP client
+1. MCP client integration (dynamic tool discovery)
+2. Tool parallel execution
+3. Documentation site (Bolt/Lovable)
 4. More provider presets, structured output, retry logic
 
 ## Agent Usage Pattern

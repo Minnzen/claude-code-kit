@@ -274,4 +274,6 @@ export interface AgentConfig {
   permissionHandler?: PermissionHandler;
   workingDirectory?: string;
   maxTurns?: number;
+  /** Max number of tools to execute concurrently (default: 5). */
+  maxConcurrentTools?: number;
 }

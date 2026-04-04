@@ -1,5 +1,6 @@
 import { ContextManager } from "./context-manager.js";
 import { MCPClient } from "./mcp-client.js";
+import { executeToolCalls } from "./parallel-tools.js";
 import { allowReadOnly } from "./permission.js";
 import { InMemorySession } from "./session/memory.js";
 import { ToolRegistry } from "./tool-registry.js";
@@ -13,12 +14,11 @@ import type {
   PermissionHandler,
   Session,
   ToolCall,
-  ToolContext,
   ToolDefinition,
-  ToolResultMessage,
 } from "./types.js";
 
 const DEFAULT_MAX_TURNS = 50;
+const DEFAULT_MAX_CONCURRENT_TOOLS = 5;
 
 /**
  * Headless agent that runs an LLM query loop with tool execution.
@@ -38,6 +38,7 @@ export class Agent {
   private contextManager: ContextManager;
   private permissionHandler: PermissionHandler;
   private workingDirectory: string;
+  private maxConcurrentTools: number;
   private abortController: AbortController | null = null;
   private mcpClients: MCPClient[] = [];
   private mcpConfig?: MCPConfig;
@@ -51,6 +52,7 @@ export class Agent {
     this.maxTokens = config.maxTokens;
     this.temperature = config.temperature;
     this.maxTurns = config.maxTurns ?? DEFAULT_MAX_TURNS;
+    this.maxConcurrentTools = config.maxConcurrentTools ?? DEFAULT_MAX_CONCURRENT_TOOLS;
     this.session = config.session ?? new InMemorySession();
     this.permissionHandler = config.permissionHandler ?? allowReadOnly;
     this.workingDirectory = config.workingDirectory ?? process.cwd();
@@ -226,9 +228,19 @@ export class Agent {
       msgs.push(assistantMessage);
       this.session.setMessages(msgs);
 
-      // Step 5: If tool calls, execute them and loop
+      // Step 5: If tool calls, execute them (readOnly in parallel, others sequentially)
       if (accumulatedToolCalls.length > 0) {
-        const toolResults = await this.executeToolCalls(accumulatedToolCalls, toolParseErrors);
+        const toolResults = await executeToolCalls({
+          toolCalls: accumulatedToolCalls,
+          toolRegistry: this.toolRegistry,
+          permissionHandler: this.permissionHandler,
+          context: {
+            workingDirectory: this.workingDirectory,
+            abortSignal: this.abortController?.signal ?? AbortSignal.timeout(120_000),
+          },
+          parseErrors: toolParseErrors,
+          maxConcurrent: this.maxConcurrentTools,
+        });
 
         // Yield tool results and add to history
         const currentMsgs = this.session.getMessages();
@@ -395,63 +407,6 @@ export class Agent {
     }
 
     this.mcpInitialized = true;
-  }
-
-  private async executeToolCalls(
-    toolCalls: ToolCall[],
-    parseErrors?: Map<string, string>,
-  ): Promise<ToolResultMessage[]> {
-    const results: ToolResultMessage[] = [];
-
-    for (const tc of toolCalls) {
-      // If the tool input had a JSON parse error, report it back to the LLM
-      const parseError = parseErrors?.get(tc.id);
-      if (parseError) {
-        results.push({
-          role: "tool",
-          toolCallId: tc.id,
-          content: parseError,
-          isError: true,
-        });
-        continue;
-      }
-
-      const toolDef = this.toolRegistry.get(tc.name);
-
-      // Check permission
-      const permissionResult = await this.permissionHandler({
-        tool: tc.name,
-        input: tc.input,
-        isReadOnly: toolDef?.isReadOnly,
-      });
-
-      if (permissionResult.decision === "deny") {
-        results.push({
-          role: "tool",
-          toolCallId: tc.id,
-          content: `Permission denied for tool "${tc.name}"${permissionResult.reason ? `: ${permissionResult.reason}` : ""}`,
-          isError: true,
-        });
-        continue;
-      }
-
-      // Execute
-      const context: ToolContext = {
-        workingDirectory: this.workingDirectory,
-        abortSignal: this.abortController?.signal ?? AbortSignal.timeout(120_000),
-      };
-
-      const result = await this.toolRegistry.execute(tc.name, tc.input, context);
-
-      results.push({
-        role: "tool",
-        toolCallId: tc.id,
-        content: result.content,
-        isError: result.isError,
-      });
-    }
-
-    return results;
   }
 }
 
