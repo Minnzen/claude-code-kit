@@ -1,4 +1,5 @@
 import { ContextManager } from "./context-manager.js";
+import { MCPClient } from "./mcp-client.js";
 import { allowReadOnly } from "./permission.js";
 import { InMemorySession } from "./session/memory.js";
 import { ToolRegistry } from "./tool-registry.js";
@@ -7,6 +8,7 @@ import type {
   AgentEvent,
   AssistantMessage,
   LLMProvider,
+  MCPConfig,
   Message,
   PermissionHandler,
   Session,
@@ -37,6 +39,10 @@ export class Agent {
   private permissionHandler: PermissionHandler;
   private workingDirectory: string;
   private abortController: AbortController | null = null;
+  private mcpClients: MCPClient[] = [];
+  private mcpConfig?: MCPConfig;
+  private mcpInitialized = false;
+  private mcpInitPromise?: Promise<void>;
 
   constructor(config: AgentConfig) {
     this.provider = config.provider;
@@ -48,6 +54,7 @@ export class Agent {
     this.session = config.session ?? new InMemorySession();
     this.permissionHandler = config.permissionHandler ?? allowReadOnly;
     this.workingDirectory = config.workingDirectory ?? process.cwd();
+    this.mcpConfig = config.mcp;
 
     this.toolRegistry = new ToolRegistry();
     if (config.tools) {
@@ -76,6 +83,12 @@ export class Agent {
    */
   async *run(input: string | Message[]): AsyncGenerator<AgentEvent> {
     this.abortController = new AbortController();
+
+    // Connect to MCP servers on first run (lazy initialization, race-safe)
+    if (this.mcpConfig && !this.mcpInitialized) {
+      this.mcpInitPromise ??= this.initializeMCP();
+      await this.mcpInitPromise;
+    }
 
     // Step 1: Add user message(s)
     const messages = this.session.getMessages();
@@ -300,9 +313,89 @@ export class Agent {
     this.permissionHandler = handler;
   }
 
+  /** Get the list of active MCP clients. */
+  getMCPClients(): MCPClient[] {
+    return [...this.mcpClients];
+  }
+
+  /**
+   * Disconnect all MCP servers and clean up resources.
+   * Call this when the agent is no longer needed.
+   */
+  async disconnectMCP(): Promise<void> {
+    // Collect tool names BEFORE disconnecting (disconnect clears client._tools)
+    const toolNames: string[] = [];
+    for (const client of this.mcpClients) {
+      for (const tool of client.tools) {
+        toolNames.push(tool.name);
+      }
+    }
+
+    // Unregister tools from the registry first
+    for (const name of toolNames) {
+      this.toolRegistry.unregister(name);
+    }
+
+    // Then disconnect all clients
+    const errors: Error[] = [];
+    for (const client of this.mcpClients) {
+      try {
+        await client.disconnect();
+      } catch (error) {
+        errors.push(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      }
+    }
+    this.mcpClients = [];
+    this.mcpInitialized = false;
+    this.mcpInitPromise = undefined;
+
+    if (errors.length > 0) {
+      throw new AggregateError(errors, "Some MCP servers failed to disconnect");
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
+
+  /**
+   * Connect to configured MCP servers and register their tools.
+   * Servers that fail to connect are skipped with a warning (non-fatal).
+   */
+  private async initializeMCP(): Promise<void> {
+    if (!this.mcpConfig?.servers.length) {
+      this.mcpInitialized = true;
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      this.mcpConfig.servers.map(async (serverConfig) => {
+        const client = new MCPClient(serverConfig);
+        await client.connect();
+        return client;
+      }),
+    );
+
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        const client = result.value;
+        this.mcpClients.push(client);
+
+        // Register all discovered tools from this server
+        for (const tool of client.tools) {
+          if (!this.toolRegistry.has(tool.name)) {
+            this.toolRegistry.register(tool);
+          }
+        }
+      }
+      // Rejected servers are silently skipped — the agent can still
+      // function with its built-in tools + any servers that did connect.
+    }
+
+    this.mcpInitialized = true;
+  }
 
   private async executeToolCalls(
     toolCalls: ToolCall[],

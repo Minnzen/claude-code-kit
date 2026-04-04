@@ -93,6 +93,9 @@ export interface ToolDefinition<TInput = unknown> {
   isDestructive?: boolean;
   requiresConfirmation?: boolean;
   timeout?: number;
+  /** Original JSON Schema from an MCP server, used by toolToProviderFormat() to
+   *  avoid a lossy Zod -> JSON Schema round-trip for MCP-discovered tools. */
+  rawInputSchema?: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -224,6 +227,36 @@ export interface CompactionStrategy {
 }
 
 // ---------------------------------------------------------------------------
+// MCP (Model Context Protocol)
+// ---------------------------------------------------------------------------
+
+/** Stdio-based MCP server: spawns a subprocess. */
+export interface MCPStdioServerConfig {
+  name: string;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+  /** Timeout in ms for the initial connection (default: 30000). */
+  connectTimeout?: number;
+}
+
+/** HTTP-based MCP server: connects via Streamable HTTP transport. */
+export interface MCPHttpServerConfig {
+  name: string;
+  url: string;
+  headers?: Record<string, string>;
+  /** Timeout in ms for the initial connection (default: 30000). */
+  connectTimeout?: number;
+}
+
+export type MCPServerConfig = MCPStdioServerConfig | MCPHttpServerConfig;
+
+export interface MCPConfig {
+  servers: MCPServerConfig[];
+}
+
+// ---------------------------------------------------------------------------
 // Agent config
 // ---------------------------------------------------------------------------
 
@@ -232,6 +265,7 @@ export interface AgentConfig {
   model: string;
   systemPrompt?: string;
   tools?: ToolDefinition[];
+  mcp?: MCPConfig;
   maxTokens?: number;
   temperature?: number;
   contextLimit?: number;

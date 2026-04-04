@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { z } from '../packages/agent/node_modules/zod/index.js'
+import { z } from 'zod'
 import { ToolRegistry } from '../packages/agent/src/tool-registry.ts'
 import type { ToolContext, ToolDefinition } from '../packages/agent/src/types.ts'
 

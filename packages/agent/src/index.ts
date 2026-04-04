@@ -1,6 +1,9 @@
 // Core
 export { Agent } from "./agent.js";
 
+// MCP
+export { MCPClient } from "./mcp-client.js";
+
 // Tool system
 export { ToolRegistry } from "./tool-registry.js";
 
@@ -83,4 +86,9 @@ export type {
   // Session & Compaction
   Session,
   CompactionStrategy,
+  // MCP
+  MCPConfig,
+  MCPServerConfig,
+  MCPStdioServerConfig,
+  MCPHttpServerConfig,
 } from "./types.js";

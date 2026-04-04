@@ -32,11 +32,14 @@ export function zodToInputSchema(schema: z.ZodType): Record<string, unknown> {
 /**
  * Convert a ToolDefinition into the canonical ProviderTool format
  * used by provider adapters.
+ *
+ * MCP tools carry their original JSON Schema (via rawInputSchema) to avoid
+ * a lossy Zod -> JSON Schema round-trip.
  */
 export function toolToProviderFormat(tool: ToolDefinition): ProviderTool {
   return {
     name: tool.name,
     description: tool.description,
-    inputSchema: zodToInputSchema(tool.inputSchema),
+    inputSchema: tool.rawInputSchema ?? zodToInputSchema(tool.inputSchema),
   };
 }

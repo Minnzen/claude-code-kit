@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { z } from '../packages/agent/node_modules/zod/index.js'
+import { z } from 'zod'
 import { Agent } from '../packages/agent/src/agent.ts'
 import { MockProvider } from '../packages/agent/src/providers/mock.ts'
 import { createPermissionHandler } from '../packages/agent/src/permission.ts'
