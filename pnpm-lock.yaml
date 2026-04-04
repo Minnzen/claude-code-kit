@@ -90,8 +90,11 @@ importers:
   packages/agent:
     dependencies:
       zod:
-        specifier: '*'
+        specifier: '>=3.20.0'
         version: 4.3.6
+      zod-to-json-schema:
+        specifier: '>=3.20.0'
+        version: 3.25.2(zod@4.3.6)
     devDependencies:
       '@anthropic-ai/sdk':
         specifier: '*'
@@ -219,7 +222,7 @@ importers:
         specifier: ^3.3.0
         version: 3.3.3
       zod:
-        specifier: '*'
+        specifier: '>=3.20.0'
         version: 4.3.6
     devDependencies:
       '@types/node':
@@ -259,7 +262,7 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(react@19.2.4)
       zod:
-        specifier: '*'
+        specifier: '>=3.20.0'
         version: 4.3.6
     devDependencies:
       '@claude-code-kit/agent':
@@ -1538,6 +1541,11 @@ packages:
     resolution: {integrity: sha512-SGcvg80f0wUy2/fXES19feHMz8E0JoXv2uNgHOu4Dgi2OrCy1lqwFYEJz1BLbDI0exjPMe/ZdzZ/YpGECBG/aQ==}
     engines: {node: '>=20'}
 
+  zod-to-json-schema@3.25.2:
+    resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
+    peerDependencies:
+      zod: ^3.25.28 || ^4
+
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
@@ -2504,5 +2512,9 @@ snapshots:
       ansi-styles: 6.2.3
       string-width: 8.2.0
       strip-ansi: 7.2.0
+
+  zod-to-json-schema@3.25.2(zod@4.3.6):
+    dependencies:
+      zod: 4.3.6
 
   zod@4.3.6: {}
