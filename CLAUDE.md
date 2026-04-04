@@ -104,8 +104,7 @@ ui              — depends on ink-renderer, shared; optionally agent (for bridg
 
 - 5 packages, all build + typecheck clean
 - 181 tests passing
-- npm published: shared, ink-renderer, ui (v0.1.0)
-- npm unpublished: agent, tools (planned v0.2.0)
+- All 5 packages published on npm v0.2.0
 - Linear project: https://linear.app/minnzen/project/claude-code-kit-964b8fbcd194
 
 ## Next Steps (see docs/roadmap.md + Linear)

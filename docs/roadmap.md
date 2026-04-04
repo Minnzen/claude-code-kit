@@ -5,11 +5,11 @@
 ### Packages
 | Package | Version | Status |
 |---------|---------|--------|
-| `@claude-code-kit/shared` | 0.1.0 | Published |
-| `@claude-code-kit/ink-renderer` | 0.1.0 | Published |
-| `@claude-code-kit/ui` | 0.1.0 | Published |
-| `@claude-code-kit/agent` | 0.1.0 | Built, unpublished |
-| `@claude-code-kit/tools` | 0.1.0 | Built, unpublished |
+| `@claude-code-kit/shared` | 0.2.0 | Published |
+| `@claude-code-kit/ink-renderer` | 0.2.0 | Published |
+| `@claude-code-kit/ui` | 0.2.0 | Published |
+| `@claude-code-kit/agent` | 0.2.0 | Published |
+| `@claude-code-kit/tools` | 0.2.0 | Published |
 
 ### Stats
 - 181 tests passing across 10 test files
@@ -42,11 +42,11 @@
 
 ---
 
-## Next: v0.2.0 Release
+## v0.2.0 Released (2026-04-04)
 
-- [ ] Publish agent + tools to npm
-- [ ] Update README with npm install instructions for all packages
-- [ ] Record new demo GIF showing agent features
+All 5 packages published to npm.
+
+## Next
 
 ## Phase 3: Multi-Agent + Ecosystem
 
