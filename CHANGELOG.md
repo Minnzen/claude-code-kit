@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.3.0 (2026-04-04)
+
+### Agent Core
+- **MCP client integration** — Dynamic tool discovery from MCP servers (stdio + HTTP transport)
+- **Parallel tool execution** — readOnly tools run in parallel; configurable `maxConcurrentTools`
+
+### New Tools (7 -> 17)
+- **WebSearch** — DuckDuckGo search with `allowed_domains` / `blocked_domains` filtering
+- **TaskCreate / TaskUpdate / TaskGet / TaskList** — Multi-agent task management with owner, `blocks` / `blockedBy` dependency tracking
+- **Agent (subagent)** — Spawn independent child agents with timeout and abort propagation
+- **NotebookEdit** — Jupyter notebook cell editing (insert / replace / delete) with metadata preservation
+- **LSP** — Language Server Protocol integration via factory pattern (`createLspTool`)
+- **EnterWorktree / ExitWorktree** — Git worktree lifecycle management
+
+### Tool Enhancements
+- **Grep**: Full rewrite with 10 new params — `output_mode`, `-A` / `-B` / `-C` context, `head_limit`, `offset`, `multiline`, `type`, `-i`, `-n`
+- **Bash**: Required `description` param, `run_in_background`, 120 s default timeout, `sandbox` flag
+- **Read**: Default 2000-line limit, `pages` param for PDFs, image base64 support (PNG/JPG/GIF/WEBP/BMP)
+- **Edit**: `replace_all` param for global find-and-replace
+- **WebFetch**: `prompt` param, HTML-to-Markdown conversion, HTTP-to-HTTPS upgrade, 15-min response cache
+- **WebSearch**: `allowed_domains` / `blocked_domains` filtering
+- **NotebookEdit**: `cell_id` locator as alternative to `cell_number`
+- **Glob**: Results sorted by modification time
+
+### Breaking Changes
+- All tool names changed to **PascalCase** (`bash` -> `Bash`, `read` -> `Read`, etc.)
+- All params changed to **snake_case** (`path` -> `file_path`, `oldString` -> `old_string`, etc.)
+- Grep default `output_mode` is now `files_with_matches` (was `content`)
+- Task tool split from 1 tool into 4 independent tools (`createTaskTool` returns `TaskToolSet`)
+
+### Infrastructure
+- All tool descriptions rewritten to Claude Code style (10-50 line LLM behavior guides)
+- Complete security marks (`isDestructive`, `requiresConfirmation`) on all write tools
+- vitest config excludes worktrees and `node_modules`
+- **498 tests** across 20 test files
+
+---
+
 ## 0.2.0 (2026-04-01)
 
 ### New packages

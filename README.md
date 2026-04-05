@@ -4,6 +4,8 @@
 
 # claude-code-kit
 
+**Build Claude Code-quality terminal apps with React components and a headless agent framework.**
+
 [![npm version](https://img.shields.io/npm/v/@claude-code-kit/ui.svg?style=flat-square&color=DA7756)](https://www.npmjs.com/package/@claude-code-kit/ui)
 [![npm downloads](https://img.shields.io/npm/dm/@claude-code-kit/ui.svg?style=flat-square)](https://www.npmjs.com/package/@claude-code-kit/ui)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](./LICENSE)
@@ -11,53 +13,32 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933.svg?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18+-61DAFB.svg?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 
-**A terminal UI toolkit and headless agent framework for building rich CLI applications.**
-**Inspired by the architecture behind Claude Code.**
-
-[Quick Start](#quick-start) -- [Packages](#packages) -- [Components](#components) -- [Agent](#agent) -- [Examples](#examples)
-
 <img src="./demo.gif" alt="claude-code-kit demo" width="600" />
 
 </div>
 
 ---
 
-Build interactive REPLs, selection menus, streaming dashboards, and LLM-powered coding assistants using a familiar component model — React components, Flexbox layout via Yoga, and a headless agent loop with pluggable tool execution.
+## Why this exists
 
-## Features
+[Ink](https://github.com/vadimdemedes/ink) is effectively unmaintained. Claude Code has the best terminal UI in the industry. We extracted its rendering engine, rewrote all the components from scratch, and built an open agent framework on top.
 
-- **React component model** -- Build terminal UIs the same way you build web UIs. Components, hooks, state, effects.
-- **Flexbox layout** -- Pure TypeScript Yoga layout engine. No native bindings required.
-- **Zero-flicker rendering** -- Diffed terminal output. Only changed regions are rewritten.
-- **Rich component library** -- REPL, Select, MultiSelect, PromptInput, Spinner, StreamingText, MessageList, and more.
-- **Headless agent framework** -- AsyncGenerator-based agent loop, multi-provider (Anthropic, OpenAI, Ollama), tiered permissions.
-- **Built-in tools** -- Bash, Read, Edit, Write, Glob, Grep — same set Claude Code ships.
-- **UI-Agent bridge** -- `AgentREPL`, `useAgent`, and `AgentProvider` connect the agent loop to the terminal UI.
-- **Command framework** -- Define and register slash commands with built-in fuzzy matching.
-- **Streaming-first** -- Designed for real-time data: AI responses, tool output, log tails.
-- **Cross-platform** -- Works on macOS, Linux, and Windows terminals with broad ANSI support.
+## Feature highlights
 
-## Packages
-
-| Package | npm | Description |
-|---------|-----|-------------|
-| `@claude-code-kit/shared` | published | Yoga layout engine (pure TS port), text measurement, ANSI utilities |
-| `@claude-code-kit/ink-renderer` | published | Terminal rendering engine -- React reconciler, layout, diffed output, input handling |
-| `@claude-code-kit/ui` | published | UI component library -- REPL, Select, Spinner, PromptInput, AgentREPL, and 20+ more |
-| `@claude-code-kit/agent` | published | Headless agent framework -- Agent class, providers, tool interface, permissions |
-| `@claude-code-kit/tools` | published | Built-in tools -- Bash, Read, Edit, Write, Glob, Grep |
+- **17 built-in tools** aligned with Claude Code (Bash, Read, Edit, Grep, WebSearch, LSP, and more)
+- **MCP client** for dynamic tool discovery from any MCP server (stdio + HTTP)
+- **Parallel tool execution** -- read-only tools run concurrently
+- **React component model** with Flexbox layout via a pure-TS Yoga engine
+- **Provider-agnostic** -- Anthropic, OpenAI, Ollama, DeepSeek, Groq, or any OpenAI-compatible `baseURL`
+- **498 tests** across 20 test files
 
 ## Quick Start
 
-### UI-only (terminal components)
-
-Install from npm:
+### UI only
 
 ```bash
 pnpm add @claude-code-kit/ui react
 ```
-
-Build a REPL that calls your own backend:
 
 ```tsx
 import { render, Box } from "@claude-code-kit/ink-renderer";
@@ -66,30 +47,18 @@ import { useState, useCallback } from "react";
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
   const handleSubmit = useCallback(async (text: string) => {
     setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", content: text }]);
-    setIsLoading(true);
     const response = await callYourApi(text);
     setMessages((prev) => [
       ...prev,
       { id: (Date.now() + 1).toString(), role: "assistant", content: response },
     ]);
-    setIsLoading(false);
   }, []);
 
   return (
     <Box padding={1} flexDirection="column" flexGrow={1}>
-      <REPL
-        messages={messages}
-        onSubmit={handleSubmit}
-        isLoading={isLoading}
-        commands={[
-          { name: "clear", description: "Clear history", onExecute: () => setMessages([]) },
-        ]}
-        placeholder="Ask anything..."
-      />
+      <REPL messages={messages} onSubmit={handleSubmit} placeholder="Ask anything..." />
     </Box>
   );
 }
@@ -99,150 +68,96 @@ await render(<App />);
 
 ### Agent
 
-Install agent and tools from npm:
-
 ```bash
 pnpm add @claude-code-kit/agent @claude-code-kit/tools
 ```
 
-Wire up a headless agent with tools:
-
 ```typescript
-import { Agent, AnthropicProvider } from "@claude-code-kit/agent";
-import { readTool, globTool, grepTool, bashTool } from "@claude-code-kit/tools";
+import { Agent, AnthropicProvider, createPermissionHandler } from "@claude-code-kit/agent";
+import { bashTool, readTool, editTool, globTool, grepTool } from "@claude-code-kit/tools";
 
 const agent = new Agent({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
   model: "claude-sonnet-4-20250514",
-  tools: [readTool, globTool, grepTool, bashTool],
-  systemPrompt: "You are a concise coding assistant.",
+  tools: [bashTool, readTool, editTool, globTool, grepTool],
+  permissionHandler: createPermissionHandler({ autoApproveReadOnly: true }),
 });
 
-const result = await agent.chat("What files are in the src directory?");
+const result = await agent.chat("What files are in src/?");
 console.log(result);
 ```
 
-Connect the agent to a terminal UI with `AgentREPL`:
+Connect to a terminal UI in one line:
 
 ```tsx
 import { render } from "@claude-code-kit/ink-renderer";
 import { AgentREPL } from "@claude-code-kit/ui";
-import { Agent, AnthropicProvider, createPermissionHandler } from "@claude-code-kit/agent";
-import { readTool, globTool, grepTool, bashTool, editTool, writeTool } from "@claude-code-kit/tools";
-
-const agent = new Agent({
-  provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
-  model: "claude-sonnet-4-20250514",
-  tools: [bashTool, readTool, editTool, writeTool, globTool, grepTool],
-  permissionHandler: createPermissionHandler({ autoApproveReadOnly: true }),
-});
 
 await render(<AgentREPL agent={agent} placeholder="Ask me about your codebase..." />);
 ```
 
-## Components
+## Packages
 
-### Rendering primitives (`@claude-code-kit/ink-renderer`)
+| Package | Description |
+|---------|-------------|
+| [`@claude-code-kit/shared`](./packages/shared) | Yoga layout engine (pure TS), text measurement, ANSI utilities |
+| [`@claude-code-kit/ink-renderer`](./packages/ink-renderer) | Terminal rendering engine -- React reconciler, layout, diffed output |
+| [`@claude-code-kit/ui`](./packages/ui) | 30+ components -- REPL, Select, Spinner, AgentREPL, AuthFlow, etc. |
+| [`@claude-code-kit/agent`](./packages/agent) | Headless agent -- providers, MCP client, permissions, sessions |
+| [`@claude-code-kit/tools`](./packages/tools) | 17 built-in tools with security marks and Claude Code-style descriptions |
 
-| Component | Description |
-|-----------|-------------|
-| `Box` | Flexbox container with padding, margin, borders |
-| `Text` | Styled text with color, bold, dim, underline, strikethrough |
-| `Spacer` | Flexible space that fills available room |
-| `ScrollBox` | Scrollable content region with ref-based control |
-| `Button` | Focusable button with click handling |
-| `ErrorOverview` | Formatted error display with stack traces |
+## Tools
 
-Full list (Newline, Link, AlternateScreen, RawAnsi, etc.) in [docs/components.md](./docs/components.md).
+| Tool | Type | Description |
+|------|------|-------------|
+| Bash | write | Shell execution with timeout, background, sandbox |
+| Read | read | File reading with line limits, PDF pages, image base64 |
+| Edit | write | String replacement with `replace_all` for global edits |
+| Write | write | Create or overwrite files |
+| Glob | read | File pattern matching, sorted by modification time |
+| Grep | read | Regex search with context, head_limit, multiline, type filter |
+| WebFetch | read | HTTP fetch with HTML-to-Markdown, HTTPS upgrade, caching |
+| WebSearch | read | DuckDuckGo search with domain allow/block lists |
+| Agent | write | Spawn child agents with timeout and abort propagation |
+| NotebookEdit | write | Jupyter cell insert/replace/delete |
+| TaskCreate | write | Create tasks with owner and dependency tracking |
+| TaskUpdate | write | Update task status, blocks/blockedBy |
+| TaskGet | read | Retrieve a single task by ID |
+| TaskList | read | List/filter tasks |
+| EnterWorktree | write | Create and enter a git worktree |
+| ExitWorktree | write | Clean up and exit a git worktree |
+| LSP | read | Language Server Protocol queries (factory pattern) |
 
-### UI components (`@claude-code-kit/ui`)
+## Comparison
 
-| Component | Description |
-|-----------|-------------|
-| `REPL` | Full read-eval-print loop with message history, streaming, slash commands |
-| `AgentREPL` | REPL pre-wired to an Agent -- handles tool calls, permission prompts, streaming |
-| `Select` | Single-item picker with keyboard navigation and descriptions |
-| `MultiSelect` | Multi-item picker with toggle and confirm |
-| `PromptInput` | Text input with history, multiline, and completion |
-| `MessageList` | Scrollable message feed (user/assistant/system roles) |
-| `StreamingText` | Progressive text reveal, character by character |
-| `Spinner` | Animated loading indicator with verb rotation and elapsed time |
-| `ProgressBar` | Visual progress with customizable fill and colors |
-| `StatusLine` | Bottom status bar with flexible segments |
-| `Divider` | Horizontal rule with optional title and color |
-| `Markdown` | Terminal markdown rendering (bold, code, lists, headings) |
-| `WelcomeScreen` | Branded launch screen with tips and subtitle |
-
-### Hooks
-
-| Hook | Description |
-|------|-------------|
-| `useInput` | Raw keyboard input handling |
-| `useApp` | App lifecycle (exit, stdin) |
-| `useKeybinding` | Declarative key binding registration |
-| `useTerminalSize` | Reactive terminal dimensions |
-| `useAgent` | Connect to an Agent instance, handle streaming and tool events |
-| `useDoublePress` | Double-tap gesture detection |
-| `useInterval` / `useAnimationTimer` | Timed updates |
-| `useTerminalTitle` | Set terminal window title |
-
-## Agent
-
-`@claude-code-kit/agent` is a headless LLM agent framework. It has no dependency on React or the terminal renderer — you can run it in scripts, servers, or wire it to any UI.
-
-### Providers
-
-| Provider | Backend | Notes |
-|----------|---------|-------|
-| `AnthropicProvider` | Claude (claude-3-5-sonnet, claude-3-haiku, etc.) | Requires `@anthropic-ai/sdk` |
-| `OpenAIProvider` | OpenAI, DeepSeek, Groq, SiliconFlow, Ollama | Accepts `baseURL` for local models |
-| `MockProvider` | Scripted responses | First-class for testing and demos |
-
-### Built-in tools (`@claude-code-kit/tools`)
-
-| Tool | Permission tier | Description |
-|------|----------------|-------------|
-| `readTool` | auto-approve | Read file contents |
-| `globTool` | auto-approve | Find files by glob pattern |
-| `grepTool` | auto-approve | Search file contents with regex |
-| `bashTool` | prompt user | Run shell commands |
-| `editTool` | prompt user | Edit existing files |
-| `writeTool` | prompt user | Write new files |
-
-### Permissions
-
-```typescript
-import { createPermissionHandler } from "@claude-code-kit/agent";
-
-// Auto-approve read-only tools; prompt for everything else
-const handler = createPermissionHandler({ autoApproveReadOnly: true });
-
-// Always allow specific tools
-const handler = createPermissionHandler({ alwaysAllow: ["Glob", "Grep", "Read"] });
-```
+| | claude-code-kit | Ink | Aider | Goose |
+|---|---|---|---|---|
+| Terminal UI components | 30+ React components | 10+ (unmaintained) | -- | -- |
+| Flexbox layout | Pure TS Yoga | Native Yoga binding | -- | -- |
+| Headless agent | Yes (provider-agnostic) | -- | Yes (Python) | Yes (Python) |
+| Built-in tools | 17 | -- | ~10 | ~10 |
+| MCP client | Yes | -- | -- | Yes |
+| Parallel tool execution | Yes | -- | -- | -- |
+| Language | TypeScript | TypeScript | Python | Python |
+| UI + Agent in one package | Yes | -- | -- | -- |
 
 ## Examples
 
-### `examples/agent-cli`
-
-A mini coding assistant in ~120 lines. The full-stack demo of the toolkit.
-
-- Auto-detects API keys: Anthropic, OpenAI, DeepSeek, Groq, SiliconFlow, Ollama
-- Falls back to a realistic mock when no key is present
-- Read-only tools (Glob, Grep, Read) auto-approve; write tools prompt for permission
-- `AgentREPL` handles the full UI including streaming, tool call display, and permission dialogs
+| Example | Description |
+|---------|-------------|
+| [`agent-cli`](./examples/agent-cli) | Mini coding assistant with auth, tools, and permission prompts |
+| [`hello-world`](./examples/hello-world) | Interactive component showcase (Select, Spinner, Markdown, etc.) |
+| [`alt-screen-dashboard`](./examples/alt-screen-dashboard) | System monitoring dashboard in alternate screen buffer |
 
 ```bash
 pnpm --filter agent-cli-example start
 ```
 
-### `examples/hello-world`
+## Development
 
-Interactive component showcase. Demonstrates Select, MultiSelect, Spinner, ProgressBar, Markdown, and other UI primitives. No agent required.
-
-### `examples/alt-screen-dashboard`
-
-System monitoring dashboard in the terminal alternate buffer. Polling metrics, live graphs.
+```bash
+pnpm install && pnpm build && pnpm test
+```
 
 ## Provenance
 
@@ -251,17 +166,6 @@ The rendering engine (`@claude-code-kit/ink-renderer`) is extracted from Claude 
 All UI components (`@claude-code-kit/ui`) and the agent framework (`@claude-code-kit/agent`, `@claude-code-kit/tools`) are original implementations written for this toolkit.
 
 This is an independent community project. It is not affiliated with or endorsed by Anthropic.
-
-## Development
-
-```bash
-pnpm install
-pnpm build
-pnpm typecheck
-pnpm test
-```
-
-The project uses [Turborepo](https://turbo.build) for builds and [pnpm workspaces](https://pnpm.io/workspaces) for package management.
 
 ## License
 
