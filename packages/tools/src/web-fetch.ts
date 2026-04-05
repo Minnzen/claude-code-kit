@@ -262,5 +262,6 @@ export const webFetchTool: ToolDefinition<Input> = {
   inputSchema,
   execute,
   isReadOnly: false,
+  requiresConfirmation: true,
   timeout: 30_000,
 };

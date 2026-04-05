@@ -80,6 +80,7 @@ Use \`replace_all: true\` for replacing and renaming strings across the entire f
   inputSchema,
   execute,
   isReadOnly: false,
+  isDestructive: false,
   requiresConfirmation: true,
   timeout: 10_000,
 };

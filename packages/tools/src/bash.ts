@@ -93,7 +93,7 @@ The working directory persists between commands via the \`cwd\` parameter, but s
 
 # Sandbox
 
-By default, commands execute within a sandbox environment. The sandbox restricts the execution context to improve security. Set \`dangerously_disable_sandbox: true\` to bypass sandbox restrictions — only use this when the command genuinely requires elevated access (e.g. system-level operations). The result metadata includes a \`sandboxed\` boolean indicating whether sandbox was active.
+Commands run with a \`sandboxed\` metadata flag (default: true). Set \`dangerously_disable_sandbox: true\` to mark a command as running outside the sandbox boundary. Note: this is currently a policy flag for permission systems and audit trails — actual OS-level sandboxing (Docker/nsjail) is not yet implemented. The flag allows permission handlers to apply different rules for sandboxed vs unsandboxed commands.
 
 # Description field
 
@@ -140,6 +140,7 @@ Set \`run_in_background: true\` to start a detached process and return immediate
   inputSchema,
   execute,
   isReadOnly: false,
+  isDestructive: true,
   requiresConfirmation: true,
   timeout: DEFAULT_TIMEOUT,
 };

@@ -97,6 +97,7 @@ The tool creates a new branch and checks it out in the worktree directory. Use E
   inputSchema,
   execute,
   isReadOnly: false,
+  isDestructive: false,
   requiresConfirmation: true,
   timeout: DEFAULT_TIMEOUT,
 };

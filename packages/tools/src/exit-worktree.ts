@@ -64,6 +64,7 @@ export const exitWorktreeTool: ToolDefinition<Input> = {
   inputSchema,
   execute,
   isReadOnly: false,
+  isDestructive: true,
   requiresConfirmation: true,
   timeout: DEFAULT_TIMEOUT,
 };

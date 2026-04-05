@@ -232,6 +232,7 @@ export function createTaskTool(): TaskToolSet {
     execute: executeCreate,
     isReadOnly: false,
     isDestructive: false,
+    requiresConfirmation: true,
     timeout: 5_000,
   };
 
@@ -257,6 +258,7 @@ export function createTaskTool(): TaskToolSet {
     execute: executeUpdate,
     isReadOnly: false,
     isDestructive: false,
+    requiresConfirmation: true,
     timeout: 5_000,
   };
 

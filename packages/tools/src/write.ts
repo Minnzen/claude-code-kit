@@ -51,6 +51,7 @@ NEVER create documentation files (*.md) or README files unless explicitly reques
   inputSchema,
   execute,
   isReadOnly: false,
+  isDestructive: false,
   requiresConfirmation: true,
   timeout: 10_000,
 };
