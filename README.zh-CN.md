@@ -218,7 +218,7 @@ import { createPermissionHandler } from "@claude-code-kit/agent";
 const handler = createPermissionHandler({ autoApproveReadOnly: true });
 
 // 始终允许指定工具
-const handler = createPermissionHandler({ alwaysAllow: ["glob", "grep", "read"] });
+const handler = createPermissionHandler({ alwaysAllow: ["Glob", "Grep", "Read"] });
 ```
 
 ## 示例
@@ -229,7 +229,7 @@ const handler = createPermissionHandler({ alwaysAllow: ["glob", "grep", "read"] 
 
 - 自动检测 API Key：Anthropic、OpenAI、DeepSeek、Groq、SiliconFlow、Ollama
 - 没有 Key 时自动切换到逼真的 mock 演示模式
-- 只读工具（glob、grep、read）自动批准，写入工具需要确认
+- 只读工具（Glob、Grep、Read）自动批准，写入工具需要确认
 - `AgentREPL` 处理全部 UI，包括流式输出、工具调用展示和权限对话框
 
 ```bash

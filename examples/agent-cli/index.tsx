@@ -26,7 +26,7 @@ const mockScript: StreamChunk[][] = [
   // Turn 2: model uses glob to list files
   [
     { type: 'text', text: "Let me check what's in the current directory.\n\n" },
-    { type: 'tool_use_start', toolCall: { id: 'tc_1', name: 'glob' } },
+    { type: 'tool_use_start', toolCall: { id: 'tc_1', name: 'Glob' } },
     { type: 'tool_use_delta', text: '{"pattern":"*","path":"."}' },
     { type: 'tool_use_end' },
     { type: 'done' },

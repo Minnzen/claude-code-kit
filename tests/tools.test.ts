@@ -318,7 +318,7 @@ describe('path traversal prevention', () => {
 // SSRF prevention (web_fetch)
 // ---------------------------------------------------------------------------
 
-describe('web_fetch SSRF prevention', () => {
+describe('WebFetch SSRF prevention', () => {
   it('blocks localhost', async () => {
     const result = await webFetchTool.execute!(
       { url: 'http://localhost:8080/secret' },

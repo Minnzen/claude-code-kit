@@ -65,7 +65,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 }
 
 export const webFetchTool: ToolDefinition<Input> = {
-  name: "web_fetch",
+  name: "WebFetch",
   description: "Make HTTP requests and return the response body",
   inputSchema,
   execute,

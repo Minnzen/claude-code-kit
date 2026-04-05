@@ -218,7 +218,7 @@ import { createPermissionHandler } from "@claude-code-kit/agent";
 const handler = createPermissionHandler({ autoApproveReadOnly: true });
 
 // Always allow specific tools
-const handler = createPermissionHandler({ alwaysAllow: ["glob", "grep", "read"] });
+const handler = createPermissionHandler({ alwaysAllow: ["Glob", "Grep", "Read"] });
 ```
 
 ## Examples
@@ -229,7 +229,7 @@ A mini coding assistant in ~120 lines. The full-stack demo of the toolkit.
 
 - Auto-detects API keys: Anthropic, OpenAI, DeepSeek, Groq, SiliconFlow, Ollama
 - Falls back to a realistic mock when no key is present
-- Read-only tools (glob, grep, read) auto-approve; write tools prompt for permission
+- Read-only tools (Glob, Grep, Read) auto-approve; write tools prompt for permission
 - `AgentREPL` handles the full UI including streaming, tool call display, and permission dialogs
 
 ```bash
