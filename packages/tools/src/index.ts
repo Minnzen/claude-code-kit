@@ -8,6 +8,8 @@ export { webFetchTool } from "./web-fetch.js";
 export { webSearchTool } from "./web-search.js";
 export { createTaskTool } from "./task.js";
 export type { Task, TaskToolInstance } from "./task.js";
+export { createSubagentTool } from "./subagent.js";
+export type { SubagentConfig, SubagentFactoryInput } from "./subagent.js";
 
 import type { ToolDefinition } from "@claude-code-kit/agent";
 import { bashTool } from "./bash.js";
