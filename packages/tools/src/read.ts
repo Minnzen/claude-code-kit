@@ -6,7 +6,7 @@ import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/a
 const MAX_RESULT_SIZE = 100_000;
 
 export const inputSchema = z.object({
-  path: z.string().describe("Absolute or relative file path to read"),
+  file_path: z.string().describe("Absolute or relative file path to read"),
   offset: z.number().optional().describe("Line number to start reading from (1-based)"),
   limit: z.number().optional().describe("Maximum number of lines to read"),
 });
@@ -16,11 +16,11 @@ type Input = z.infer<typeof inputSchema>;
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
 
-  const filePath = path.resolve(ctx.workingDirectory, input.path);
+  const filePath = path.resolve(ctx.workingDirectory, input.file_path);
 
   // Prevent path traversal outside the working directory
   if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
-    return { content: `Error: path traversal denied — ${input.path} escapes working directory`, isError: true };
+    return { content: `Error: path traversal denied — ${input.file_path} escapes working directory`, isError: true };
   }
 
   try {
@@ -47,7 +47,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 }
 
 export const readTool: ToolDefinition<Input> = {
-  name: "read",
+  name: "Read",
   description: "Read file contents with optional line offset and limit, returning numbered lines",
   inputSchema,
   execute,

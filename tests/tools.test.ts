@@ -52,7 +52,7 @@ afterEach(() => {
 describe('readTool', () => {
   it('reads a file and returns numbered lines', async () => {
     writeFile('hello.txt', 'line1\nline2\nline3')
-    const result = await readTool.execute!({ path: path.join(tmpDir, 'hello.txt') }, makeCtx())
+    const result = await readTool.execute!({ file_path: path.join(tmpDir, 'hello.txt') }, makeCtx())
 
     expect(result.isError).toBeFalsy()
     expect(result.content).toContain('line1')
@@ -64,7 +64,7 @@ describe('readTool', () => {
 
   it('respects the offset parameter', async () => {
     writeFile('multi.txt', 'a\nb\nc\nd')
-    const result = await readTool.execute!({ path: path.join(tmpDir, 'multi.txt'), offset: 3 }, makeCtx())
+    const result = await readTool.execute!({ file_path: path.join(tmpDir, 'multi.txt'), offset: 3 }, makeCtx())
 
     expect(result.isError).toBeFalsy()
     expect(result.content).toContain('c')
@@ -73,7 +73,7 @@ describe('readTool', () => {
   })
 
   it('returns an error for a non-existent file', async () => {
-    const result = await readTool.execute!({ path: path.join(tmpDir, 'nope.txt') }, makeCtx())
+    const result = await readTool.execute!({ file_path: path.join(tmpDir, 'nope.txt') }, makeCtx())
     expect(result.isError).toBe(true)
   })
 })
@@ -85,7 +85,7 @@ describe('readTool', () => {
 describe('writeTool', () => {
   it('creates a new file with given content', async () => {
     const filePath = path.join(tmpDir, 'created.txt')
-    const result = await writeTool.execute!({ path: filePath, content: 'hello world' }, makeCtx())
+    const result = await writeTool.execute!({ file_path: filePath, content: 'hello world' }, makeCtx())
 
     expect(result.isError).toBeFalsy()
     expect(fs.readFileSync(filePath, 'utf-8')).toBe('hello world')
@@ -93,14 +93,14 @@ describe('writeTool', () => {
 
   it('overwrites existing file content', async () => {
     const filePath = writeFile('existing.txt', 'old content')
-    await writeTool.execute!({ path: filePath, content: 'new content' }, makeCtx())
+    await writeTool.execute!({ file_path: filePath, content: 'new content' }, makeCtx())
 
     expect(fs.readFileSync(filePath, 'utf-8')).toBe('new content')
   })
 
   it('creates parent directories if they do not exist', async () => {
     const filePath = path.join(tmpDir, 'deep', 'nested', 'file.txt')
-    const result = await writeTool.execute!({ path: filePath, content: 'nested' }, makeCtx())
+    const result = await writeTool.execute!({ file_path: filePath, content: 'nested' }, makeCtx())
 
     expect(result.isError).toBeFalsy()
     expect(fs.existsSync(filePath)).toBe(true)
@@ -115,7 +115,7 @@ describe('editTool', () => {
   it('replaces a unique string in a file', async () => {
     const filePath = writeFile('edit.txt', 'Hello World\nfoo bar')
     const result = await editTool.execute!(
-      { path: filePath, oldString: 'foo bar', newString: 'baz qux' },
+      { file_path: filePath, old_string: 'foo bar', new_string: 'baz qux' },
       makeCtx(),
     )
 
@@ -124,10 +124,10 @@ describe('editTool', () => {
     expect(fs.readFileSync(filePath, 'utf-8')).not.toContain('foo bar')
   })
 
-  it('returns an error when oldString is not found', async () => {
+  it('returns an error when old_string is not found', async () => {
     const filePath = writeFile('no-match.txt', 'some content here')
     const result = await editTool.execute!(
-      { path: filePath, oldString: 'MISSING', newString: 'replacement' },
+      { file_path: filePath, old_string: 'MISSING', new_string: 'replacement' },
       makeCtx(),
     )
 
@@ -135,10 +135,10 @@ describe('editTool', () => {
     expect(result.content).toMatch(/not found/)
   })
 
-  it('returns an error when oldString appears more than once', async () => {
+  it('returns an error when old_string appears more than once', async () => {
     const filePath = writeFile('dupe.txt', 'repeat repeat')
     const result = await editTool.execute!(
-      { path: filePath, oldString: 'repeat', newString: 'x' },
+      { file_path: filePath, old_string: 'repeat', new_string: 'x' },
       makeCtx(),
     )
 
@@ -157,7 +157,7 @@ describe('globTool', () => {
     writeFile('b.ts', 'const b = 2')
     writeFile('c.txt', 'text file')
 
-    const result = await globTool.execute!({ pattern: '*.ts', cwd: tmpDir }, makeCtx())
+    const result = await globTool.execute!({ pattern: '*.ts', path: tmpDir }, makeCtx())
 
     expect(result.isError).toBeFalsy()
     expect(result.content).toContain('a.ts')
@@ -166,7 +166,7 @@ describe('globTool', () => {
   })
 
   it('returns a no-match message when nothing matches', async () => {
-    const result = await globTool.execute!({ pattern: '*.xyz', cwd: tmpDir }, makeCtx())
+    const result = await globTool.execute!({ pattern: '*.xyz', path: tmpDir }, makeCtx())
     expect(result.content).toMatch(/no files/i)
   })
 })
@@ -267,14 +267,14 @@ describe('bashTool', () => {
 
 describe('path traversal prevention', () => {
   it('readTool blocks ../ traversal', async () => {
-    const result = await readTool.execute!({ path: '../../../etc/passwd' }, makeCtx())
+    const result = await readTool.execute!({ file_path: '../../../etc/passwd' }, makeCtx())
     expect(result.isError).toBe(true)
     expect(result.content).toMatch(/path traversal denied/)
   })
 
   it('writeTool blocks ../ traversal', async () => {
     const result = await writeTool.execute!(
-      { path: '../../../tmp/evil.txt', content: 'pwned' },
+      { file_path: '../../../tmp/evil.txt', content: 'pwned' },
       makeCtx(),
     )
     expect(result.isError).toBe(true)
@@ -283,7 +283,7 @@ describe('path traversal prevention', () => {
 
   it('editTool blocks ../ traversal', async () => {
     const result = await editTool.execute!(
-      { path: '../../../etc/hosts', oldString: 'a', newString: 'b' },
+      { file_path: '../../../etc/hosts', old_string: 'a', new_string: 'b' },
       makeCtx(),
     )
     expect(result.isError).toBe(true)
@@ -291,7 +291,7 @@ describe('path traversal prevention', () => {
   })
 
   it('readTool blocks absolute paths outside working directory', async () => {
-    const result = await readTool.execute!({ path: '/etc/passwd' }, makeCtx())
+    const result = await readTool.execute!({ file_path: '/etc/passwd' }, makeCtx())
     expect(result.isError).toBe(true)
     expect(result.content).toMatch(/path traversal denied/)
   })
@@ -299,7 +299,7 @@ describe('path traversal prevention', () => {
   it('readTool allows files inside working directory', async () => {
     writeFile('allowed.txt', 'safe content')
     const result = await readTool.execute!(
-      { path: path.join(tmpDir, 'allowed.txt') },
+      { file_path: path.join(tmpDir, 'allowed.txt') },
       makeCtx(),
     )
     expect(result.isError).toBeFalsy()
@@ -308,7 +308,7 @@ describe('path traversal prevention', () => {
 
   it('readTool allows relative paths inside working directory', async () => {
     writeFile('sub/nested.txt', 'nested content')
-    const result = await readTool.execute!({ path: 'sub/nested.txt' }, makeCtx())
+    const result = await readTool.execute!({ file_path: 'sub/nested.txt' }, makeCtx())
     expect(result.isError).toBeFalsy()
     expect(result.content).toContain('nested content')
   })
