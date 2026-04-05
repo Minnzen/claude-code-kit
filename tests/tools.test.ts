@@ -345,6 +345,38 @@ describe('bashTool', () => {
 })
 
 // ---------------------------------------------------------------------------
+// globTool — mtime sorting
+// ---------------------------------------------------------------------------
+
+describe('globTool mtime sorting', () => {
+  it('returns files sorted by modification time (most recent first)', async () => {
+    // Create files with staggered mtimes
+    writeFile('old.ts', 'old')
+    // Ensure different mtimes by modifying the file timestamps
+    const oldPath = path.join(tmpDir, 'old.ts')
+    const midPath = path.join(tmpDir, 'mid.ts')
+    const newPath = path.join(tmpDir, 'new.ts')
+
+    writeFile('mid.ts', 'mid')
+    writeFile('new.ts', 'new')
+
+    // Set explicit mtimes to ensure ordering
+    const now = Date.now()
+    fs.utimesSync(oldPath, now / 1000 - 30, now / 1000 - 30)
+    fs.utimesSync(midPath, now / 1000 - 15, now / 1000 - 15)
+    fs.utimesSync(newPath, now / 1000, now / 1000)
+
+    const result = await globTool.execute!({ pattern: '*.ts', path: tmpDir }, makeCtx())
+
+    expect(result.isError).toBeFalsy()
+    const lines = result.content.split('\n')
+    expect(lines[0]).toBe('new.ts')
+    expect(lines[1]).toBe('mid.ts')
+    expect(lines[2]).toBe('old.ts')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Path traversal prevention
 // ---------------------------------------------------------------------------
 
@@ -394,6 +426,65 @@ describe('path traversal prevention', () => {
     const result = await readTool.execute!({ file_path: 'sub/nested.txt' }, makeCtx())
     expect(result.isError).toBeFalsy()
     expect(result.content).toContain('nested content')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// WebFetch prompt parameter
+// ---------------------------------------------------------------------------
+
+describe('WebFetch prompt parameter', () => {
+  it('prepends prompt annotation when prompt is provided', async () => {
+    // Mock fetch to avoid network calls
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async () => ({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: () => Promise.resolve('Hello World'),
+      headers: new Headers(),
+    })) as typeof fetch
+
+    try {
+      const result = await webFetchTool.execute!(
+        { url: 'https://example.com', prompt: 'Summarize this page' },
+        makeCtx(),
+      )
+
+      expect(result.isError).toBeFalsy()
+      expect(result.content).toContain('[Prompt: Summarize this page]')
+      expect(result.content).toContain('Hello World')
+      // Prompt annotation should come before the HTTP status
+      const promptIdx = result.content.indexOf('[Prompt:')
+      const httpIdx = result.content.indexOf('HTTP 200')
+      expect(promptIdx).toBeLessThan(httpIdx)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('does not prepend anything when prompt is omitted', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async () => ({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: () => Promise.resolve('Hello World'),
+      headers: new Headers(),
+    })) as typeof fetch
+
+    try {
+      const result = await webFetchTool.execute!(
+        { url: 'https://example.com' },
+        makeCtx(),
+      )
+
+      expect(result.isError).toBeFalsy()
+      expect(result.content).not.toContain('[Prompt:')
+      expect(result.content).toMatch(/^HTTP 200/)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 })
 

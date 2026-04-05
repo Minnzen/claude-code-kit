@@ -7,7 +7,7 @@ export { grepTool } from "./grep.js";
 export { webFetchTool } from "./web-fetch.js";
 export { webSearchTool } from "./web-search.js";
 export { createTaskTool } from "./task.js";
-export type { Task, TaskToolInstance } from "./task.js";
+export type { Task, TaskToolInstance, TaskToolSet } from "./task.js";
 export { createSubagentTool } from "./subagent.js";
 export type { SubagentConfig, SubagentFactoryInput } from "./subagent.js";
 export { notebookEditTool } from "./notebook-edit.js";

@@ -6,7 +6,8 @@ import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/a
 export const inputSchema = z.object({
   notebook_path: z.string().describe("Absolute or relative path to a .ipynb notebook file"),
   edit_mode: z.enum(["insert", "replace", "delete"]).describe("Action to perform on the cell"),
-  cell_number: z.number().int().min(0).describe("0-based cell index (insert position or target cell)"),
+  cell_number: z.number().int().min(0).optional().describe("0-based cell index (insert position or target cell)"),
+  cell_id: z.string().optional().describe("Cell ID to locate by metadata.id (alternative to cell_number)"),
   cell_type: z.enum(["code", "markdown"]).optional()
     .describe("Cell type for insert/replace (default: code for insert, preserves original for replace)"),
   new_source: z.string().optional().describe("Cell content for insert/replace"),
@@ -88,7 +89,29 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
       return { content: "Error: invalid notebook format — missing cells array", isError: true };
     }
 
-    const { edit_mode: action, cell_number: cellIndex, cell_type: cellType, new_source: source } = input;
+    // Resolve cell_id / cell_number — exactly one must be provided
+    if (input.cell_id !== undefined && input.cell_number !== undefined) {
+      return { content: "Error: provide either cell_id or cell_number, not both", isError: true };
+    }
+
+    let resolvedCellNumber: number | undefined = input.cell_number;
+
+    if (input.cell_id !== undefined) {
+      const idx = cells.findIndex(
+        (c: NotebookCell) => (c.metadata as Record<string, unknown>).id === input.cell_id,
+      );
+      if (idx === -1) {
+        return { content: `Error: no cell found with metadata.id "${input.cell_id}"`, isError: true };
+      }
+      resolvedCellNumber = idx;
+    }
+
+    if (resolvedCellNumber === undefined) {
+      return { content: "Error: either cell_number or cell_id must be provided", isError: true };
+    }
+
+    const { edit_mode: action, cell_type: cellType, new_source: source } = input;
+    const cellIndex = resolvedCellNumber;
 
     switch (action) {
       case "insert": {

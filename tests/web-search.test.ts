@@ -5,6 +5,7 @@ import {
   parseSearchResults,
   stripHtmlTags,
   decodeRedirectUrl,
+  filterByDomain,
 } from '../packages/tools/src/web-search.ts'
 import type { ToolContext } from '../packages/agent/src/types.ts'
 
@@ -223,6 +224,91 @@ describe('decodeRedirectUrl', () => {
   it('handles encoded special characters in uddg param', () => {
     const wrapped = '//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2F%3Fq%3Dhello%26lang%3Den&rut=abc'
     expect(decodeRedirectUrl(wrapped)).toBe('https://example.com/?q=hello&lang=en')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Domain filtering
+// ---------------------------------------------------------------------------
+
+describe('filterByDomain', () => {
+  const results = [
+    { title: 'GitHub', url: 'https://github.com/repo', snippet: 'code hosting' },
+    { title: 'Docs', url: 'https://docs.github.com/en', snippet: 'documentation' },
+    { title: 'TypeScript', url: 'https://typescriptlang.org/', snippet: 'ts' },
+    { title: 'MDN', url: 'https://developer.mozilla.org/en', snippet: 'mdn' },
+  ]
+
+  it('returns all results when no filters are specified', () => {
+    expect(filterByDomain(results)).toHaveLength(4)
+    expect(filterByDomain(results, undefined, undefined)).toHaveLength(4)
+  })
+
+  it('allowed_domains keeps only matching results', () => {
+    const filtered = filterByDomain(results, ['github.com'])
+    expect(filtered).toHaveLength(2)
+    expect(filtered[0].title).toBe('GitHub')
+    expect(filtered[1].title).toBe('Docs')
+  })
+
+  it('blocked_domains removes matching results', () => {
+    const filtered = filterByDomain(results, undefined, ['github.com'])
+    expect(filtered).toHaveLength(2)
+    expect(filtered[0].title).toBe('TypeScript')
+    expect(filtered[1].title).toBe('MDN')
+  })
+
+  it('both allowed and blocked can be used together', () => {
+    // Allow github.com but block docs.github.com
+    const filtered = filterByDomain(results, ['github.com'], ['docs.github.com'])
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0].title).toBe('GitHub')
+  })
+
+  it('endsWith match works for subdomains', () => {
+    const filtered = filterByDomain(results, ['mozilla.org'])
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0].title).toBe('MDN')
+  })
+
+  it('returns empty array when no domains match', () => {
+    const filtered = filterByDomain(results, ['nonexistent.com'])
+    expect(filtered).toHaveLength(0)
+  })
+
+  it('empty allowed_domains array is treated as no filter', () => {
+    const filtered = filterByDomain(results, [])
+    expect(filtered).toHaveLength(4)
+  })
+
+  it('empty blocked_domains array is treated as no filter', () => {
+    const filtered = filterByDomain(results, undefined, [])
+    expect(filtered).toHaveLength(4)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Domain filtering schema
+// ---------------------------------------------------------------------------
+
+describe('webSearchTool input schema — domain filters', () => {
+  it('accepts allowed_domains', () => {
+    const result = inputSchema.safeParse({ query: 'test', allowed_domains: ['github.com'] })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts blocked_domains', () => {
+    const result = inputSchema.safeParse({ query: 'test', blocked_domains: ['example.com'] })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts both domain filters together', () => {
+    const result = inputSchema.safeParse({
+      query: 'test',
+      allowed_domains: ['github.com'],
+      blocked_domains: ['docs.github.com'],
+    })
+    expect(result.success).toBe(true)
   })
 })
 

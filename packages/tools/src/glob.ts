@@ -1,3 +1,5 @@
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import fg from "fast-glob";
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
@@ -25,14 +27,26 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
       absolute: false,
     });
 
-    files.sort();
+    // Sort by modification time (most recently modified first)
+    const withStats = await Promise.all(
+      files.map(async (f) => {
+        try {
+          const stat = await fs.stat(path.resolve(cwd, f));
+          return { file: f, mtime: stat.mtimeMs };
+        } catch {
+          return { file: f, mtime: 0 };
+        }
+      }),
+    );
+    withStats.sort((a, b) => b.mtime - a.mtime);
+    const sorted = withStats.map((s) => s.file);
 
-    if (files.length === 0) {
+    if (sorted.length === 0) {
       return { content: "No files matched the pattern" };
     }
 
-    const content = files.join("\n").slice(0, MAX_RESULT_SIZE);
-    return { content, metadata: { matchCount: files.length } };
+    const content = sorted.join("\n").slice(0, MAX_RESULT_SIZE);
+    return { content, metadata: { matchCount: sorted.length } };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { content: `Error searching files: ${msg}`, isError: true };

@@ -268,6 +268,107 @@ describe('notebookEditTool — bounds checking', () => {
 })
 
 // ---------------------------------------------------------------------------
+// cell_id targeting
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — cell_id', () => {
+  it('locates cell by metadata.id', async () => {
+    const nb = {
+      nbformat: 4,
+      nbformat_minor: 2,
+      metadata: {},
+      cells: [
+        { cell_type: 'code', source: ['a\n'], metadata: { id: 'cell-aaa' }, outputs: [], execution_count: null },
+        { cell_type: 'code', source: ['b\n'], metadata: { id: 'cell-bbb' }, outputs: [], execution_count: null },
+        { cell_type: 'code', source: ['c\n'], metadata: { id: 'cell-ccc' }, outputs: [], execution_count: null },
+      ],
+    }
+    const filePath = writeNotebook('id-test.ipynb', nb as any)
+
+    const result = await notebookEditTool.execute!(
+      { notebook_path: filePath, edit_mode: 'replace', cell_id: 'cell-bbb', new_source: 'replaced' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    const updated = readNotebook(filePath)
+    expect(updated.cells[1].source.join('')).toBe('replaced')
+    // Other cells unchanged
+    expect(updated.cells[0].source.join('')).toContain('a')
+    expect(updated.cells[2].source.join('')).toContain('c')
+  })
+
+  it('returns error when both cell_id and cell_number are provided', async () => {
+    const nb = makeNotebook([{ cell_type: 'code', source: ['x\n'] }])
+    const filePath = writeNotebook('both.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { notebook_path: filePath, edit_mode: 'replace', cell_number: 0, cell_id: 'some-id', new_source: 'y' } as any,
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/either cell_id or cell_number/)
+  })
+
+  it('returns error when cell_id is not found', async () => {
+    const nb = {
+      nbformat: 4,
+      nbformat_minor: 2,
+      metadata: {},
+      cells: [
+        { cell_type: 'code', source: ['a\n'], metadata: { id: 'cell-aaa' }, outputs: [], execution_count: null },
+      ],
+    }
+    const filePath = writeNotebook('missing-id.ipynb', nb as any)
+
+    const result = await notebookEditTool.execute!(
+      { notebook_path: filePath, edit_mode: 'replace', cell_id: 'nonexistent', new_source: 'y' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/no cell found with metadata\.id/)
+  })
+
+  it('returns error when neither cell_id nor cell_number is provided', async () => {
+    const nb = makeNotebook([{ cell_type: 'code', source: ['x\n'] }])
+    const filePath = writeNotebook('neither.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { notebook_path: filePath, edit_mode: 'delete' } as any,
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/either cell_number or cell_id/)
+  })
+
+  it('cell_id works for delete', async () => {
+    const nb = {
+      nbformat: 4,
+      nbformat_minor: 2,
+      metadata: {},
+      cells: [
+        { cell_type: 'code', source: ['keep\n'], metadata: { id: 'cell-keep' }, outputs: [], execution_count: null },
+        { cell_type: 'code', source: ['remove\n'], metadata: { id: 'cell-remove' }, outputs: [], execution_count: null },
+      ],
+    }
+    const filePath = writeNotebook('delete-by-id.ipynb', nb as any)
+
+    const result = await notebookEditTool.execute!(
+      { notebook_path: filePath, edit_mode: 'delete', cell_id: 'cell-remove' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    const updated = readNotebook(filePath)
+    expect(updated.cells).toHaveLength(1)
+    expect(updated.cells[0].metadata.id).toBe('cell-keep')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Extension validation
 // ---------------------------------------------------------------------------
 

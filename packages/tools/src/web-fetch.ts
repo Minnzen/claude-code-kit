@@ -23,6 +23,7 @@ export const inputSchema = z.object({
   method: z.string().optional().default("GET").describe("HTTP method"),
   headers: z.record(z.string(), z.string()).optional().describe("HTTP headers"),
   body: z.string().optional().describe("Request body"),
+  prompt: z.string().optional().describe("Instructions for processing the fetched content"),
 });
 
 type Input = z.infer<typeof inputSchema>;
@@ -51,7 +52,8 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     const truncated = text.slice(0, MAX_RESULT_SIZE);
     const suffix = text.length > MAX_RESULT_SIZE ? "\n...(truncated)" : "";
 
-    const content = `HTTP ${res.status} ${res.statusText}\n\n${truncated}${suffix}`;
+    const promptPrefix = input.prompt ? `[Prompt: ${input.prompt}]\n\n` : "";
+    const content = `${promptPrefix}HTTP ${res.status} ${res.statusText}\n\n${truncated}${suffix}`;
 
     return {
       content,

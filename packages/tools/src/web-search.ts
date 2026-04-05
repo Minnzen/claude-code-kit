@@ -20,6 +20,14 @@ export const inputSchema = z.object({
     .optional()
     .default(DEFAULT_MAX_RESULTS)
     .describe("Maximum number of results to return (default 5, max 20)"),
+  allowed_domains: z
+    .array(z.string())
+    .optional()
+    .describe("Only include results from these domains (hostname endsWith check)"),
+  blocked_domains: z
+    .array(z.string())
+    .optional()
+    .describe("Exclude results from these domains (hostname endsWith check)"),
 });
 
 type Input = z.infer<typeof inputSchema>;
@@ -117,6 +125,45 @@ export function decodeRedirectUrl(url: string): string {
   return url;
 }
 
+/**
+ * Extract hostname from a URL, returning empty string on failure.
+ */
+function extractHostname(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Filter search results by allowed/blocked domain lists.
+ * Uses hostname endsWith check so "github.com" matches "docs.github.com".
+ */
+export function filterByDomain(
+  results: SearchResult[],
+  allowedDomains?: string[],
+  blockedDomains?: string[],
+): SearchResult[] {
+  let filtered = results;
+
+  if (allowedDomains && allowedDomains.length > 0) {
+    filtered = filtered.filter((r) => {
+      const hostname = extractHostname(r.url);
+      return allowedDomains.some((d) => hostname.endsWith(d));
+    });
+  }
+
+  if (blockedDomains && blockedDomains.length > 0) {
+    filtered = filtered.filter((r) => {
+      const hostname = extractHostname(r.url);
+      return !blockedDomains.some((d) => hostname.endsWith(d));
+    });
+  }
+
+  return filtered;
+}
+
 function formatResults(results: SearchResult[]): string {
   if (results.length === 0) {
     return "No search results found.";
@@ -160,7 +207,8 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     // Cap response body to prevent unbounded memory usage
     const html = fullHtml.slice(0, MAX_RESPONSE_SIZE);
 
-    const results = parseSearchResults(html, input.max_results);
+    let results = parseSearchResults(html, input.max_results);
+    results = filterByDomain(results, input.allowed_domains, input.blocked_domains);
     let formatted = formatResults(results);
 
     // Distinguish "genuinely no results" from "HTML structure changed and parsing broke"

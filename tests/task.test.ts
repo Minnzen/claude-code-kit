@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { createTaskTool } from '../packages/tools/src/task.ts'
-import type { TaskToolInstance } from '../packages/tools/src/task.ts'
+import type { TaskToolSet } from '../packages/tools/src/task.ts'
 import type { ToolContext, ToolDefinition } from '../packages/agent/src/types.ts'
 
 // ---------------------------------------------------------------------------
@@ -19,22 +19,34 @@ function makeCtx(): ToolContext {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('taskTool', () => {
-  let instance: TaskToolInstance
-  let tool: ToolDefinition
+describe('taskTool (4-tool split)', () => {
+  let ts: TaskToolSet
+  let create: ToolDefinition
+  let update: ToolDefinition
+  let get: ToolDefinition
+  let list: ToolDefinition
 
   beforeEach(() => {
-    instance = createTaskTool()
-    tool = instance.tool
+    ts = createTaskTool()
+    create = ts.taskCreate
+    update = ts.taskUpdate
+    get = ts.taskGet
+    list = ts.taskList
+  })
+
+  // ---- tool names ----
+
+  it('each tool has the correct PascalCase name', () => {
+    expect(create.name).toBe('TaskCreate')
+    expect(update.name).toBe('TaskUpdate')
+    expect(get.name).toBe('TaskGet')
+    expect(list.name).toBe('TaskList')
   })
 
   // ---- create ----
 
   it('creates a task with title only', async () => {
-    const result = await tool.execute(
-      { action: 'create', title: 'Write tests' },
-      makeCtx(),
-    )
+    const result = await create.execute({ title: 'Write tests' }, makeCtx())
 
     expect(result.isError).toBeFalsy()
     expect(result.content).toContain('task-1')
@@ -47,8 +59,8 @@ describe('taskTool', () => {
   })
 
   it('creates a task with description', async () => {
-    const result = await tool.execute(
-      { action: 'create', title: 'Deploy', description: 'Push to prod' },
+    const result = await create.execute(
+      { title: 'Deploy', description: 'Push to prod' },
       makeCtx(),
     )
 
@@ -57,17 +69,27 @@ describe('taskTool', () => {
     expect(task.description).toBe('Push to prod')
   })
 
-  it('auto-increments task IDs', async () => {
-    await tool.execute({ action: 'create', title: 'First' }, makeCtx())
-    const r2 = await tool.execute({ action: 'create', title: 'Second' }, makeCtx())
+  it('creates a task with owner', async () => {
+    const result = await create.execute(
+      { title: 'Review', owner: 'alice' },
+      makeCtx(),
+    )
 
+    expect(result.isError).toBeFalsy()
+    const task = result.metadata?.task as Record<string, unknown>
+    expect(task.owner).toBe('alice')
+  })
+
+  it('auto-increments task IDs', async () => {
+    await create.execute({ title: 'First' }, makeCtx())
+    const r2 = await create.execute({ title: 'Second' }, makeCtx())
     expect(r2.content).toContain('task-2')
   })
 
   // ---- list ----
 
   it('returns empty message when no tasks exist', async () => {
-    const result = await tool.execute({ action: 'list' }, makeCtx())
+    const result = await list.execute({}, makeCtx())
 
     expect(result.isError).toBeFalsy()
     expect(result.content).toBe('No tasks')
@@ -75,10 +97,10 @@ describe('taskTool', () => {
   })
 
   it('lists all tasks', async () => {
-    await tool.execute({ action: 'create', title: 'A' }, makeCtx())
-    await tool.execute({ action: 'create', title: 'B' }, makeCtx())
+    await create.execute({ title: 'A' }, makeCtx())
+    await create.execute({ title: 'B' }, makeCtx())
 
-    const result = await tool.execute({ action: 'list' }, makeCtx())
+    const result = await list.execute({}, makeCtx())
 
     expect(result.isError).toBeFalsy()
     expect(result.content).toContain('task-1')
@@ -87,37 +109,33 @@ describe('taskTool', () => {
   })
 
   it('filters tasks by status', async () => {
-    await tool.execute({ action: 'create', title: 'A' }, makeCtx())
-    await tool.execute({ action: 'create', title: 'B' }, makeCtx())
-    await tool.execute(
-      { action: 'update', id: 'task-1', status: 'completed' },
-      makeCtx(),
-    )
+    await create.execute({ title: 'A' }, makeCtx())
+    await create.execute({ title: 'B' }, makeCtx())
+    await update.execute({ id: 'task-1', status: 'completed' }, makeCtx())
 
-    const completed = await tool.execute(
-      { action: 'list', status: 'completed' },
-      makeCtx(),
-    )
+    const completed = await list.execute({ status: 'completed' }, makeCtx())
     expect(completed.isError).toBeFalsy()
     expect(completed.content).toContain('task-1')
     expect(completed.content).not.toContain('task-2')
     const tasks = completed.metadata?.tasks as unknown[]
     expect(tasks).toHaveLength(1)
 
-    const pending = await tool.execute(
-      { action: 'list', status: 'pending' },
-      makeCtx(),
-    )
+    const pending = await list.execute({ status: 'pending' }, makeCtx())
     expect(pending.content).toContain('task-2')
     expect(pending.content).not.toContain('task-1')
   })
 
-  it('returns descriptive empty message when filtering by status', async () => {
-    const result = await tool.execute(
-      { action: 'list', status: 'cancelled' },
-      makeCtx(),
-    )
+  it('filters tasks by owner', async () => {
+    await create.execute({ title: 'A', owner: 'alice' }, makeCtx())
+    await create.execute({ title: 'B', owner: 'bob' }, makeCtx())
 
+    const alice = await list.execute({ owner: 'alice' }, makeCtx())
+    expect(alice.content).toContain('task-1')
+    expect(alice.content).not.toContain('task-2')
+  })
+
+  it('returns descriptive empty message when filtering by status', async () => {
+    const result = await list.execute({ status: 'cancelled' }, makeCtx())
     expect(result.content).toContain('cancelled')
     expect(result.metadata?.tasks).toEqual([])
   })
@@ -125,9 +143,9 @@ describe('taskTool', () => {
   // ---- update ----
 
   it('updates task status', async () => {
-    await tool.execute({ action: 'create', title: 'Work' }, makeCtx())
-    const result = await tool.execute(
-      { action: 'update', id: 'task-1', status: 'in_progress' },
+    await create.execute({ title: 'Work' }, makeCtx())
+    const result = await update.execute(
+      { id: 'task-1', status: 'in_progress' },
       makeCtx(),
     )
 
@@ -138,13 +156,10 @@ describe('taskTool', () => {
   })
 
   it('supports all status transitions', async () => {
-    await tool.execute({ action: 'create', title: 'X' }, makeCtx())
+    await create.execute({ title: 'X' }, makeCtx())
 
     for (const status of ['in_progress', 'completed', 'cancelled', 'pending'] as const) {
-      const r = await tool.execute(
-        { action: 'update', id: 'task-1', status },
-        makeCtx(),
-      )
+      const r = await update.execute({ id: 'task-1', status }, makeCtx())
       expect(r.isError).toBeFalsy()
       const task = r.metadata?.task as Record<string, unknown>
       expect(task.status).toBe(status)
@@ -152,9 +167,9 @@ describe('taskTool', () => {
   })
 
   it('updates task title', async () => {
-    await tool.execute({ action: 'create', title: 'Old title' }, makeCtx())
-    const result = await tool.execute(
-      { action: 'update', id: 'task-1', title: 'New title' },
+    await create.execute({ title: 'Old title' }, makeCtx())
+    const result = await update.execute(
+      { id: 'task-1', title: 'New title' },
       makeCtx(),
     )
 
@@ -162,14 +177,13 @@ describe('taskTool', () => {
     expect(result.content).toContain('title')
     const task = result.metadata?.task as Record<string, unknown>
     expect(task.title).toBe('New title')
-    // status should remain unchanged
     expect(task.status).toBe('pending')
   })
 
   it('updates task description', async () => {
-    await tool.execute({ action: 'create', title: 'Task' }, makeCtx())
-    const result = await tool.execute(
-      { action: 'update', id: 'task-1', description: 'Added description' },
+    await create.execute({ title: 'Task' }, makeCtx())
+    const result = await update.execute(
+      { id: 'task-1', description: 'Added description' },
       makeCtx(),
     )
 
@@ -178,11 +192,23 @@ describe('taskTool', () => {
     expect(task.description).toBe('Added description')
   })
 
+  it('updates task owner', async () => {
+    await create.execute({ title: 'Task' }, makeCtx())
+    const result = await update.execute(
+      { id: 'task-1', owner: 'bob' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    expect(result.content).toContain('owner')
+    const task = result.metadata?.task as Record<string, unknown>
+    expect(task.owner).toBe('bob')
+  })
+
   it('updates multiple fields at once', async () => {
-    await tool.execute({ action: 'create', title: 'Old' }, makeCtx())
-    const result = await tool.execute(
+    await create.execute({ title: 'Old' }, makeCtx())
+    const result = await update.execute(
       {
-        action: 'update',
         id: 'task-1',
         title: 'New',
         status: 'in_progress',
@@ -199,28 +225,22 @@ describe('taskTool', () => {
   })
 
   it('does not mutate the previous task object in the Map', async () => {
-    await tool.execute({ action: 'create', title: 'Original' }, makeCtx())
+    await create.execute({ title: 'Original' }, makeCtx())
 
-    // Grab a reference to the task object via metadata
-    const createResult = await tool.execute(
-      { action: 'list' },
-      makeCtx(),
-    )
-    const beforeUpdate = (createResult.metadata?.tasks as Record<string, unknown>[])[0]
+    const listResult = await list.execute({}, makeCtx())
+    const beforeUpdate = (listResult.metadata?.tasks as Record<string, unknown>[])[0]
 
-    // Perform an update
-    await tool.execute(
-      { action: 'update', id: 'task-1', status: 'completed' },
+    await update.execute(
+      { id: 'task-1', status: 'completed' },
       makeCtx(),
     )
 
-    // The snapshot from before the update should be unaffected
     expect(beforeUpdate.status).toBe('pending')
   })
 
   it('returns error when updating non-existent task', async () => {
-    const result = await tool.execute(
-      { action: 'update', id: 'task-999', status: 'completed' },
+    const result = await update.execute(
+      { id: 'task-999', status: 'completed' },
       makeCtx(),
     )
 
@@ -229,49 +249,82 @@ describe('taskTool', () => {
     expect(result.content).toContain('not found')
   })
 
-  // ---- delete ----
+  // ---- get ----
 
-  it('deletes an existing task', async () => {
-    await tool.execute({ action: 'create', title: 'Gone' }, makeCtx())
-    const result = await tool.execute(
-      { action: 'delete', id: 'task-1' },
-      makeCtx(),
-    )
+  it('gets a single task with full details', async () => {
+    await create.execute({ title: 'My task', description: 'desc', owner: 'alice' }, makeCtx())
+    const result = await get.execute({ id: 'task-1' }, makeCtx())
 
     expect(result.isError).toBeFalsy()
-    expect(result.content).toContain('Deleted')
-
-    // Verify it no longer appears in list
-    const list = await tool.execute({ action: 'list' }, makeCtx())
-    expect(list.content).toBe('No tasks')
+    expect(result.content).toContain('task-1')
+    expect(result.content).toContain('My task')
+    expect(result.content).toContain('desc')
+    expect(result.content).toContain('alice')
+    expect(result.metadata?.task).toMatchObject({ id: 'task-1', title: 'My task' })
   })
 
-  it('returns error when deleting non-existent task', async () => {
-    const result = await tool.execute(
-      { action: 'delete', id: 'task-42' },
-      makeCtx(),
-    )
+  it('get includes blocks and blockedBy', async () => {
+    await create.execute({ title: 'A' }, makeCtx())
+    await create.execute({ title: 'B' }, makeCtx())
+    await update.execute({ id: 'task-1', add_blocks: ['task-2'] }, makeCtx())
+    await update.execute({ id: 'task-1', add_blocked_by: ['task-2'] }, makeCtx())
+
+    const result = await get.execute({ id: 'task-1' }, makeCtx())
+    expect(result.content).toContain('Blocks: task-2')
+    expect(result.content).toContain('Blocked by: task-2')
+  })
+
+  it('returns error when getting non-existent task', async () => {
+    const result = await get.execute({ id: 'task-999' }, makeCtx())
 
     expect(result.isError).toBe(true)
-    expect(result.content).toContain('task-42')
+    expect(result.content).toContain('task-999')
     expect(result.content).toContain('not found')
+  })
+
+  // ---- blocks / blockedBy ----
+
+  it('add_blocks appends to blocks array', async () => {
+    await create.execute({ title: 'A' }, makeCtx())
+    await create.execute({ title: 'B' }, makeCtx())
+    await create.execute({ title: 'C' }, makeCtx())
+
+    await update.execute({ id: 'task-1', add_blocks: ['task-2'] }, makeCtx())
+    const r = await update.execute({ id: 'task-1', add_blocks: ['task-3'] }, makeCtx())
+
+    const task = r.metadata?.task as Record<string, unknown>
+    expect(task.blocks).toEqual(['task-2', 'task-3'])
+  })
+
+  it('add_blocked_by appends to blockedBy array', async () => {
+    await create.execute({ title: 'A' }, makeCtx())
+    await create.execute({ title: 'B' }, makeCtx())
+
+    const r = await update.execute({ id: 'task-1', add_blocked_by: ['task-2'] }, makeCtx())
+    const task = r.metadata?.task as Record<string, unknown>
+    expect(task.blockedBy).toEqual(['task-2'])
+  })
+
+  it('deduplicates blocks entries', async () => {
+    await create.execute({ title: 'A' }, makeCtx())
+    await create.execute({ title: 'B' }, makeCtx())
+
+    await update.execute({ id: 'task-1', add_blocks: ['task-2'] }, makeCtx())
+    const r = await update.execute({ id: 'task-1', add_blocks: ['task-2'] }, makeCtx())
+
+    const task = r.metadata?.task as Record<string, unknown>
+    expect(task.blocks).toEqual(['task-2'])
   })
 
   // ---- schema validation ----
 
-  it('rejects invalid action via schema', () => {
-    const parsed = tool.inputSchema.safeParse({ action: 'bogus' })
-    expect(parsed.success).toBe(false)
-  })
-
   it('rejects create without title via schema', () => {
-    const parsed = tool.inputSchema.safeParse({ action: 'create' })
+    const parsed = create.inputSchema.safeParse({})
     expect(parsed.success).toBe(false)
   })
 
   it('rejects update with invalid status via schema', () => {
-    const parsed = tool.inputSchema.safeParse({
-      action: 'update',
+    const parsed = update.inputSchema.safeParse({
       id: 'task-1',
       status: 'invalid_status',
     })
@@ -279,8 +332,7 @@ describe('taskTool', () => {
   })
 
   it('accepts update with only title (no status)', () => {
-    const parsed = tool.inputSchema.safeParse({
-      action: 'update',
+    const parsed = update.inputSchema.safeParse({
       id: 'task-1',
       title: 'New title',
     })
@@ -288,29 +340,23 @@ describe('taskTool', () => {
   })
 
   it('accepts list with status filter', () => {
-    const parsed = tool.inputSchema.safeParse({
-      action: 'list',
-      status: 'completed',
-    })
+    const parsed = list.inputSchema.safeParse({ status: 'completed' })
     expect(parsed.success).toBe(true)
   })
 
   it('rejects list with invalid status filter', () => {
-    const parsed = tool.inputSchema.safeParse({
-      action: 'list',
-      status: 'bogus',
-    })
+    const parsed = list.inputSchema.safeParse({ status: 'bogus' })
     expect(parsed.success).toBe(false)
   })
 
   // ---- state isolation ----
 
   it('each createTaskTool call returns independent state', async () => {
-    const instance2 = createTaskTool()
+    const ts2 = createTaskTool()
 
-    await tool.execute({ action: 'create', title: 'In tool 1' }, makeCtx())
-    const list1 = await tool.execute({ action: 'list' }, makeCtx())
-    const list2 = await instance2.tool.execute({ action: 'list' }, makeCtx())
+    await create.execute({ title: 'In tool 1' }, makeCtx())
+    const list1 = await list.execute({}, makeCtx())
+    const list2 = await ts2.taskList.execute({}, makeCtx())
 
     expect(list1.content).toContain('In tool 1')
     expect(list2.content).toBe('No tasks')
@@ -318,12 +364,18 @@ describe('taskTool', () => {
 
   // ---- metadata flags ----
 
-  it('is not read-only', () => {
-    expect(tool.isReadOnly).toBe(false)
+  it('create/update are not read-only; get/list are read-only', () => {
+    expect(create.isReadOnly).toBe(false)
+    expect(update.isReadOnly).toBe(false)
+    expect(get.isReadOnly).toBe(true)
+    expect(list.isReadOnly).toBe(true)
   })
 
-  it('is not destructive', () => {
-    expect(tool.isDestructive).toBe(false)
+  it('none are destructive', () => {
+    expect(create.isDestructive).toBe(false)
+    expect(update.isDestructive).toBe(false)
+    expect(get.isDestructive).toBe(false)
+    expect(list.isDestructive).toBe(false)
   })
 
   // ---- abort ----
@@ -337,7 +389,7 @@ describe('taskTool', () => {
       env: {},
     }
 
-    const result = await tool.execute({ action: 'list' }, ctx)
+    const result = await list.execute({}, ctx)
     expect(result.isError).toBe(true)
     expect(result.content).toBe('Aborted')
   })
@@ -345,30 +397,26 @@ describe('taskTool', () => {
   // ---- getTasks / clear helpers ----
 
   it('getTasks returns all tasks as an array', async () => {
-    expect(instance.getTasks()).toEqual([])
+    expect(ts.getTasks()).toEqual([])
 
-    await tool.execute({ action: 'create', title: 'A' }, makeCtx())
-    await tool.execute({ action: 'create', title: 'B' }, makeCtx())
+    await create.execute({ title: 'A' }, makeCtx())
+    await create.execute({ title: 'B' }, makeCtx())
 
-    const tasks = instance.getTasks()
+    const tasks = ts.getTasks()
     expect(tasks).toHaveLength(2)
     expect(tasks[0].title).toBe('A')
     expect(tasks[1].title).toBe('B')
   })
 
   it('clear removes all tasks and resets ID counter', async () => {
-    await tool.execute({ action: 'create', title: 'A' }, makeCtx())
-    await tool.execute({ action: 'create', title: 'B' }, makeCtx())
+    await create.execute({ title: 'A' }, makeCtx())
+    await create.execute({ title: 'B' }, makeCtx())
 
-    instance.clear()
+    ts.clear()
 
-    expect(instance.getTasks()).toEqual([])
+    expect(ts.getTasks()).toEqual([])
 
-    // ID counter should be reset
-    const result = await tool.execute(
-      { action: 'create', title: 'After clear' },
-      makeCtx(),
-    )
+    const result = await create.execute({ title: 'After clear' }, makeCtx())
     expect(result.content).toContain('task-1')
   })
 })
