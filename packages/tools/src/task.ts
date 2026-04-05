@@ -217,7 +217,17 @@ export function createTaskTool(): TaskToolSet {
 
   const taskCreate: ToolDefinition = {
     name: "TaskCreate",
-    description: "Create a new task with a title, optional description, and optional owner.",
+    description: `Creates a new task and adds it to the in-session task list.
+
+  Use this tool proactively to track progress on complex multi-step work or when the user provides multiple things to accomplish.
+
+  Parameters:
+  - title: Short, actionable title in imperative form (e.g. "Fix authentication bug in login flow")
+  - description: What needs to be done and any relevant context
+  - owner: Optional — the agent or person this task is assigned to
+
+  All tasks start with status "pending". Use TaskUpdate to move them through the workflow.
+`,
     inputSchema: createInputSchema,
     execute: executeCreate,
     isReadOnly: false,
@@ -227,8 +237,22 @@ export function createTaskTool(): TaskToolSet {
 
   const taskUpdate: ToolDefinition = {
     name: "TaskUpdate",
-    description:
-      "Update an existing task — change status, title, description, owner, or add blocks/blockedBy dependencies.",
+    description: `Updates an existing task in the task list.
+
+  Use this tool to advance tasks through their lifecycle and to maintain accurate dependency graphs.
+
+  Fields you can update:
+  - status: "pending" → "in_progress" → "completed" | "cancelled"
+  - title / description: Change the task subject or requirements
+  - owner: Reassign the task to a different agent or person
+  - add_blocks: Append task IDs that this task blocks (tasks that cannot start until this one is done); deduplicated automatically
+  - add_blocked_by: Append task IDs that must complete before this task can start; deduplicated automatically
+
+  Important:
+  - Mark a task in_progress BEFORE beginning work on it
+  - Only mark a task completed when the work is fully done — never if tests are failing or implementation is partial
+  - Use TaskGet to read the latest state before updating to avoid stale overwrites
+`,
     inputSchema: updateInputSchema,
     execute: executeUpdate,
     isReadOnly: false,
@@ -238,7 +262,18 @@ export function createTaskTool(): TaskToolSet {
 
   const taskGet: ToolDefinition = {
     name: "TaskGet",
-    description: "Get full details of a single task including blocks and blockedBy relationships.",
+    description: `Retrieves full details of a single task by ID.
+
+  Use this tool before starting work on a task to understand its complete requirements, and to inspect dependency relationships.
+
+  Returns:
+  - id, title, status, description, owner
+  - blocks: task IDs that cannot start until this task is completed
+  - blockedBy: task IDs that must complete before this task can start
+  - createdAt / updatedAt timestamps
+
+  Tip: Check that blockedBy is empty (or all dependencies are completed) before marking a task in_progress.
+`,
     inputSchema: getInputSchema,
     execute: executeGet,
     isReadOnly: true,
@@ -248,7 +283,18 @@ export function createTaskTool(): TaskToolSet {
 
   const taskList: ToolDefinition = {
     name: "TaskList",
-    description: "List tasks, optionally filtered by status and/or owner.",
+    description: `Lists all tasks in the current session, with optional filtering.
+
+  Use this tool to get an overview of all work in progress, check what is available to claim, or verify overall completion status.
+
+  Filters:
+  - status: Return only tasks with this status ("pending", "in_progress", "completed", "cancelled")
+  - owner: Return only tasks assigned to this owner
+
+  Each result shows id, title, status, owner, and a summary of blockedBy dependencies. Use TaskGet with a specific id to view the full description and all dependency details.
+
+  Prefer working on tasks in ID order (lowest first) when multiple tasks are available, as earlier tasks often set up context for later ones.
+`,
     inputSchema: listInputSchema,
     execute: executeList,
     isReadOnly: true,

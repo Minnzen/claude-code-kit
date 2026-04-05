@@ -104,7 +104,29 @@ async function readPdf(filePath: string, pages?: string): Promise<ToolResult> {
 
 export const readTool: ToolDefinition<Input> = {
   name: "Read",
-  description: "Read file contents with optional line offset and limit, returning numbered lines",
+  description: `Reads a file from the local filesystem and returns its contents with line numbers.
+
+# File paths
+
+The \`file_path\` parameter must be an absolute path. Relative paths are resolved against the agent's working directory. It is OK to read a file that does not exist — an error will be returned.
+
+# Line limits
+
+By default, reads up to 2000 lines starting from the beginning of the file. When you already know which part of the file you need, use \`offset\` and \`limit\` to read only that part — this is important for large files.
+
+# Output format
+
+Results are returned in cat -n format, with line numbers starting at 1, followed by a tab character, then the line content.
+
+# Supported file types
+
+- Plain text, source code, JSON, YAML, Markdown, etc.: read directly.
+- PDF files (.pdf): use the \`pages\` parameter to read specific page ranges (e.g. "1-5", "3", "10-20"). For large PDFs (more than 10 pages), you MUST provide the \`pages\` parameter — reading a large PDF without it will return the entire extracted text, which may be truncated. Requires the optional \`pdf-parse\` dependency to be installed.
+- The \`pages\` parameter is only valid for PDF files and will return an error for other file types.
+
+# Limitations
+
+This tool reads files only, not directories. To list directory contents, use a Bash tool call with \`ls\`.`,
   inputSchema,
   execute,
   isReadOnly: true,

@@ -68,7 +68,18 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
 export const webFetchTool: ToolDefinition<Input> = {
   name: "WebFetch",
-  description: "Make HTTP requests and return the response body",
+  description: `Fetches content from a specified URL and returns the response body.
+
+  IMPORTANT: This tool WILL FAIL for authenticated or private URLs (e.g. pages behind login, internal services). Do not use it for those cases.
+
+  Usage notes:
+  - The URL must be a fully-formed, valid URL pointing to a publicly accessible resource
+  - Use the prompt parameter to describe what information you want to extract from the page; the raw response body is returned along with the prompt prefix so you can process it yourself
+  - Requests to private/internal network addresses are blocked (localhost, 10.x, 172.16-31.x, 192.168.x, link-local, cloud metadata endpoints) to prevent SSRF attacks
+  - Response bodies are capped at ${MAX_RESULT_SIZE.toLocaleString()} characters; larger responses are truncated
+  - HTTP 4xx/5xx responses are returned with isError=true so you can detect failures
+  - For GitHub URLs, prefer using the gh CLI via Bash instead (e.g., gh pr view, gh issue view, gh api)
+`,
   inputSchema,
   execute,
   isReadOnly: false,

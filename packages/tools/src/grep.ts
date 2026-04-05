@@ -375,9 +375,17 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
 export const grepTool: ToolDefinition<Input> = {
   name: "Grep",
-  description:
-    "Search file contents using regex. Supports output modes (content, files_with_matches, count), " +
-    "context lines, multiline matching, file type filtering, and pagination.",
+  description: `A powerful search tool built on ripgrep
+
+  Usage:
+  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
+  - Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
+  - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
+  - Output modes: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows file paths (supports head_limit), "count" shows match counts (supports head_limit). Defaults to "files_with_matches".
+  - Use Agent tool for open-ended searches requiring multiple rounds
+  - Pattern syntax: Uses ripgrep conventions — literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
+  - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`
+`,
   inputSchema,
   execute,
   isReadOnly: true,

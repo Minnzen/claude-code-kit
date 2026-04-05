@@ -55,7 +55,33 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
 export const globTool: ToolDefinition<Input> = {
   name: "Glob",
-  description: "Find files matching a glob pattern, excluding node_modules and .git",
+  description: `Fast file pattern matching tool that works with any codebase size.
+
+# Glob patterns
+
+Supports standard glob syntax. Examples:
+- "**/*.js" — all JavaScript files recursively
+- "src/**/*.ts" — all TypeScript files under src/
+- "packages/*/src/index.ts" — index files in each package
+
+# Result ordering
+
+Returns matching file paths sorted by modification time (most recently modified first).
+
+# When to use Glob vs other tools
+
+- Finding files by name pattern: use Glob.
+- Searching file contents for a string or regex: use Grep instead.
+- Reading a specific file you already know the path to: use Read instead.
+- For open-ended searches that require multiple rounds of globbing and grepping, chain multiple tool calls.
+
+# Exclusions
+
+node_modules and .git directories are automatically excluded from results.
+
+# Search scope
+
+The \`path\` parameter sets the root directory to search in. If omitted, the agent's working directory is used.`,
   inputSchema,
   execute,
   isReadOnly: true,

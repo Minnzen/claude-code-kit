@@ -81,7 +81,52 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
 export const bashTool: ToolDefinition<Input> = {
   name: "Bash",
-  description: "Execute a shell command and return its stdout/stderr output",
+  description: `Executes a given bash command and returns its output.
+
+The working directory persists between commands via the \`cwd\` parameter, but shell state does not (no environment variables or aliases carry over between calls).
+
+# Description field
+
+Always provide a clear, concise description in active voice (5-10 words for simple commands, more context for complex ones):
+- ls → "List files in current directory"
+- git status → "Show working tree status"
+- find . -name "*.tmp" -exec rm {} \\; → "Find and delete all .tmp files recursively"
+
+# Avoid running these as Bash commands
+
+Use dedicated tools instead — they provide a better experience:
+- File search: use Glob (NOT find or ls)
+- Content search: use Grep (NOT grep or rg)
+- Read files: use Read (NOT cat/head/tail)
+- Edit files: use Edit (NOT sed/awk)
+- Write files: use Write (NOT echo >/cat <<EOF)
+
+# File paths
+
+Always quote file paths that contain spaces with double quotes in the command string.
+
+# Multiple commands
+
+- If commands are independent and can run in parallel, make multiple Bash tool calls in the same turn.
+- If commands depend on each other and must run sequentially, use \`&&\` to chain them in a single call.
+- Use \`;\` only when you need sequential execution but don't care if earlier commands fail.
+- Do NOT use newlines to separate commands (newlines are ok in quoted strings).
+
+# Avoiding unnecessary sleep
+
+- Do not sleep between commands that can run immediately — just run them.
+- If a command is long-running and you want to be notified when it finishes, set \`run_in_background: true\`. No sleep needed.
+- Do not retry failing commands in a sleep loop — diagnose the root cause instead.
+- If waiting for a background task, check its status with a follow-up command rather than sleeping.
+- If you must sleep, keep the duration short (1-5 seconds) to avoid blocking.
+
+# Timeout
+
+Default timeout is 120 seconds. Override with the \`timeout\` field (max 600000 ms / 10 minutes) for long-running operations like builds or test suites.
+
+# Background execution
+
+Set \`run_in_background: true\` to start a detached process and return immediately with its PID and output log path. Only use this when you don't need the result right away and are OK being notified when the command completes later. Do not use \`&\` at the end of the command when using this parameter.`,
   inputSchema,
   execute,
   isReadOnly: false,

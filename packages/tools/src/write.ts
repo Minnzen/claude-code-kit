@@ -35,7 +35,19 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
 export const writeTool: ToolDefinition<Input> = {
   name: "Write",
-  description: "Write content to a file, creating parent directories as needed",
+  description: `Writes a file to the local filesystem. Creates parent directories automatically if they do not exist.
+
+# Overwrite behavior
+
+This tool will overwrite the existing file if there is one at the provided path. Always read the file first with the Read tool before overwriting an existing file to avoid accidentally discarding content.
+
+# Prefer Edit over Write for existing files
+
+ALWAYS prefer using Edit to modify existing files — it only sends the diff and makes changes easier to review. Only use Write to create brand new files or for complete rewrites where you intend to replace the entire contents.
+
+# Avoid unnecessary files
+
+NEVER create documentation files (*.md) or README files unless explicitly requested. Do not create new files when editing an existing file would accomplish the same goal.`,
   inputSchema,
   execute,
   isReadOnly: false,

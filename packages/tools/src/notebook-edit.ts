@@ -181,7 +181,23 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
 export const notebookEditTool: ToolDefinition<Input> = {
   name: "NotebookEdit",
-  description: "Edit a Jupyter Notebook (.ipynb) by inserting, replacing, or deleting cells",
+  description: `Edits a Jupyter Notebook (.ipynb file) by inserting, replacing, or deleting cells.
+
+  Jupyter notebooks are interactive documents that combine code, text, and visualizations, commonly used for data analysis and scientific computing.
+
+  Edit modes:
+  - "replace": Overwrites the source of the cell at the given index while preserving its metadata, outputs, and execution_count. Specify cell_type to change the cell type.
+  - "insert": Inserts a new cell before the position given by cell_number (0-indexed). cell_type is required; defaults to "code".
+  - "delete": Removes the cell at the given index. new_source is not needed.
+
+  Locating cells:
+  - Use cell_number (0-indexed) to target a cell by its position in the notebook.
+  - Use cell_id to target a cell by its metadata.id field. Provide one or the other, not both.
+
+  Requirements:
+  - notebook_path must point to a .ipynb file. Both absolute and working-directory-relative paths are accepted, but the resolved path must remain inside the working directory.
+  - new_source is required for "insert" and "replace" modes; omit it for "delete".
+`,
   inputSchema,
   execute,
   isReadOnly: false,

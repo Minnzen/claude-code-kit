@@ -83,10 +83,20 @@ export function createSubagentTool(config: SubagentConfig): ToolDefinition<Input
 
   return {
     name: "Agent",
-    description:
-      "Spawn an independent subagent to complete a delegated task. " +
-      "The subagent runs with its own context and returns the result. " +
-      "Use this for tasks that can be completed independently.",
+    description: `Spawns an independent subagent to complete a delegated task and returns its result.
+
+  The subagent runs with its own isolated session — it does not share message history or state with the parent agent. It receives the task and optional description, executes independently, and returns its final text response.
+
+  Use this tool for tasks that:
+  - Can be completed without access to the parent's conversation context
+  - Are self-contained enough to delegate to a separate execution unit
+  - Benefit from parallel or isolated execution
+
+  Timeout and abort behavior:
+  - The subagent is subject to a configurable timeout (default: ${DEFAULT_TIMEOUT / 1000}s); it will be forcibly stopped and return an error if it exceeds this limit
+  - If the parent agent's AbortSignal fires (e.g. user cancels), the cancellation is propagated to the subagent via its own AbortController, stopping in-flight work immediately
+  - The signal passed to agentFactory can be used to wire the AbortSignal into the subagent's underlying provider calls
+`,
     inputSchema,
     execute,
     isReadOnly: false,

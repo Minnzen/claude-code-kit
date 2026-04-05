@@ -231,8 +231,20 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
 export const webSearchTool: ToolDefinition<Input> = {
   name: "WebSearch",
-  description:
-    "Search the web using DuckDuckGo and return a list of results with titles, URLs, and snippets",
+  description: `Searches the web using DuckDuckGo and returns structured results with titles, URLs, and snippets.
+
+  Usage notes:
+  - Use this tool to access up-to-date information beyond the model's knowledge cutoff, look up current events, or find documentation
+  - Results are returned as a numbered list; each entry includes a title, URL, and short snippet
+  - Use allowed_domains to restrict results to specific sites (e.g. ["docs.python.org"]) — matching uses hostname endsWith, so "github.com" also matches "docs.github.com"
+  - Use blocked_domains to exclude unwanted sites
+  - CRITICAL REQUIREMENT: After answering the user's question using search results, you MUST include a "Sources:" section listing the relevant URLs as markdown hyperlinks
+
+  Example Sources format:
+    Sources:
+    - [Source Title 1](https://example.com/1)
+    - [Source Title 2](https://example.com/2)
+`,
   inputSchema,
   execute,
   isReadOnly: true,
