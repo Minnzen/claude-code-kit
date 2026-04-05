@@ -6,7 +6,7 @@ const MAX_RESULT_SIZE = 100_000;
 
 export const inputSchema = z.object({
   pattern: z.string().describe("Glob pattern to match files (e.g. **/*.ts)"),
-  cwd: z.string().optional().describe("Directory to search in"),
+  path: z.string().optional().describe("Directory to search in"),
 });
 
 type Input = z.infer<typeof inputSchema>;
@@ -14,7 +14,7 @@ type Input = z.infer<typeof inputSchema>;
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
 
-  const cwd = input.cwd ?? ctx.workingDirectory;
+  const cwd = input.path ?? ctx.workingDirectory;
 
   try {
     const files = await fg(input.pattern, {
@@ -40,7 +40,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 }
 
 export const globTool: ToolDefinition<Input> = {
-  name: "glob",
+  name: "Glob",
   description: "Find files matching a glob pattern, excluding node_modules and .git",
   inputSchema,
   execute,
