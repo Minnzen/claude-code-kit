@@ -1,0 +1,545 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { notebookEditTool } from '../packages/tools/src/notebook-edit.ts'
+import type { ToolContext } from '../packages/agent/src/types.ts'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+let tmpDir: string
+
+function makeCtx(overrides?: Partial<ToolContext>): ToolContext {
+  return {
+    workingDirectory: tmpDir,
+    abortSignal: new AbortController().signal,
+    env: {},
+    ...overrides,
+  }
+}
+
+function makeNotebook(cells: Array<{ cell_type: string; source: string[] }>) {
+  return {
+    nbformat: 4,
+    nbformat_minor: 2,
+    metadata: { kernelspec: {}, language_info: {} },
+    cells: cells.map((c) => ({
+      cell_type: c.cell_type,
+      source: c.source,
+      metadata: {},
+      ...(c.cell_type === 'code' ? { outputs: [], execution_count: null } : {}),
+    })),
+  }
+}
+
+function writeNotebook(name: string, nb: ReturnType<typeof makeNotebook>): string {
+  const filePath = path.join(tmpDir, name)
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, JSON.stringify(nb, null, 1), 'utf-8')
+  return filePath
+}
+
+function readNotebook(filePath: string) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+}
+
+// ---------------------------------------------------------------------------
+// Setup / teardown
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cck-notebook-test-'))
+})
+
+afterEach(() => {
+  fs.rmSync(tmpDir, { recursive: true, force: true })
+})
+
+// ---------------------------------------------------------------------------
+// insert action
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — insert', () => {
+  it('inserts a cell at the beginning', async () => {
+    const nb = makeNotebook([
+      { cell_type: 'code', source: ['print("a")\n'] },
+    ])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'insert', cellIndex: 0, cellType: 'markdown', source: '# New heading' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    const updated = readNotebook(filePath)
+    expect(updated.cells).toHaveLength(2)
+    expect(updated.cells[0].cell_type).toBe('markdown')
+    expect(updated.cells[0].source.join('')).toBe('# New heading')
+    expect(updated.cells[1].source.join('')).toContain('print("a")')
+  })
+
+  it('inserts a cell in the middle', async () => {
+    const nb = makeNotebook([
+      { cell_type: 'code', source: ['a\n'] },
+      { cell_type: 'code', source: ['c\n'] },
+    ])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'insert', cellIndex: 1, source: 'b' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    const updated = readNotebook(filePath)
+    expect(updated.cells).toHaveLength(3)
+    expect(updated.cells[1].source.join('')).toBe('b')
+  })
+
+  it('inserts a cell at the end', async () => {
+    const nb = makeNotebook([
+      { cell_type: 'code', source: ['first\n'] },
+    ])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'insert', cellIndex: 1, source: 'last' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    const updated = readNotebook(filePath)
+    expect(updated.cells).toHaveLength(2)
+    expect(updated.cells[1].source.join('')).toBe('last')
+  })
+
+  it('defaults cellType to code', async () => {
+    const nb = makeNotebook([])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    await notebookEditTool.execute!(
+      { path: filePath, action: 'insert', cellIndex: 0, source: 'x = 1' },
+      makeCtx(),
+    )
+
+    const updated = readNotebook(filePath)
+    expect(updated.cells[0].cell_type).toBe('code')
+    expect(updated.cells[0].outputs).toEqual([])
+    expect(updated.cells[0].execution_count).toBeNull()
+  })
+
+  it('splits source into lines correctly', async () => {
+    const nb = makeNotebook([])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    await notebookEditTool.execute!(
+      { path: filePath, action: 'insert', cellIndex: 0, source: 'line1\nline2\nline3' },
+      makeCtx(),
+    )
+
+    const updated = readNotebook(filePath)
+    expect(updated.cells[0].source).toEqual(['line1\n', 'line2\n', 'line3'])
+  })
+
+  it('returns error when source is missing', async () => {
+    const nb = makeNotebook([])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'insert', cellIndex: 0 } as any,
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/source.*required/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// replace action
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — replace', () => {
+  it('replaces a cell at the given index', async () => {
+    const nb = makeNotebook([
+      { cell_type: 'code', source: ['old code\n'] },
+      { cell_type: 'markdown', source: ['# Old title\n'] },
+    ])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'replace', cellIndex: 0, cellType: 'markdown', source: '# Replaced' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    const updated = readNotebook(filePath)
+    expect(updated.cells).toHaveLength(2)
+    expect(updated.cells[0].cell_type).toBe('markdown')
+    expect(updated.cells[0].source.join('')).toBe('# Replaced')
+  })
+
+  it('returns error when source is missing for replace', async () => {
+    const nb = makeNotebook([{ cell_type: 'code', source: ['x\n'] }])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'replace', cellIndex: 0 } as any,
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/source.*required/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// delete action
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — delete', () => {
+  it('deletes the cell at the given index', async () => {
+    const nb = makeNotebook([
+      { cell_type: 'code', source: ['keep\n'] },
+      { cell_type: 'code', source: ['remove\n'] },
+      { cell_type: 'code', source: ['keep2\n'] },
+    ])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'delete', cellIndex: 1 },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    const updated = readNotebook(filePath)
+    expect(updated.cells).toHaveLength(2)
+    expect(updated.cells[0].source.join('')).toContain('keep')
+    expect(updated.cells[1].source.join('')).toContain('keep2')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// cellIndex bounds checking
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — bounds checking', () => {
+  it('returns error when insert cellIndex exceeds length', async () => {
+    const nb = makeNotebook([{ cell_type: 'code', source: ['a\n'] }])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'insert', cellIndex: 5, source: 'x' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/out of range/)
+  })
+
+  it('returns error when replace cellIndex is out of range', async () => {
+    const nb = makeNotebook([{ cell_type: 'code', source: ['a\n'] }])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'replace', cellIndex: 1, source: 'x' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/out of range/)
+  })
+
+  it('returns error when delete cellIndex is out of range', async () => {
+    const nb = makeNotebook([])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'delete', cellIndex: 0 },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/out of range/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Extension validation
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — extension validation', () => {
+  it('rejects non-.ipynb files', async () => {
+    const filePath = path.join(tmpDir, 'data.json')
+    fs.writeFileSync(filePath, '{}', 'utf-8')
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'delete', cellIndex: 0 },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/\.ipynb/)
+  })
+
+  it('rejects .py files', async () => {
+    const filePath = path.join(tmpDir, 'script.py')
+    fs.writeFileSync(filePath, '# python', 'utf-8')
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'insert', cellIndex: 0, source: 'x' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/\.ipynb/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Path traversal prevention
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — path traversal', () => {
+  it('blocks ../ traversal', async () => {
+    const result = await notebookEditTool.execute!(
+      { path: '../../../tmp/evil.ipynb', action: 'delete', cellIndex: 0 },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/path traversal denied/)
+  })
+
+  it('blocks absolute paths outside working directory', async () => {
+    const result = await notebookEditTool.execute!(
+      { path: '/etc/secret.ipynb', action: 'delete', cellIndex: 0 },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/path traversal denied/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Invalid notebook format
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — invalid notebook', () => {
+  it('rejects non-JSON file', async () => {
+    const filePath = path.join(tmpDir, 'bad.ipynb')
+    fs.writeFileSync(filePath, 'this is not json', 'utf-8')
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'delete', cellIndex: 0 },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/not valid JSON/)
+  })
+
+  it('rejects JSON without nbformat field', async () => {
+    const filePath = path.join(tmpDir, 'no-format.ipynb')
+    fs.writeFileSync(filePath, JSON.stringify({ cells: [] }), 'utf-8')
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'delete', cellIndex: 0 },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/nbformat/)
+  })
+
+  it('rejects JSON without cells array', async () => {
+    const filePath = path.join(tmpDir, 'no-cells.ipynb')
+    fs.writeFileSync(filePath, JSON.stringify({ nbformat: 4 }), 'utf-8')
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'delete', cellIndex: 0 },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/cells/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Tool metadata
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — metadata', () => {
+  it('has correct read/destructive flags', () => {
+    expect(notebookEditTool.isReadOnly).toBe(false)
+    expect(notebookEditTool.isDestructive).toBe(false)
+  })
+
+  it('requires confirmation', () => {
+    expect(notebookEditTool.requiresConfirmation).toBe(true)
+  })
+
+  it('has the expected name', () => {
+    expect(notebookEditTool.name).toBe('notebook_edit')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// sourceToLines trailing newline handling
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — trailing newline', () => {
+  it('does not produce trailing empty string from source with trailing newline', async () => {
+    const nb = makeNotebook([])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    await notebookEditTool.execute!(
+      { path: filePath, action: 'insert', cellIndex: 0, source: 'hello\n' },
+      makeCtx(),
+    )
+
+    const updated = readNotebook(filePath)
+    // "hello\n" should become ["hello\n"], NOT ["hello\n", ""]
+    expect(updated.cells[0].source).toEqual(['hello\n'])
+  })
+
+  it('handles multi-line source with trailing newline', async () => {
+    const nb = makeNotebook([])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    await notebookEditTool.execute!(
+      { path: filePath, action: 'insert', cellIndex: 0, source: 'line1\nline2\n' },
+      makeCtx(),
+    )
+
+    const updated = readNotebook(filePath)
+    expect(updated.cells[0].source).toEqual(['line1\n', 'line2\n'])
+  })
+
+  it('handles source without trailing newline unchanged', async () => {
+    const nb = makeNotebook([])
+    const filePath = writeNotebook('test.ipynb', nb)
+
+    await notebookEditTool.execute!(
+      { path: filePath, action: 'insert', cellIndex: 0, source: 'no trailing' },
+      makeCtx(),
+    )
+
+    const updated = readNotebook(filePath)
+    expect(updated.cells[0].source).toEqual(['no trailing'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// replace preserves original cell metadata/outputs
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — replace preserves cell metadata', () => {
+  it('preserves metadata, outputs, and execution_count on replace', async () => {
+    // Write a notebook with rich cell metadata
+    const richNotebook = {
+      nbformat: 4,
+      nbformat_minor: 2,
+      metadata: {},
+      cells: [
+        {
+          cell_type: 'code',
+          source: ['old_code()\n'],
+          metadata: { scrolled: true, tags: ['important'] },
+          outputs: [{ output_type: 'stream', name: 'stdout', text: ['hello\n'] }],
+          execution_count: 42,
+        },
+      ],
+    }
+    const filePath = path.join(tmpDir, 'rich.ipynb')
+    fs.writeFileSync(filePath, JSON.stringify(richNotebook, null, 1), 'utf-8')
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'replace', cellIndex: 0, source: 'new_code()' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    const updated = readNotebook(filePath)
+    const cell = updated.cells[0]
+    // Source should be updated
+    expect(cell.source.join('')).toBe('new_code()')
+    // cell_type should be preserved (no cellType specified, so keeps original)
+    expect(cell.cell_type).toBe('code')
+    // Metadata, outputs, execution_count should be preserved
+    expect(cell.metadata).toEqual({ scrolled: true, tags: ['important'] })
+    expect(cell.outputs).toEqual([{ output_type: 'stream', name: 'stdout', text: ['hello\n'] }])
+    expect(cell.execution_count).toBe(42)
+  })
+
+  it('replace with explicit cellType changes cell_type but preserves other fields', async () => {
+    const richNotebook = {
+      nbformat: 4,
+      nbformat_minor: 2,
+      metadata: {},
+      cells: [
+        {
+          cell_type: 'code',
+          source: ['x = 1\n'],
+          metadata: { collapsed: true },
+          outputs: [],
+          execution_count: 5,
+        },
+      ],
+    }
+    const filePath = path.join(tmpDir, 'rich2.ipynb')
+    fs.writeFileSync(filePath, JSON.stringify(richNotebook, null, 1), 'utf-8')
+
+    const result = await notebookEditTool.execute!(
+      { path: filePath, action: 'replace', cellIndex: 0, cellType: 'markdown', source: '# Title' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    const updated = readNotebook(filePath)
+    const cell = updated.cells[0]
+    expect(cell.cell_type).toBe('markdown')
+    expect(cell.source.join('')).toBe('# Title')
+    // metadata preserved even though cell_type changed
+    expect(cell.metadata).toEqual({ collapsed: true })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// File not found (ENOENT)
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — file not found', () => {
+  it('returns error when file does not exist', async () => {
+    const result = await notebookEditTool.execute!(
+      { path: 'nonexistent.ipynb', action: 'delete', cellIndex: 0 },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/Error editing notebook/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// builtinTools should not include notebookEditTool
+// ---------------------------------------------------------------------------
+
+describe('notebookEditTool — not in builtinTools', () => {
+  it('is not included in the builtinTools array', async () => {
+    const { builtinTools } = await import('../packages/tools/src/index.ts')
+    const names = builtinTools.map((t: any) => t.name)
+    expect(names).not.toContain('notebook_edit')
+  })
+
+  it('is still available as a named export', async () => {
+    const { notebookEditTool: exported } = await import('../packages/tools/src/index.ts')
+    expect(exported).toBeDefined()
+    expect(exported.name).toBe('notebook_edit')
+  })
+})
