@@ -28,7 +28,7 @@ describe('createSubagentTool', () => {
       agentFactory: () => ({ chat: async () => 'ok' }),
     })
 
-    expect(tool.name).toBe('subagent')
+    expect(tool.name).toBe('Agent')
     expect(tool.isReadOnly).toBe(false)
     expect(tool.isDestructive).toBe(false)
     expect(tool.requiresConfirmation).toBe(true)

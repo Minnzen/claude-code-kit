@@ -12,7 +12,7 @@ const USER_AGENT =
 
 export const inputSchema = z.object({
   query: z.string().min(1).describe("Search query"),
-  maxResults: z
+  max_results: z
     .number()
     .int()
     .min(1)
@@ -160,7 +160,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     // Cap response body to prevent unbounded memory usage
     const html = fullHtml.slice(0, MAX_RESPONSE_SIZE);
 
-    const results = parseSearchResults(html, input.maxResults);
+    const results = parseSearchResults(html, input.max_results);
     let formatted = formatResults(results);
 
     // Distinguish "genuinely no results" from "HTML structure changed and parsing broke"
@@ -182,7 +182,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 }
 
 export const webSearchTool: ToolDefinition<Input> = {
-  name: "web_search",
+  name: "WebSearch",
   description:
     "Search the web using DuckDuckGo and return a list of results with titles, URLs, and snippets",
   inputSchema,

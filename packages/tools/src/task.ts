@@ -150,7 +150,7 @@ export function createTaskTool(): TaskToolInstance {
   }
 
   const tool: ToolDefinition<Input> = {
-    name: "task",
+    name: "Task",
     description:
       "Manage an in-memory task list. Supports create, update (status/title/description), list (with optional status filter), and delete actions.",
     inputSchema,

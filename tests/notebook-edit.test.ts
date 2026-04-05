@@ -69,7 +69,7 @@ describe('notebookEditTool — insert', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'insert', cellIndex: 0, cellType: 'markdown', source: '# New heading' },
+      { notebook_path: filePath, edit_mode: 'insert', cell_number: 0, cell_type: 'markdown', new_source: '# New heading' },
       makeCtx(),
     )
 
@@ -89,7 +89,7 @@ describe('notebookEditTool — insert', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'insert', cellIndex: 1, source: 'b' },
+      { notebook_path: filePath, edit_mode: 'insert', cell_number: 1, new_source: 'b' },
       makeCtx(),
     )
 
@@ -106,7 +106,7 @@ describe('notebookEditTool — insert', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'insert', cellIndex: 1, source: 'last' },
+      { notebook_path: filePath, edit_mode: 'insert', cell_number: 1, new_source: 'last' },
       makeCtx(),
     )
 
@@ -121,7 +121,7 @@ describe('notebookEditTool — insert', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     await notebookEditTool.execute!(
-      { path: filePath, action: 'insert', cellIndex: 0, source: 'x = 1' },
+      { notebook_path: filePath, edit_mode: 'insert', cell_number: 0, new_source: 'x = 1' },
       makeCtx(),
     )
 
@@ -136,7 +136,7 @@ describe('notebookEditTool — insert', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     await notebookEditTool.execute!(
-      { path: filePath, action: 'insert', cellIndex: 0, source: 'line1\nline2\nline3' },
+      { notebook_path: filePath, edit_mode: 'insert', cell_number: 0, new_source: 'line1\nline2\nline3' },
       makeCtx(),
     )
 
@@ -149,7 +149,7 @@ describe('notebookEditTool — insert', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'insert', cellIndex: 0 } as any,
+      { notebook_path: filePath, edit_mode: 'insert', cell_number: 0 } as any,
       makeCtx(),
     )
 
@@ -171,7 +171,7 @@ describe('notebookEditTool — replace', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'replace', cellIndex: 0, cellType: 'markdown', source: '# Replaced' },
+      { notebook_path: filePath, edit_mode: 'replace', cell_number: 0, cell_type: 'markdown', new_source: '# Replaced' },
       makeCtx(),
     )
 
@@ -187,7 +187,7 @@ describe('notebookEditTool — replace', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'replace', cellIndex: 0 } as any,
+      { notebook_path: filePath, edit_mode: 'replace', cell_number: 0 } as any,
       makeCtx(),
     )
 
@@ -210,7 +210,7 @@ describe('notebookEditTool — delete', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'delete', cellIndex: 1 },
+      { notebook_path: filePath, edit_mode: 'delete', cell_number: 1 },
       makeCtx(),
     )
 
@@ -232,7 +232,7 @@ describe('notebookEditTool — bounds checking', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'insert', cellIndex: 5, source: 'x' },
+      { notebook_path: filePath, edit_mode: 'insert', cell_number: 5, new_source: 'x' },
       makeCtx(),
     )
 
@@ -245,7 +245,7 @@ describe('notebookEditTool — bounds checking', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'replace', cellIndex: 1, source: 'x' },
+      { notebook_path: filePath, edit_mode: 'replace', cell_number: 1, new_source: 'x' },
       makeCtx(),
     )
 
@@ -258,7 +258,7 @@ describe('notebookEditTool — bounds checking', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'delete', cellIndex: 0 },
+      { notebook_path: filePath, edit_mode: 'delete', cell_number: 0 },
       makeCtx(),
     )
 
@@ -277,7 +277,7 @@ describe('notebookEditTool — extension validation', () => {
     fs.writeFileSync(filePath, '{}', 'utf-8')
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'delete', cellIndex: 0 },
+      { notebook_path: filePath, edit_mode: 'delete', cell_number: 0 },
       makeCtx(),
     )
 
@@ -290,7 +290,7 @@ describe('notebookEditTool — extension validation', () => {
     fs.writeFileSync(filePath, '# python', 'utf-8')
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'insert', cellIndex: 0, source: 'x' },
+      { notebook_path: filePath, edit_mode: 'insert', cell_number: 0, new_source: 'x' },
       makeCtx(),
     )
 
@@ -306,7 +306,7 @@ describe('notebookEditTool — extension validation', () => {
 describe('notebookEditTool — path traversal', () => {
   it('blocks ../ traversal', async () => {
     const result = await notebookEditTool.execute!(
-      { path: '../../../tmp/evil.ipynb', action: 'delete', cellIndex: 0 },
+      { notebook_path: '../../../tmp/evil.ipynb', edit_mode: 'delete', cell_number: 0 },
       makeCtx(),
     )
 
@@ -316,7 +316,7 @@ describe('notebookEditTool — path traversal', () => {
 
   it('blocks absolute paths outside working directory', async () => {
     const result = await notebookEditTool.execute!(
-      { path: '/etc/secret.ipynb', action: 'delete', cellIndex: 0 },
+      { notebook_path: '/etc/secret.ipynb', edit_mode: 'delete', cell_number: 0 },
       makeCtx(),
     )
 
@@ -335,7 +335,7 @@ describe('notebookEditTool — invalid notebook', () => {
     fs.writeFileSync(filePath, 'this is not json', 'utf-8')
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'delete', cellIndex: 0 },
+      { notebook_path: filePath, edit_mode: 'delete', cell_number: 0 },
       makeCtx(),
     )
 
@@ -348,7 +348,7 @@ describe('notebookEditTool — invalid notebook', () => {
     fs.writeFileSync(filePath, JSON.stringify({ cells: [] }), 'utf-8')
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'delete', cellIndex: 0 },
+      { notebook_path: filePath, edit_mode: 'delete', cell_number: 0 },
       makeCtx(),
     )
 
@@ -361,7 +361,7 @@ describe('notebookEditTool — invalid notebook', () => {
     fs.writeFileSync(filePath, JSON.stringify({ nbformat: 4 }), 'utf-8')
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'delete', cellIndex: 0 },
+      { notebook_path: filePath, edit_mode: 'delete', cell_number: 0 },
       makeCtx(),
     )
 
@@ -385,7 +385,7 @@ describe('notebookEditTool — metadata', () => {
   })
 
   it('has the expected name', () => {
-    expect(notebookEditTool.name).toBe('notebook_edit')
+    expect(notebookEditTool.name).toBe('NotebookEdit')
   })
 })
 
@@ -399,7 +399,7 @@ describe('notebookEditTool — trailing newline', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     await notebookEditTool.execute!(
-      { path: filePath, action: 'insert', cellIndex: 0, source: 'hello\n' },
+      { notebook_path: filePath, edit_mode: 'insert', cell_number: 0, new_source: 'hello\n' },
       makeCtx(),
     )
 
@@ -413,7 +413,7 @@ describe('notebookEditTool — trailing newline', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     await notebookEditTool.execute!(
-      { path: filePath, action: 'insert', cellIndex: 0, source: 'line1\nline2\n' },
+      { notebook_path: filePath, edit_mode: 'insert', cell_number: 0, new_source: 'line1\nline2\n' },
       makeCtx(),
     )
 
@@ -426,7 +426,7 @@ describe('notebookEditTool — trailing newline', () => {
     const filePath = writeNotebook('test.ipynb', nb)
 
     await notebookEditTool.execute!(
-      { path: filePath, action: 'insert', cellIndex: 0, source: 'no trailing' },
+      { notebook_path: filePath, edit_mode: 'insert', cell_number: 0, new_source: 'no trailing' },
       makeCtx(),
     )
 
@@ -460,7 +460,7 @@ describe('notebookEditTool — replace preserves cell metadata', () => {
     fs.writeFileSync(filePath, JSON.stringify(richNotebook, null, 1), 'utf-8')
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'replace', cellIndex: 0, source: 'new_code()' },
+      { notebook_path: filePath, edit_mode: 'replace', cell_number: 0, new_source: 'new_code()' },
       makeCtx(),
     )
 
@@ -496,7 +496,7 @@ describe('notebookEditTool — replace preserves cell metadata', () => {
     fs.writeFileSync(filePath, JSON.stringify(richNotebook, null, 1), 'utf-8')
 
     const result = await notebookEditTool.execute!(
-      { path: filePath, action: 'replace', cellIndex: 0, cellType: 'markdown', source: '# Title' },
+      { notebook_path: filePath, edit_mode: 'replace', cell_number: 0, cell_type: 'markdown', new_source: '# Title' },
       makeCtx(),
     )
 
@@ -517,7 +517,7 @@ describe('notebookEditTool — replace preserves cell metadata', () => {
 describe('notebookEditTool — file not found', () => {
   it('returns error when file does not exist', async () => {
     const result = await notebookEditTool.execute!(
-      { path: 'nonexistent.ipynb', action: 'delete', cellIndex: 0 },
+      { notebook_path: 'nonexistent.ipynb', edit_mode: 'delete', cell_number: 0 },
       makeCtx(),
     )
 
@@ -540,6 +540,6 @@ describe('notebookEditTool — not in builtinTools', () => {
   it('is still available as a named export', async () => {
     const { notebookEditTool: exported } = await import('../packages/tools/src/index.ts')
     expect(exported).toBeDefined()
-    expect(exported.name).toBe('notebook_edit')
+    expect(exported.name).toBe('NotebookEdit')
   })
 })

@@ -58,19 +58,19 @@ describe('webSearchTool input schema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('accepts query with maxResults', () => {
-    const result = inputSchema.safeParse({ query: 'test', maxResults: 10 })
+  it('accepts query with max_results', () => {
+    const result = inputSchema.safeParse({ query: 'test', max_results: 10 })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.maxResults).toBe(10)
+      expect(result.data.max_results).toBe(10)
     }
   })
 
-  it('defaults maxResults to 5', () => {
+  it('defaults max_results to 5', () => {
     const result = inputSchema.safeParse({ query: 'test' })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.maxResults).toBe(5)
+      expect(result.data.max_results).toBe(5)
     }
   })
 
@@ -84,18 +84,18 @@ describe('webSearchTool input schema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects maxResults below 1', () => {
-    const result = inputSchema.safeParse({ query: 'test', maxResults: 0 })
+  it('rejects max_results below 1', () => {
+    const result = inputSchema.safeParse({ query: 'test', max_results: 0 })
     expect(result.success).toBe(false)
   })
 
-  it('rejects maxResults above 20', () => {
-    const result = inputSchema.safeParse({ query: 'test', maxResults: 21 })
+  it('rejects max_results above 20', () => {
+    const result = inputSchema.safeParse({ query: 'test', max_results: 21 })
     expect(result.success).toBe(false)
   })
 
-  it('rejects non-integer maxResults', () => {
-    const result = inputSchema.safeParse({ query: 'test', maxResults: 2.5 })
+  it('rejects non-integer max_results', () => {
+    const result = inputSchema.safeParse({ query: 'test', max_results: 2.5 })
     expect(result.success).toBe(false)
   })
 })
@@ -123,7 +123,7 @@ describe('parseSearchResults', () => {
     expect(results[1].snippet).toBe('Another snippet here.')
   })
 
-  it('respects maxResults limit', () => {
+  it('respects max_results limit', () => {
     const html = buildMockHtml([
       { title: 'Result 1', url: 'https://r1.com', snippet: 'Snippet 1' },
       { title: 'Result 2', url: 'https://r2.com', snippet: 'Snippet 2' },
@@ -240,7 +240,7 @@ describe('webSearchTool metadata', () => {
   })
 
   it('has the correct name', () => {
-    expect(webSearchTool.name).toBe('web_search')
+    expect(webSearchTool.name).toBe('WebSearch')
   })
 
   it('has a description', () => {
@@ -268,7 +268,7 @@ describe('webSearchTool execute', () => {
 
     try {
       const result = await webSearchTool.execute(
-        { query: 'typescript', maxResults: 5 },
+        { query: 'typescript', max_results: 5 },
         makeCtx(),
       )
 
@@ -299,7 +299,7 @@ describe('webSearchTool execute', () => {
 
     try {
       const result = await webSearchTool.execute(
-        { query: 'xyzNonexistentQuery123456', maxResults: 5 },
+        { query: 'xyzNonexistentQuery123456', max_results: 5 },
         makeCtx(),
       )
 
@@ -325,7 +325,7 @@ describe('webSearchTool execute', () => {
 
     try {
       const result = await webSearchTool.execute(
-        { query: 'test', maxResults: 5 },
+        { query: 'test', max_results: 5 },
         makeCtx(),
       )
 
@@ -350,7 +350,7 @@ describe('webSearchTool execute', () => {
 
     try {
       const result = await webSearchTool.execute(
-        { query: 'test', maxResults: 5 },
+        { query: 'test', max_results: 5 },
         makeCtx(),
       )
 
@@ -372,7 +372,7 @@ describe('webSearchTool execute', () => {
 
     try {
       const result = await webSearchTool.execute(
-        { query: 'test', maxResults: 5 },
+        { query: 'test', max_results: 5 },
         makeCtx(),
       )
 
@@ -389,7 +389,7 @@ describe('webSearchTool execute', () => {
 
     try {
       const result = await webSearchTool.execute(
-        { query: 'test', maxResults: 5 },
+        { query: 'test', max_results: 5 },
         makeCtx(),
       )
 
@@ -405,7 +405,7 @@ describe('webSearchTool execute', () => {
     controller.abort()
 
     const result = await webSearchTool.execute(
-      { query: 'test', maxResults: 5 },
+      { query: 'test', max_results: 5 },
       makeCtx({ abortSignal: controller.signal }),
     )
 
@@ -423,7 +423,7 @@ describe('webSearchTool execute', () => {
 
     try {
       await webSearchTool.execute(
-        { query: 'hello world & "quotes" <tags>', maxResults: 5 },
+        { query: 'hello world & "quotes" <tags>', max_results: 5 },
         makeCtx(),
       )
 
@@ -434,7 +434,7 @@ describe('webSearchTool execute', () => {
     }
   })
 
-  it('limits results to maxResults even if more are available', async () => {
+  it('limits results to max_results even if more are available', async () => {
     const mockHtml = buildMockHtml([
       { title: 'R1', url: 'https://r1.com', snippet: 's1' },
       { title: 'R2', url: 'https://r2.com', snippet: 's2' },
@@ -450,7 +450,7 @@ describe('webSearchTool execute', () => {
 
     try {
       const result = await webSearchTool.execute(
-        { query: 'test', maxResults: 1 },
+        { query: 'test', max_results: 1 },
         makeCtx(),
       )
 

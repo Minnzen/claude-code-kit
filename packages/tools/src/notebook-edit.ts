@@ -4,12 +4,12 @@ import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 export const inputSchema = z.object({
-  path: z.string().describe("Absolute or relative path to a .ipynb notebook file"),
-  action: z.enum(["insert", "replace", "delete"]).describe("Action to perform on the cell"),
-  cellIndex: z.number().int().min(0).describe("0-based cell index (insert position or target cell)"),
-  cellType: z.enum(["code", "markdown"]).optional()
+  notebook_path: z.string().describe("Absolute or relative path to a .ipynb notebook file"),
+  edit_mode: z.enum(["insert", "replace", "delete"]).describe("Action to perform on the cell"),
+  cell_number: z.number().int().min(0).describe("0-based cell index (insert position or target cell)"),
+  cell_type: z.enum(["code", "markdown"]).optional()
     .describe("Cell type for insert/replace (default: code for insert, preserves original for replace)"),
-  source: z.string().optional().describe("Cell content for insert/replace"),
+  new_source: z.string().optional().describe("Cell content for insert/replace"),
 });
 
 type Input = z.infer<typeof inputSchema>;
@@ -58,11 +58,11 @@ function makeCell(cellType: string, source: string): NotebookCell {
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
 
-  const filePath = path.resolve(ctx.workingDirectory, input.path);
+  const filePath = path.resolve(ctx.workingDirectory, input.notebook_path);
 
   // Path traversal check
   if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
-    return { content: `Error: path traversal denied — ${input.path} escapes working directory`, isError: true };
+    return { content: `Error: path traversal denied — ${input.notebook_path} escapes working directory`, isError: true };
   }
 
   // Extension check
@@ -88,7 +88,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
       return { content: "Error: invalid notebook format — missing cells array", isError: true };
     }
 
-    const { action, cellIndex, cellType, source } = input;
+    const { edit_mode: action, cell_number: cellIndex, cell_type: cellType, new_source: source } = input;
 
     switch (action) {
       case "insert": {
@@ -157,7 +157,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 }
 
 export const notebookEditTool: ToolDefinition<Input> = {
-  name: "notebook_edit",
+  name: "NotebookEdit",
   description: "Edit a Jupyter Notebook (.ipynb) by inserting, replacing, or deleting cells",
   inputSchema,
   execute,

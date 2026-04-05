@@ -82,7 +82,7 @@ export function createSubagentTool(config: SubagentConfig): ToolDefinition<Input
   }
 
   return {
-    name: "subagent",
+    name: "Agent",
     description:
       "Spawn an independent subagent to complete a delegated task. " +
       "The subagent runs with its own context and returns the result. " +
