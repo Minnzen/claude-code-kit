@@ -76,6 +76,29 @@ describe('readTool', () => {
     const result = await readTool.execute!({ file_path: path.join(tmpDir, 'nope.txt') }, makeCtx())
     expect(result.isError).toBe(true)
   })
+
+  it('defaults to 2000 line limit when limit is not specified', async () => {
+    // Create a file with 2500 lines
+    const lines = Array.from({ length: 2500 }, (_, i) => `line-${i + 1}`)
+    writeFile('big.txt', lines.join('\n'))
+    const result = await readTool.execute!({ file_path: path.join(tmpDir, 'big.txt') }, makeCtx())
+
+    expect(result.isError).toBeFalsy()
+    // Should contain line 2000 but not line 2001
+    expect(result.content).toContain('line-2000')
+    expect(result.content).not.toContain('line-2001')
+  })
+
+  it('returns an error when pages is used on a non-PDF file', async () => {
+    writeFile('notes.txt', 'some text')
+    const result = await readTool.execute!(
+      { file_path: path.join(tmpDir, 'notes.txt'), pages: '1-3' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/only supported for PDF/)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -145,6 +168,32 @@ describe('editTool', () => {
     expect(result.isError).toBe(true)
     expect(result.content).toMatch(/\d+ times/)
   })
+
+  it('replace_all=true replaces all occurrences', async () => {
+    const filePath = writeFile('multi-replace.txt', 'foo bar foo baz foo')
+    const result = await editTool.execute!(
+      { file_path: filePath, old_string: 'foo', new_string: 'qux', replace_all: true },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    const updated = fs.readFileSync(filePath, 'utf-8')
+    expect(updated).toBe('qux bar qux baz qux')
+    expect(updated).not.toContain('foo')
+  })
+
+  it('replace_all=false (default) still requires uniqueness', async () => {
+    const filePath = writeFile('dupe2.txt', 'dup dup dup')
+    const result = await editTool.execute!(
+      { file_path: filePath, old_string: 'dup', new_string: 'x' },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/\d+ times/)
+    // File should be unchanged
+    expect(fs.readFileSync(filePath, 'utf-8')).toBe('dup dup dup')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -209,7 +258,7 @@ describe('grepTool', () => {
 describe('bashTool', () => {
   it('executes a simple command and returns output', async () => {
     const result = await bashTool.execute!(
-      { command: 'echo hello-from-bash' },
+      { command: 'echo hello-from-bash', description: 'Print test string' },
       makeCtx(),
     )
 
@@ -220,7 +269,7 @@ describe('bashTool', () => {
   it('uses the working directory from context', async () => {
     writeFile('marker.txt', 'exists')
     const result = await bashTool.execute!(
-      { command: 'ls marker.txt' },
+      { command: 'ls marker.txt', description: 'List marker file' },
       makeCtx(),
     )
 
@@ -230,7 +279,7 @@ describe('bashTool', () => {
 
   it('returns an error result when the command fails', async () => {
     const result = await bashTool.execute!(
-      { command: 'exit 1' },
+      { command: 'exit 1', description: 'Exit with error' },
       makeCtx(),
     )
 
@@ -255,10 +304,43 @@ describe('bashTool', () => {
       return origRemove(...args)
     }
 
-    await bashTool.execute!({ command: 'echo done' }, ctx)
+    await bashTool.execute!({ command: 'echo done', description: 'Print done' }, ctx)
 
     expect(addCount).toBe(1)
     expect(removeCount).toBe(1)
+  })
+
+  it('requires description in the schema', () => {
+    const schema = bashTool.inputSchema as z.ZodType
+    // description is required — parsing without it should fail
+    const result = schema.safeParse({ command: 'echo test' })
+    expect(result.success).toBe(false)
+  })
+
+  it('run_in_background returns PID and output file path', async () => {
+    const result = await bashTool.execute!(
+      { command: 'echo bg-test', description: 'Background test', run_in_background: true },
+      makeCtx(),
+    )
+
+    expect(result.isError).toBeFalsy()
+    expect(result.content).toContain('PID:')
+    expect(result.content).toContain('Output file:')
+    expect(result.metadata).toHaveProperty('pid')
+    expect(result.metadata).toHaveProperty('outputFile')
+    expect(typeof result.metadata!.pid).toBe('number')
+  })
+
+  it('timeout defaults to 120000 and is capped at 600000', () => {
+    const schema = bashTool.inputSchema as z.ZodObject<Record<string, z.ZodTypeAny>>
+    // Default timeout is 120000
+    const parsed = schema.parse({ command: 'echo x', description: 'test' })
+    expect(parsed.timeout).toBe(120_000)
+
+    // Providing a higher value still parses but execute caps at 600000
+    const parsed2 = schema.parse({ command: 'echo x', description: 'test', timeout: 999_999 })
+    expect(parsed2.timeout).toBe(999_999)
+    // The capping happens inside execute, not in the schema
   })
 })
 

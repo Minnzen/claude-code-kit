@@ -5,8 +5,9 @@ import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/a
 
 export const inputSchema = z.object({
   file_path: z.string().describe("Absolute or relative file path to edit"),
-  old_string: z.string().describe("Exact string to find and replace (must be unique in file)"),
+  old_string: z.string().describe("Exact string to find and replace (must be unique in file unless replace_all is true)"),
   new_string: z.string().describe("Replacement string"),
+  replace_all: z.boolean().optional().default(false).describe("Replace all occurrences of old_string (default false)"),
 });
 
 type Input = z.infer<typeof inputSchema>;
@@ -28,17 +29,23 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     if (occurrences === 0) {
       return { content: "Error: old_string not found in file", isError: true };
     }
-    if (occurrences > 1) {
+    if (!input.replace_all && occurrences > 1) {
       return {
-        content: `Error: old_string found ${occurrences} times — must be unique. Provide more context to disambiguate.`,
+        content: `Error: old_string found ${occurrences} times — must be unique. Provide more context to disambiguate, or use replace_all.`,
         isError: true,
       };
     }
 
-    const updated = content.replace(input.old_string, input.new_string);
+    let updated: string;
+    if (input.replace_all) {
+      updated = content.split(input.old_string).join(input.new_string);
+    } else {
+      updated = content.replace(input.old_string, input.new_string);
+    }
     await fs.writeFile(filePath, updated, "utf-8");
 
-    return { content: `Successfully edited ${filePath}` };
+    const replacedCount = input.replace_all ? occurrences : 1;
+    return { content: `Successfully edited ${filePath} (${replacedCount} replacement${replacedCount > 1 ? "s" : ""})` };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { content: `Error editing file: ${msg}`, isError: true };
