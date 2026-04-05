@@ -5,6 +5,8 @@ export { writeTool } from "./write.js";
 export { globTool } from "./glob.js";
 export { grepTool } from "./grep.js";
 export { webFetchTool } from "./web-fetch.js";
+export { createTaskTool } from "./task.js";
+export type { Task, TaskToolInstance } from "./task.js";
 
 import type { ToolDefinition } from "@claude-code-kit/agent";
 import { bashTool } from "./bash.js";
