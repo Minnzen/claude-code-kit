@@ -3,6 +3,15 @@ import * as path from "node:path";
 import { z } from "zod";
 import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".bmp": "image/bmp",
+};
+
 const MAX_RESULT_SIZE = 100_000;
 
 const DEFAULT_LIMIT = 2000;
@@ -37,6 +46,14 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     return readPdf(filePath, input.pages);
   }
 
+  // Image file support (binary images -> base64, SVG -> text)
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeType = IMAGE_EXTENSIONS[ext];
+  if (mimeType) {
+    return readImage(filePath, mimeType);
+  }
+  // SVG is XML text — read as normal text (offset/limit still apply)
+
   try {
     const raw = await fs.readFile(filePath, "utf-8");
     let lines = raw.split("\n");
@@ -57,6 +74,21 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { content: `Error reading file: ${msg}`, isError: true };
+  }
+}
+
+async function readImage(filePath: string, mimeType: string): Promise<ToolResult> {
+  try {
+    const buffer = await fs.readFile(filePath);
+    const base64Data = buffer.toString("base64");
+    const filename = path.basename(filePath);
+    return {
+      content: `[Image: ${filename}]\nData type: ${mimeType}\nBase64: ${base64Data}`,
+      metadata: { mimeType, sizeBytes: buffer.length },
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { content: `Error reading image: ${msg}`, isError: true };
   }
 }
 
@@ -121,6 +153,8 @@ Results are returned in cat -n format, with line numbers starting at 1, followed
 # Supported file types
 
 - Plain text, source code, JSON, YAML, Markdown, etc.: read directly.
+- Image files (.png, .jpg, .jpeg, .gif, .webp, .bmp): returned as base64-encoded data with MIME type. The \`offset\` and \`limit\` parameters are ignored for binary image files.
+- SVG files (.svg): read as text (XML source), so \`offset\` and \`limit\` work normally.
 - PDF files (.pdf): use the \`pages\` parameter to read specific page ranges (e.g. "1-5", "3", "10-20"). For large PDFs (more than 10 pages), you MUST provide the \`pages\` parameter — reading a large PDF without it will return the entire extracted text, which may be truncated. Requires the optional \`pdf-parse\` dependency to be installed.
 - The \`pages\` parameter is only valid for PDF files and will return an error for other file types.
 

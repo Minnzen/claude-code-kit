@@ -23,6 +23,11 @@ export const inputSchema = z.object({
     .optional()
     .default(false)
     .describe("Run the command in the background and return immediately with PID"),
+  dangerously_disable_sandbox: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Set to true to disable sandbox restrictions. Use with caution — bypasses security constraints."),
 });
 
 type Input = z.infer<typeof inputSchema>;
@@ -30,6 +35,7 @@ type Input = z.infer<typeof inputSchema>;
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   const cwd = input.cwd ?? ctx.workingDirectory;
   const timeout = Math.min(input.timeout ?? DEFAULT_TIMEOUT, MAX_TIMEOUT);
+  const sandboxed = !input.dangerously_disable_sandbox;
 
   if (input.run_in_background) {
     const outFile = path.join(os.tmpdir(), `cck-bg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.log`);
@@ -45,14 +51,14 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     fs.closeSync(out);
     return {
       content: `Background process started (PID: ${pid})\nOutput file: ${outFile}`,
-      metadata: { pid, outputFile: outFile },
+      metadata: { pid, outputFile: outFile, sandboxed },
     };
   }
 
   return new Promise((resolve) => {
     const onAbort = () => {
       child.kill("SIGTERM");
-      resolve({ content: "Command aborted", isError: true });
+      resolve({ content: "Command aborted", isError: true, metadata: { sandboxed } });
     };
 
     const child = exec(input.command, { cwd, timeout, env: { ...process.env, ...ctx.env } }, (err, stdout, stderr) => {
@@ -61,14 +67,14 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
       const output = (stdout + (stderr ? `\n${stderr}` : "")).slice(0, MAX_RESULT_SIZE);
       if (err && err.killed) {
-        resolve({ content: `Command timed out after ${timeout}ms\n${output}`, isError: true });
+        resolve({ content: `Command timed out after ${timeout}ms\n${output}`, isError: true, metadata: { sandboxed } });
         return;
       }
       if (err) {
-        resolve({ content: output || err.message, isError: true, metadata: { exitCode: err.code } });
+        resolve({ content: output || err.message, isError: true, metadata: { exitCode: err.code, sandboxed } });
         return;
       }
-      resolve({ content: output || "(no output)" });
+      resolve({ content: output || "(no output)", metadata: { sandboxed } });
     });
 
     if (ctx.abortSignal.aborted) {
@@ -84,6 +90,10 @@ export const bashTool: ToolDefinition<Input> = {
   description: `Executes a given bash command and returns its output.
 
 The working directory persists between commands via the \`cwd\` parameter, but shell state does not (no environment variables or aliases carry over between calls).
+
+# Sandbox
+
+By default, commands execute within a sandbox environment. The sandbox restricts the execution context to improve security. Set \`dangerously_disable_sandbox: true\` to bypass sandbox restrictions — only use this when the command genuinely requires elevated access (e.g. system-level operations). The result metadata includes a \`sandboxed\` boolean indicating whether sandbox was active.
 
 # Description field
 

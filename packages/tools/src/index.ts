@@ -11,6 +11,10 @@ export type { Task, TaskToolInstance, TaskToolSet } from "./task.js";
 export { createSubagentTool } from "./subagent.js";
 export type { SubagentConfig, SubagentFactoryInput } from "./subagent.js";
 export { notebookEditTool } from "./notebook-edit.js";
+export { enterWorktreeTool } from "./enter-worktree.js";
+export { exitWorktreeTool } from "./exit-worktree.js";
+export { createLspTool } from "./lsp.js";
+export type { LspConnection } from "./lsp.js";
 
 import type { ToolDefinition } from "@claude-code-kit/agent";
 import { bashTool } from "./bash.js";
@@ -21,6 +25,8 @@ import { globTool } from "./glob.js";
 import { grepTool } from "./grep.js";
 import { webFetchTool } from "./web-fetch.js";
 import { webSearchTool } from "./web-search.js";
+import { enterWorktreeTool } from "./enter-worktree.js";
+import { exitWorktreeTool } from "./exit-worktree.js";
 
 /** All built-in tools as an array, ready to pass to AgentConfig.tools */
 export const builtinTools: ToolDefinition[] = [
@@ -32,4 +38,6 @@ export const builtinTools: ToolDefinition[] = [
   grepTool,
   webFetchTool,
   webSearchTool,
+  enterWorktreeTool,
+  exitWorktreeTool,
 ];
