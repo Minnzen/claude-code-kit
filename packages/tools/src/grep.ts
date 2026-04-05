@@ -75,7 +75,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 }
 
 export const grepTool: ToolDefinition<Input> = {
-  name: "grep",
+  name: "Grep",
   description: "Search file contents using regex, returning matching lines with file:line format",
   inputSchema,
   execute,

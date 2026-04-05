@@ -7,7 +7,7 @@ A mini coding assistant built with claude-code-kit -- a tiny Claude Code in ~120
 - Reads, searches, and edits files using real tools from `@claude-code-kit/tools`
 - Auto-detects API keys from environment variables (Anthropic, OpenAI, DeepSeek, SiliconFlow, Groq, Ollama)
 - Falls back to a realistic mock demo when no API key is found
-- Read-only tools (glob, grep, read) auto-approve; destructive tools (bash, edit, write) prompt for permission
+- Read-only tools (Glob, Grep, Read) auto-approve; destructive tools (Bash, Edit, Write) prompt for permission
 
 ## Run
 
@@ -45,12 +45,12 @@ The CLI checks providers in order and uses the first one with a valid env var. N
 
 | Tool  | Permission   | Description          |
 | ----- | ------------ | -------------------- |
-| glob  | Auto-approve | Find files by pattern |
-| grep  | Auto-approve | Search file contents  |
-| read  | Auto-approve | Read file contents    |
-| bash  | Ask user     | Run shell commands    |
-| edit  | Ask user     | Edit existing files   |
-| write | Ask user     | Write new files       |
+| Glob  | Auto-approve | Find files by pattern |
+| Grep  | Auto-approve | Search file contents  |
+| Read  | Auto-approve | Read file contents    |
+| Bash  | Ask user     | Run shell commands    |
+| Edit  | Ask user     | Edit existing files   |
+| Write | Ask user     | Write new files       |
 
 ## How it works
 

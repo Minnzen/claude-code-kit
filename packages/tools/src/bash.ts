@@ -47,7 +47,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 }
 
 export const bashTool: ToolDefinition<Input> = {
-  name: "bash",
+  name: "Bash",
   description: "Execute a shell command and return its stdout/stderr output",
   inputSchema,
   execute,
