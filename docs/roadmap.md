@@ -12,7 +12,7 @@
 | `@claude-code-kit/tools` | 0.2.0 | Published |
 
 ### Stats
-- 327 tests passing across 16 test files
+- 890 tests passing across 40 test files
 - 0 security vulnerabilities (pnpm audit clean)
 - 3 examples (hello-world, agent-cli, alt-screen-dashboard)
 

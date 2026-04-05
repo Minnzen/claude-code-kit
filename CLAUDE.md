@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-claude-code-kit is a modular terminal UI toolkit + agent framework. 5 packages, 327 tests, 3 examples. Inspired by Claude Code's architecture but all UI components are clean rewrites.
+claude-code-kit is a modular terminal UI toolkit + agent framework. 5 packages, 890 tests, 3 examples. Inspired by Claude Code's architecture but all UI components are clean rewrites.
 
 ## Repository Structure
 
@@ -78,7 +78,7 @@ docs/
 pnpm build          # Build all packages
 pnpm typecheck      # Type check all packages
 pnpm lint           # Lint all packages (Biome)
-pnpm test           # Run tests (vitest, 327 tests)
+pnpm test           # Run tests (vitest, 890 tests)
 pnpm release:check  # Full pre-release validation
 ```
 
@@ -103,7 +103,7 @@ ui              — depends on ink-renderer, shared; optionally agent (for bridg
 ## Current Status
 
 - 5 packages, all build + typecheck clean
-- 327 tests passing
+- 890 tests passing
 - All 5 packages published on npm v0.2.0
 - Linear project: https://linear.app/minnzen/project/claude-code-kit-964b8fbcd194
 
