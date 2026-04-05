@@ -176,7 +176,7 @@ describe('globTool', () => {
 // ---------------------------------------------------------------------------
 
 describe('grepTool', () => {
-  it('finds lines matching the regex pattern', async () => {
+  it('finds files matching the regex pattern (default files_with_matches mode)', async () => {
     writeFile('src/index.ts', 'export function hello() {}\nexport const world = 1')
     writeFile('src/other.ts', 'import { hello } from "./index"')
 
@@ -186,7 +186,8 @@ describe('grepTool', () => {
     )
 
     expect(result.isError).toBeFalsy()
-    expect(result.content).toContain('hello')
+    expect(result.content).toContain('index.ts')
+    expect(result.content).toContain('other.ts')
   })
 
   it('returns no-match message when pattern is absent', async () => {
