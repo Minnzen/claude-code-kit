@@ -1,21 +1,16 @@
-import { useContext, useEffect, useRef } from 'react'
-import {
-  CLEAR_TAB_STATUS,
-  supportsTabStatus,
-  tabStatus,
-  wrapForMultiplexer,
-} from '../termio/osc'
-import type { Color } from '../termio/types'
-import { TerminalWriteContext } from '../useTerminalNotification'
+import { useContext, useEffect, useRef } from "react";
+import { CLEAR_TAB_STATUS, supportsTabStatus, tabStatus, wrapForMultiplexer } from "../termio/osc";
+import type { Color } from "../termio/types";
+import { TerminalWriteContext } from "../useTerminalNotification";
 
-export type TabStatusKind = 'idle' | 'busy' | 'waiting'
+export type TabStatusKind = "idle" | "busy" | "waiting";
 
 const rgb = (r: number, g: number, b: number): Color => ({
-  type: 'rgb',
+  type: "rgb",
   r,
   g,
   b,
-})
+});
 
 // Per the OSC 21337 usage guide's suggested mapping.
 const TAB_STATUS_PRESETS: Record<
@@ -24,20 +19,20 @@ const TAB_STATUS_PRESETS: Record<
 > = {
   idle: {
     indicator: rgb(0, 215, 95),
-    status: 'Idle',
+    status: "Idle",
     statusColor: rgb(136, 136, 136),
   },
   busy: {
     indicator: rgb(255, 149, 0),
-    status: 'Working…',
+    status: "Working…",
     statusColor: rgb(255, 149, 0),
   },
   waiting: {
     indicator: rgb(95, 135, 255),
-    status: 'Waiting',
+    status: "Waiting",
     statusColor: rgb(95, 135, 255),
   },
-}
+};
 
 /**
  * Declaratively set the tab-status indicator (OSC 21337).
@@ -51,23 +46,22 @@ const TAB_STATUS_PRESETS: Record<
  * a stale dot. Process-exit cleanup is handled by ink.tsx's unmount path.
  */
 export function useTabStatus(kind: TabStatusKind | null): void {
-  const writeRaw = useContext(TerminalWriteContext)
-  const prevKindRef = useRef<TabStatusKind | null>(null)
+  const writeRaw = useContext(TerminalWriteContext);
+  const prevKindRef = useRef<TabStatusKind | null>(null);
 
   useEffect(() => {
     // When kind transitions from non-null to null (e.g. user toggles off
     // showStatusInTerminalTab mid-session), clear the stale dot.
     if (kind === null) {
       if (prevKindRef.current !== null && writeRaw && supportsTabStatus()) {
-        writeRaw(wrapForMultiplexer(CLEAR_TAB_STATUS))
+        writeRaw(wrapForMultiplexer(CLEAR_TAB_STATUS));
       }
-      prevKindRef.current = null
-      return
+      prevKindRef.current = null;
+      return;
     }
 
-    prevKindRef.current = kind
-    if (!writeRaw || !supportsTabStatus()) return
-    writeRaw(wrapForMultiplexer(tabStatus(TAB_STATUS_PRESETS[kind])))
-  }, [kind, writeRaw])
+    prevKindRef.current = kind;
+    if (!writeRaw || !supportsTabStatus()) return;
+    writeRaw(wrapForMultiplexer(tabStatus(TAB_STATUS_PRESETS[kind])));
+  }, [kind, writeRaw]);
 }
-

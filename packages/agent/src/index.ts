@@ -1,94 +1,89 @@
 // Core
 export { Agent } from "./agent.js";
-
-// MCP
-export { MCPClient } from "./mcp-client.js";
-
-// Tool system
-export { ToolRegistry } from "./tool-registry.js";
-
-// Context management
-export { ContextManager, estimateTokens, estimateTotalTokens } from "./context-manager.js";
-
-// Compaction strategies
-export { NoopCompaction } from "./compaction/interface.js";
-export { SlidingWindowCompaction } from "./compaction/sliding-window.js";
-export { SummarizationCompaction } from "./compaction/summarization.js";
-export type { CompactionResult } from "./compaction/summarization.js";
-
-// Session
-export { InMemorySession } from "./session/memory.js";
-export { FileSession, FileSessionStore } from "./session/file.js";
-
-// Permission
-export { createPermissionHandler, allowAll, allowReadOnly, denyAll } from "./permission.js";
-
-// Providers
-export { AnthropicProvider } from "./providers/anthropic.js";
-export { OpenAIProvider } from "./providers/openai.js";
-export { MockProvider } from "./providers/mock.js";
-
 // Auth
-export { createAuth, AuthRegistry, FileAuthStorage, MemoryAuthStorage } from "./auth/index.js";
+export { AuthRegistry, createAuth, FileAuthStorage, MemoryAuthStorage } from "./auth/index.js";
+export type { OAuthFlowResult } from "./auth/oauth.js";
+export { openBrowser, startOAuthFlow } from "./auth/oauth.js";
 export { PRESET_PROVIDERS } from "./auth/presets.js";
+export type { ProviderInfo } from "./auth/registry.js";
 export type {
-  ProviderRegistration,
-  AuthType,
+  AuthFlowProviderOption,
+  AuthFlowState,
+  AuthFlowStep,
   AuthMethod,
   AuthMethodApiKey,
   AuthMethodBaseUrlKey,
   AuthMethodNone,
-  AuthStorage,
+  AuthMethodOAuth,
   AuthOptions,
-  AuthFlowStep,
-  AuthFlowState,
-  AuthFlowProviderOption,
+  AuthStorage,
+  AuthType,
+  ProviderRegistration,
 } from "./auth/types.js";
-export type { ProviderInfo } from "./auth/registry.js";
+// Compaction strategies
+export { NoopCompaction } from "./compaction/interface.js";
+export { SlidingWindowCompaction } from "./compaction/sliding-window.js";
+export type { CompactionResult } from "./compaction/summarization.js";
+export { SummarizationCompaction } from "./compaction/summarization.js";
+// Context management
+export { ContextManager, estimateTokens, estimateTotalTokens } from "./context-manager.js";
+// MCP
+export { MCPClient } from "./mcp-client.js";
+// Permission
+export { allowAll, allowReadOnly, createPermissionHandler, denyAll } from "./permission.js";
+// Providers
+export { AnthropicProvider } from "./providers/anthropic.js";
+export { MockProvider } from "./providers/mock.js";
+export { OpenAIProvider } from "./providers/openai.js";
+export { FileSession, FileSessionStore } from "./session/file.js";
+// Session
+export { InMemorySession } from "./session/memory.js";
+// Tool system
+export { ToolRegistry } from "./tool-registry.js";
 
 // Types (re-export everything)
 export type {
-  // Messages
-  Message,
-  SystemMessage,
-  UserMessage,
-  AssistantMessage,
-  ToolResultMessage,
-  ContentPart,
-  TextContentPart,
-  ImageContentPart,
-  ToolCall,
-  // Tools
-  ToolDefinition,
-  ToolContext,
-  ToolProgress,
-  ToolResult,
-  // Provider
-  LLMProvider,
-  StreamChunk,
-  ProviderTool,
-  ChatOptions,
   // Agent
   AgentConfig,
   AgentEvent,
-  TextEvent,
-  ToolCallEvent,
-  ToolResultEvent,
-  ThinkingEvent,
-  UsageEvent,
-  ErrorEvent,
-  DoneEvent,
-  // Permission
-  PermissionHandler,
-  PermissionConfig,
-  PermissionRequest,
-  PermissionResult,
-  // Session & Compaction
-  Session,
+  AssistantMessage,
+  ChatOptions,
   CompactionStrategy,
+  ContentPart,
+  DoneEvent,
+  ErrorEvent,
+  ImageContentPart,
+  // Provider
+  LLMProvider,
   // MCP
   MCPConfig,
+  MCPHttpServerConfig,
   MCPServerConfig,
   MCPStdioServerConfig,
-  MCPHttpServerConfig,
+  // Messages
+  Message,
+  PermissionConfig,
+  // Permission
+  PermissionHandler,
+  PermissionRequest,
+  PermissionResult,
+  ProviderTool,
+  // Session & Compaction
+  Session,
+  StreamChunk,
+  SystemMessage,
+  TextContentPart,
+  TextEvent,
+  ThinkingEvent,
+  ToolCall,
+  ToolCallEvent,
+  ToolContext,
+  // Tools
+  ToolDefinition,
+  ToolProgress,
+  ToolResult,
+  ToolResultEvent,
+  ToolResultMessage,
+  UsageEvent,
+  UserMessage,
 } from "./types.js";

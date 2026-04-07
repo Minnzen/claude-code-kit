@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { Text } from '@claude-code-kit/ink-renderer'
+import { Text } from "@claude-code-kit/ink-renderer";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type StreamingTextProps = {
-  text: string
-  speed?: number
-  interval?: number
-  onComplete?: () => void
-  color?: string
-}
+  text: string;
+  speed?: number;
+  interval?: number;
+  onComplete?: () => void;
+  color?: string;
+};
 
 export function StreamingText({
   text,
@@ -16,23 +17,23 @@ export function StreamingText({
   onComplete,
   color,
 }: StreamingTextProps): React.ReactNode {
-  const [revealed, setRevealed] = useState(0)
-  const onCompleteRef = useRef(onComplete)
-  onCompleteRef.current = onComplete
+  const [revealed, setRevealed] = useState(0);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    if (revealed >= text.length) return
+    if (revealed >= text.length) return;
     const id = setInterval(() => {
       setRevealed((prev) => {
-        const next = Math.min(prev + speed, text.length)
+        const next = Math.min(prev + speed, text.length);
         if (next >= text.length) {
-          onCompleteRef.current?.()
+          onCompleteRef.current?.();
         }
-        return next
-      })
-    }, interval)
-    return () => clearInterval(id)
-  }, [text.length, speed, interval, revealed >= text.length])
+        return next;
+      });
+    }, interval);
+    return () => clearInterval(id);
+  }, [text.length, speed, interval, revealed]);
 
-  return <Text color={color}>{text.slice(0, revealed)}</Text>
+  return <Text color={color}>{text.slice(0, revealed)}</Text>;
 }

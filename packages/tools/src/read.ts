@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 const IMAGE_EXTENSIONS: Record<string, string> = {
   ".png": "image/png",
@@ -32,14 +32,20 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
   // Prevent path traversal outside the working directory
   if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
-    return { content: `Error: path traversal denied — ${input.file_path} escapes working directory`, isError: true };
+    return {
+      content: `Error: path traversal denied — ${input.file_path} escapes working directory`,
+      isError: true,
+    };
   }
 
   const isPdf = filePath.toLowerCase().endsWith(".pdf");
 
   // pages parameter is only valid for PDF files
   if (input.pages !== undefined && !isPdf) {
-    return { content: "Error: the 'pages' parameter is only supported for PDF files", isError: true };
+    return {
+      content: "Error: the 'pages' parameter is only supported for PDF files",
+      isError: true,
+    };
   }
 
   if (isPdf) {
@@ -66,7 +72,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     lines = lines.slice(0, limit);
 
     // Add line numbers
-    const startLine = (input.offset ?? 1);
+    const startLine = input.offset ?? 1;
     const numbered = lines.map((line, i) => `${startLine + i}\t${line}`);
     const content = numbered.join("\n").slice(0, MAX_RESULT_SIZE);
 

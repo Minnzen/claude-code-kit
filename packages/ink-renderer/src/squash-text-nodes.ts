@@ -1,15 +1,15 @@
-import type { DOMElement } from './dom'
-import type { TextStyles } from './styles'
+import type { DOMElement } from "./dom";
+import type { TextStyles } from "./styles";
 
 /**
  * A segment of text with its associated styles.
  * Used for structured rendering without ANSI string transforms.
  */
 export type StyledSegment = {
-  text: string
-  styles: TextStyles
-  hyperlink?: string
-}
+  text: string;
+  styles: TextStyles;
+  hyperlink?: string;
+};
 
 /**
  * Squash text nodes into styled segments, propagating styles down through the tree.
@@ -23,43 +23,30 @@ export function squashTextNodesToSegments(
 ): StyledSegment[] {
   const mergedStyles = node.textStyles
     ? { ...inheritedStyles, ...node.textStyles }
-    : inheritedStyles
+    : inheritedStyles;
 
   for (const childNode of node.childNodes) {
     if (childNode === undefined) {
-      continue
+      continue;
     }
 
-    if (childNode.nodeName === '#text') {
+    if (childNode.nodeName === "#text") {
       if (childNode.nodeValue.length > 0) {
         out.push({
           text: childNode.nodeValue,
           styles: mergedStyles,
           hyperlink: inheritedHyperlink,
-        })
+        });
       }
-    } else if (
-      childNode.nodeName === 'ink-text' ||
-      childNode.nodeName === 'ink-virtual-text'
-    ) {
-      squashTextNodesToSegments(
-        childNode,
-        mergedStyles,
-        inheritedHyperlink,
-        out,
-      )
-    } else if (childNode.nodeName === 'ink-link') {
-      const href = childNode.attributes['href'] as string | undefined
-      squashTextNodesToSegments(
-        childNode,
-        mergedStyles,
-        href || inheritedHyperlink,
-        out,
-      )
+    } else if (childNode.nodeName === "ink-text" || childNode.nodeName === "ink-virtual-text") {
+      squashTextNodesToSegments(childNode, mergedStyles, inheritedHyperlink, out);
+    } else if (childNode.nodeName === "ink-link") {
+      const href = childNode.attributes.href as string | undefined;
+      squashTextNodesToSegments(childNode, mergedStyles, href || inheritedHyperlink, out);
     }
   }
 
-  return out
+  return out;
 }
 
 /**
@@ -67,27 +54,23 @@ export function squashTextNodesToSegments(
  * Used for text measurement in layout calculations.
  */
 function squashTextNodes(node: DOMElement): string {
-  let text = ''
+  let text = "";
 
   for (const childNode of node.childNodes) {
     if (childNode === undefined) {
-      continue
+      continue;
     }
 
-    if (childNode.nodeName === '#text') {
-      text += childNode.nodeValue
-    } else if (
-      childNode.nodeName === 'ink-text' ||
-      childNode.nodeName === 'ink-virtual-text'
-    ) {
-      text += squashTextNodes(childNode)
-    } else if (childNode.nodeName === 'ink-link') {
-      text += squashTextNodes(childNode)
+    if (childNode.nodeName === "#text") {
+      text += childNode.nodeValue;
+    } else if (childNode.nodeName === "ink-text" || childNode.nodeName === "ink-virtual-text") {
+      text += squashTextNodes(childNode);
+    } else if (childNode.nodeName === "ink-link") {
+      text += squashTextNodes(childNode);
     }
   }
 
-  return text
+  return text;
 }
 
-export default squashTextNodes
-
+export default squashTextNodes;

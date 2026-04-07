@@ -1,17 +1,17 @@
-import { useContext } from 'react'
-import { TerminalSizeContext } from '@claude-code-kit/ink-renderer'
+import { TerminalSizeContext } from "@claude-code-kit/ink-renderer";
+import { useContext } from "react";
 
 export type TerminalSize = {
-  columns: number
-  rows: number
-}
+  columns: number;
+  rows: number;
+};
 
 export function useTerminalSize(): TerminalSize {
-  const size = useContext(TerminalSizeContext)
+  const size = useContext(TerminalSizeContext);
 
   if (!size) {
-    throw new Error('useTerminalSize must be used within an Ink App component')
+    throw new Error("useTerminalSize must be used within an Ink App component");
   }
 
-  return size
+  return size;
 }

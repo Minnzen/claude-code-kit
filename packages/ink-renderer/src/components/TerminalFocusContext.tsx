@@ -1,6 +1,13 @@
+import type React from "react";
+import { createContext, useSyncExternalStore } from "react";
 import { c as _c } from "react/compiler-runtime";
-import React, { createContext, useMemo, useSyncExternalStore } from 'react';
-import { getTerminalFocused, getTerminalFocusState, subscribeTerminalFocus, type TerminalFocusState } from '../terminal-focus-state';
+import {
+  getTerminalFocused,
+  getTerminalFocusState,
+  subscribeTerminalFocus,
+  type TerminalFocusState,
+} from "../terminal-focus-state";
+
 export type { TerminalFocusState };
 export type TerminalFocusContextProps = {
   readonly isTerminalFocused: boolean;
@@ -8,27 +15,25 @@ export type TerminalFocusContextProps = {
 };
 const TerminalFocusContext = createContext<TerminalFocusContextProps>({
   isTerminalFocused: true,
-  terminalFocusState: 'unknown'
+  terminalFocusState: "unknown",
 });
 
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
-TerminalFocusContext.displayName = 'TerminalFocusContext';
+TerminalFocusContext.displayName = "TerminalFocusContext";
 
 // Separate component so App.tsx doesn't re-render on focus changes.
 // Children are a stable prop reference, so they don't re-render either —
 // only components that consume the context will re-render.
 export function TerminalFocusProvider(t0: { children: React.ReactNode }) {
   const $ = _c(6);
-  const {
-    children
-  } = t0;
+  const { children } = t0;
   const isTerminalFocused = useSyncExternalStore(subscribeTerminalFocus, getTerminalFocused);
   const terminalFocusState = useSyncExternalStore(subscribeTerminalFocus, getTerminalFocusState);
   let t1;
   if ($[0] !== isTerminalFocused || $[1] !== terminalFocusState) {
     t1 = {
       isTerminalFocused,
-      terminalFocusState
+      terminalFocusState,
     };
     $[0] = isTerminalFocused;
     $[1] = terminalFocusState;

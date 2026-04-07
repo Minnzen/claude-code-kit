@@ -1,7 +1,7 @@
-import { useContext, useEffect } from 'react'
-import stripAnsi from 'strip-ansi'
-import { OSC, osc } from '../termio/osc'
-import { TerminalWriteContext } from '../useTerminalNotification'
+import { useContext, useEffect } from "react";
+import stripAnsi from "strip-ansi";
+import { OSC, osc } from "../termio/osc";
+import { TerminalWriteContext } from "../useTerminalNotification";
 
 /**
  * Declaratively set the terminal tab/window title.
@@ -15,18 +15,17 @@ import { TerminalWriteContext } from '../useTerminalNotification'
  * Elsewhere, writes OSC 0 (set title+icon) via Ink's stdout.
  */
 export function useTerminalTitle(title: string | null): void {
-  const writeRaw = useContext(TerminalWriteContext)
+  const writeRaw = useContext(TerminalWriteContext);
 
   useEffect(() => {
-    if (title === null || !writeRaw) return
+    if (title === null || !writeRaw) return;
 
-    const clean = stripAnsi(title)
+    const clean = stripAnsi(title);
 
-    if (process.platform === 'win32') {
-      process.title = clean
+    if (process.platform === "win32") {
+      process.title = clean;
     } else {
-      writeRaw(osc(OSC.SET_TITLE_AND_ICON, clean))
+      writeRaw(osc(OSC.SET_TITLE_AND_ICON, clean));
     }
-  }, [title, writeRaw])
+  }, [title, writeRaw]);
 }
-

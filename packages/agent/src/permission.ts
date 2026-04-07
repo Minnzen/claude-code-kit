@@ -1,4 +1,9 @@
-import type { PermissionConfig, PermissionHandler, PermissionRequest, PermissionResult } from "./types.js";
+import type {
+  PermissionConfig,
+  PermissionHandler,
+  PermissionRequest,
+  PermissionResult,
+} from "./types.js";
 
 /**
  * Create a tiered permission handler from a configuration object.

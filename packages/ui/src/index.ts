@@ -1,72 +1,116 @@
-export * from '@claude-code-kit/ink-renderer'
-
-export { DiffView, parseUnifiedDiff, type DiffLine, type DiffViewProps } from './DiffView'
-export { Divider } from './Divider'
-export { ProgressBar } from './ProgressBar'
-export { StatusIcon } from './StatusIcon'
-export { StatusLine, useStatusLine, type StatusLineSegment, type StatusLineProps } from './StatusLine'
-
+export * from "@claude-code-kit/ink-renderer";
+// Auth flow UI (requires @claude-code-kit/agent as optional peer dependency)
+export { AuthFlowUI, type AuthFlowUIProps } from "./AuthFlow";
 export {
-  type Command, type CommandBase, type LocalCommand, type JSXCommand,
-  type CommandResult, type CommandOnDone,
-  CommandRegistry, createCommandRegistry,
-  defineCommand, defineLocalCommand, defineJSXCommand,
-  exitCommand, helpCommand, clearCommand,
-} from './commands'
-
-export { useKeybinding, useKeybindings } from './keybindings/useKeybinding'
-export { KeybindingSetup } from './keybindings/KeybindingProviderSetup'
-export { DEFAULT_BINDINGS } from './keybindings/defaultBindings'
-
-export { useDoublePress } from './hooks/useDoublePress'
-export { useTerminalSize, type TerminalSize } from './hooks/useTerminalSize'
-
-export { PromptInput } from './PromptInput'
-export { Spinner } from './Spinner'
-export { Markdown, StreamingMarkdown } from './Markdown'
-export { MarkdownTable } from './MarkdownTable'
-
-export { Select, MultiSelect, type SelectOption, type SelectProps, type MultiSelectProps } from './Select'
-
-export { PermissionRequest, BashPermissionContent, FileEditPermissionContent, type PermissionAction, type PermissionRequestProps } from './PermissionRequest'
-
-export { MessageList, type Message, type MessageContent, type MessageListProps } from './MessageList'
-export { StreamingText, type StreamingTextProps } from './StreamingText'
-export { REPL, type REPLProps } from './REPL'
-
+  AgentContext,
+  type AgentContextValue,
+  AgentProvider,
+  type AgentProviderProps,
+  useAgentContext,
+} from "./agent/AgentProvider";
+export { AgentREPL, type AgentREPLProps } from "./agent/AgentREPL";
+// Agent bridge (requires @claude-code-kit/agent as optional peer dependency)
 export {
-  ThemeProvider,
+  type PermissionUIRequest,
+  type UseAgentOptions,
+  type UseAgentResult,
+  useAgent,
+} from "./agent/useAgent";
+export {
+  type Command,
+  type CommandBase,
+  type CommandOnDone,
+  CommandRegistry,
+  type CommandResult,
+  clearCommand,
+  createCommandRegistry,
+  defineCommand,
+  defineJSXCommand,
+  defineLocalCommand,
+  exitCommand,
+  helpCommand,
+  type JSXCommand,
+  type LocalCommand,
+} from "./commands";
+export { type DiffLine, DiffView, type DiffViewProps, parseUnifiedDiff } from "./DiffView";
+export { Divider } from "./Divider";
+export { Byline } from "./design-system/Byline";
+export { color } from "./design-system/color";
+export { Dialog } from "./design-system/Dialog";
+export { FuzzyPicker } from "./design-system/FuzzyPicker";
+export { KeyboardShortcutHint } from "./design-system/KeyboardShortcutHint";
+export { ListItem } from "./design-system/ListItem";
+export { LoadingState } from "./design-system/LoadingState";
+export { Pane } from "./design-system/Pane";
+export { Ratchet } from "./design-system/Ratchet";
+export { Tab, Tabs, useTabsWidth } from "./design-system/Tabs";
+export { default as ThemedBox, type Props as ThemedBoxProps } from "./design-system/ThemedBox";
+export {
+  default as ThemedText,
+  type Props as ThemedTextProps,
+  TextHoverColorContext,
+} from "./design-system/ThemedText";
+export {
   getTheme,
-  useTheme,
-  useThemeSetting,
-  usePreviewTheme,
   type Theme,
   type ThemeName,
+  ThemeProvider,
   type ThemeSetting,
-} from './design-system/ThemeProvider'
-export { default as ThemedBox, type Props as ThemedBoxProps } from './design-system/ThemedBox'
-export { default as ThemedText, TextHoverColorContext, type Props as ThemedTextProps } from './design-system/ThemedText'
-export { Dialog } from './design-system/Dialog'
-export { FuzzyPicker } from './design-system/FuzzyPicker'
-export { KeyboardShortcutHint } from './design-system/KeyboardShortcutHint'
-export { ListItem } from './design-system/ListItem'
-export { LoadingState } from './design-system/LoadingState'
-export { Pane } from './design-system/Pane'
-export { Ratchet } from './design-system/Ratchet'
-export { Tabs, Tab, useTabsWidth } from './design-system/Tabs'
-export { Byline } from './design-system/Byline'
-export { color } from './design-system/color'
-
-export { useVirtualScroll, VirtualList, type VirtualScrollOptions, type VirtualScrollResult, type VirtualListProps } from './useVirtualScroll'
-
-export { SearchOverlay, useSearch, type SearchMatch, type SearchOverlayProps, type UseSearchResult } from './SearchOverlay'
-
-export { WelcomeScreen, ClawdLogo, type WelcomeScreenProps } from './WelcomeScreen'
-
-// Agent bridge (requires @claude-code-kit/agent as optional peer dependency)
-export { useAgent, type UseAgentOptions, type UseAgentResult, type PermissionUIRequest } from './agent/useAgent'
-export { AgentProvider, AgentContext, useAgentContext, type AgentContextValue, type AgentProviderProps } from './agent/AgentProvider'
-export { AgentREPL, type AgentREPLProps } from './agent/AgentREPL'
-
-// Auth flow UI (requires @claude-code-kit/agent as optional peer dependency)
-export { AuthFlowUI, type AuthFlowUIProps } from './AuthFlow'
+  usePreviewTheme,
+  useTheme,
+  useThemeSetting,
+} from "./design-system/ThemeProvider";
+export { useDoublePress } from "./hooks/useDoublePress";
+export { type TerminalSize, useTerminalSize } from "./hooks/useTerminalSize";
+export { DEFAULT_BINDINGS } from "./keybindings/defaultBindings";
+export { KeybindingSetup } from "./keybindings/KeybindingProviderSetup";
+export { useKeybinding, useKeybindings } from "./keybindings/useKeybinding";
+export { Markdown, StreamingMarkdown } from "./Markdown";
+export { MarkdownTable } from "./MarkdownTable";
+export {
+  type Message,
+  type MessageContent,
+  MessageList,
+  type MessageListProps,
+} from "./MessageList";
+export {
+  BashPermissionContent,
+  FileEditPermissionContent,
+  type PermissionAction,
+  PermissionRequest,
+  type PermissionRequestProps,
+} from "./PermissionRequest";
+export { ProgressBar } from "./ProgressBar";
+export { PromptInput } from "./PromptInput";
+export { REPL, type REPLProps } from "./REPL";
+export {
+  type SearchMatch,
+  SearchOverlay,
+  type SearchOverlayProps,
+  type UseSearchResult,
+  useSearch,
+} from "./SearchOverlay";
+export {
+  MultiSelect,
+  type MultiSelectProps,
+  Select,
+  type SelectOption,
+  type SelectProps,
+} from "./Select";
+export { Spinner } from "./Spinner";
+export { StatusIcon } from "./StatusIcon";
+export {
+  StatusLine,
+  type StatusLineProps,
+  type StatusLineSegment,
+  useStatusLine,
+} from "./StatusLine";
+export { StreamingText, type StreamingTextProps } from "./StreamingText";
+export {
+  useVirtualScroll,
+  VirtualList,
+  type VirtualListProps,
+  type VirtualScrollOptions,
+  type VirtualScrollResult,
+} from "./useVirtualScroll";
+export { ClawdLogo, WelcomeScreen, type WelcomeScreenProps } from "./WelcomeScreen";

@@ -5,19 +5,19 @@
 
 /** Move forward by one vim "word" (skip non-spaces, then skip spaces). */
 export function wordFwd(s: string, p: number): number {
-  let i = p
-  while (i < s.length && s[i] !== ' ') i++
-  while (i < s.length && s[i] === ' ') i++
-  return i
+  let i = p;
+  while (i < s.length && s[i] !== " ") i++;
+  while (i < s.length && s[i] === " ") i++;
+  return i;
 }
 
 /** Move backward by one vim "word" (step back over spaces, then over word chars). */
 export function wordBwd(s: string, p: number): number {
-  let i = p
-  if (i > 0) i--
-  while (i > 0 && s[i] === ' ') i--
-  while (i > 0 && s[i - 1] !== ' ') i--
-  return i
+  let i = p;
+  if (i > 0) i--;
+  while (i > 0 && s[i] === " ") i--;
+  while (i > 0 && s[i - 1] !== " ") i--;
+  return i;
 }
 
 /**
@@ -25,9 +25,9 @@ export function wordBwd(s: string, p: number): number {
  * newline-separated string.  Lines are the result of `value.split('\n')`.
  */
 export function lineOffset(lines: string[], line: number): number {
-  let pos = 0
-  for (let i = 0; i < line; i++) pos += lines[i]!.length + 1
-  return pos
+  let pos = 0;
+  for (let i = 0; i < line; i++) pos += lines[i]!.length + 1;
+  return pos;
 }
 
 /**
@@ -35,17 +35,17 @@ export function lineOffset(lines: string[], line: number): number {
  * line index the cursor sits on.
  */
 export function cursorLineIndex(lines: string[], cursor: number): number {
-  let pos = 0
+  let pos = 0;
   for (let i = 0; i < lines.length; i++) {
-    if (cursor <= pos + lines[i]!.length) return i
-    pos += lines[i]!.length + 1
+    if (cursor <= pos + lines[i]!.length) return i;
+    pos += lines[i]!.length + 1;
   }
-  return lines.length - 1
+  return lines.length - 1;
 }
 
 /** Count the number of lines in a string (always >= 1). */
 export function lineCount(value: string): number {
-  return value.split('\n').length
+  return value.split("\n").length;
 }
 
 /**
@@ -56,6 +56,6 @@ export function filterCommands(
   commands: Array<{ name: string; description: string }>,
   value: string,
 ): Array<{ name: string; description: string }> {
-  if (!value.startsWith('/')) return []
-  return commands.filter((cmd) => `/${cmd.name}`.startsWith(value))
+  if (!value.startsWith("/")) return [];
+  return commands.filter((cmd) => `/${cmd.name}`.startsWith(value));
 }

@@ -1,5 +1,5 @@
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 const DEFAULT_TIMEOUT = 120_000;
 
@@ -63,11 +63,7 @@ export function createSubagentTool(config: SubagentConfig): ToolDefinition<Input
 
     // Race the subagent against timeout and abort signal
     try {
-      const result = await raceWithTimeoutAndAbort(
-        subagent.chat(prompt),
-        timeout,
-        ctx.abortSignal,
-      );
+      const result = await raceWithTimeoutAndAbort(subagent.chat(prompt), timeout, ctx.abortSignal);
       return { content: result || "(subagent returned empty response)" };
     } catch (err: unknown) {
       // Abort the child so the subagent stops any in-flight work

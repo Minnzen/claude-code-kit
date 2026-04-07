@@ -1,6 +1,6 @@
-import { loadKeybindingsSync } from './loadUserBindings'
-import { getBindingDisplayText } from './resolver'
-import type { KeybindingContextName } from './types'
+import { loadKeybindingsSync } from "./loadUserBindings";
+import { getBindingDisplayText } from "./resolver";
+import type { KeybindingContextName } from "./types";
 
 /**
  * Get the display text for a configured shortcut without React hooks.
@@ -20,7 +20,7 @@ export function getShortcutDisplay(
   context: KeybindingContextName,
   fallback: string,
 ): string {
-  const bindings = loadKeybindingsSync()
-  const resolved = getBindingDisplayText(action, context, bindings)
-  return resolved ?? fallback
+  const bindings = loadKeybindingsSync();
+  const resolved = getBindingDisplayText(action, context, bindings);
+  return resolved ?? fallback;
 }

@@ -125,7 +125,6 @@ export const PRESET_PROVIDERS: Record<string, ProviderRegistration> = {
         inputLabel: "Base URL + API Key",
       },
     ],
-    createProvider: ({ apiKey, baseURL }) =>
-      new OpenAIProvider({ apiKey: apiKey || "x", baseURL }),
+    createProvider: ({ apiKey, baseURL }) => new OpenAIProvider({ apiKey: apiKey || "x", baseURL }),
   },
 };

@@ -1,36 +1,37 @@
-import React, { createContext, useContext, useMemo } from 'react'
-import type { Agent } from '@claude-code-kit/agent'
-import { useAgent, type UseAgentResult, type UseAgentOptions } from './useAgent'
+import type { Agent } from "@claude-code-kit/agent";
+import type React from "react";
+import { createContext, useContext, useMemo } from "react";
+import { type UseAgentResult, useAgent } from "./useAgent";
 
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
 
 export type AgentContextValue = UseAgentResult & {
-  agent: Agent
-  model: string
-}
+  agent: Agent;
+  model: string;
+};
 
-export const AgentContext = createContext<AgentContextValue | null>(null)
+export const AgentContext = createContext<AgentContextValue | null>(null);
 
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
 
 export type AgentProviderProps = {
-  agent: Agent
-  model?: string
-  onError?: (error: Error) => void
-  children: React.ReactNode
-}
+  agent: Agent;
+  model?: string;
+  onError?: (error: Error) => void;
+  children: React.ReactNode;
+};
 
 export function AgentProvider({
   agent,
-  model = 'unknown',
+  model = "unknown",
   onError,
   children,
 }: AgentProviderProps): React.ReactNode {
-  const agentState = useAgent({ agent, onError })
+  const agentState = useAgent({ agent, onError });
 
   const value = useMemo<AgentContextValue>(
     () => ({
@@ -39,13 +40,9 @@ export function AgentProvider({
       model,
     }),
     [agentState, agent, model],
-  )
+  );
 
-  return (
-    <AgentContext.Provider value={value}>
-      {children}
-    </AgentContext.Provider>
-  )
+  return <AgentContext.Provider value={value}>{children}</AgentContext.Provider>;
 }
 
 // ---------------------------------------------------------------------------
@@ -53,12 +50,12 @@ export function AgentProvider({
 // ---------------------------------------------------------------------------
 
 export function useAgentContext(): AgentContextValue {
-  const ctx = useContext(AgentContext)
+  const ctx = useContext(AgentContext);
   if (!ctx) {
     throw new Error(
-      'useAgentContext must be used within an <AgentProvider>. ' +
-        'Wrap your component tree with <AgentProvider agent={agent}>.',
-    )
+      "useAgentContext must be used within an <AgentProvider>. " +
+        "Wrap your component tree with <AgentProvider agent={agent}>.",
+    );
   }
-  return ctx
+  return ctx;
 }

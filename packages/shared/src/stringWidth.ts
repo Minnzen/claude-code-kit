@@ -1,125 +1,125 @@
-import emojiRegex from 'emoji-regex'
-import { eastAsianWidth } from 'get-east-asian-width'
-import stripAnsi from 'strip-ansi'
-import { getGraphemeSegmenter } from './intl.js'
+import emojiRegex from "emoji-regex";
+import { eastAsianWidth } from "get-east-asian-width";
+import stripAnsi from "strip-ansi";
+import { getGraphemeSegmenter } from "./intl.js";
 
-const EMOJI_REGEX = emojiRegex()
+const EMOJI_REGEX = emojiRegex();
 
 function stringWidthJavaScript(str: string): number {
-  if (typeof str !== 'string' || str.length === 0) {
-    return 0
+  if (typeof str !== "string" || str.length === 0) {
+    return 0;
   }
 
-  let isPureAscii = true
+  let isPureAscii = true;
   for (let i = 0; i < str.length; i++) {
-    const code = str.charCodeAt(i)
+    const code = str.charCodeAt(i);
     if (code >= 127 || code === 0x1b) {
-      isPureAscii = false
-      break
+      isPureAscii = false;
+      break;
     }
   }
   if (isPureAscii) {
-    let width = 0
+    let width = 0;
     for (let i = 0; i < str.length; i++) {
-      const code = str.charCodeAt(i)
+      const code = str.charCodeAt(i);
       if (code > 0x1f) {
-        width++
+        width++;
       }
     }
-    return width
+    return width;
   }
 
-  if (str.includes('\x1b')) {
-    str = stripAnsi(str)
+  if (str.includes("\x1b")) {
+    str = stripAnsi(str);
     if (str.length === 0) {
-      return 0
+      return 0;
     }
   }
 
   if (!needsSegmentation(str)) {
-    let width = 0
+    let width = 0;
     for (const char of str) {
-      const codePoint = char.codePointAt(0)!
+      const codePoint = char.codePointAt(0)!;
       if (!isZeroWidth(codePoint)) {
-        width += eastAsianWidth(codePoint, { ambiguousAsWide: false })
+        width += eastAsianWidth(codePoint, { ambiguousAsWide: false });
       }
     }
-    return width
+    return width;
   }
 
-  let width = 0
+  let width = 0;
 
   for (const { segment: grapheme } of getGraphemeSegmenter().segment(str)) {
-    EMOJI_REGEX.lastIndex = 0
+    EMOJI_REGEX.lastIndex = 0;
     if (EMOJI_REGEX.test(grapheme)) {
-      width += getEmojiWidth(grapheme)
-      continue
+      width += getEmojiWidth(grapheme);
+      continue;
     }
 
     for (const char of grapheme) {
-      const codePoint = char.codePointAt(0)!
+      const codePoint = char.codePointAt(0)!;
       if (!isZeroWidth(codePoint)) {
-        width += eastAsianWidth(codePoint, { ambiguousAsWide: false })
-        break
+        width += eastAsianWidth(codePoint, { ambiguousAsWide: false });
+        break;
       }
     }
   }
 
-  return width
+  return width;
 }
 
 function needsSegmentation(str: string): boolean {
   for (const char of str) {
-    const cp = char.codePointAt(0)!
-    if (cp >= 0x1f300 && cp <= 0x1faff) return true
-    if (cp >= 0x2600 && cp <= 0x27bf) return true
-    if (cp >= 0x1f1e6 && cp <= 0x1f1ff) return true
-    if (cp >= 0xfe00 && cp <= 0xfe0f) return true
-    if (cp === 0x200d) return true
+    const cp = char.codePointAt(0)!;
+    if (cp >= 0x1f300 && cp <= 0x1faff) return true;
+    if (cp >= 0x2600 && cp <= 0x27bf) return true;
+    if (cp >= 0x1f1e6 && cp <= 0x1f1ff) return true;
+    if (cp >= 0xfe00 && cp <= 0xfe0f) return true;
+    if (cp === 0x200d) return true;
   }
-  return false
+  return false;
 }
 
 function getEmojiWidth(grapheme: string): number {
-  const first = grapheme.codePointAt(0)!
+  const first = grapheme.codePointAt(0)!;
   if (first >= 0x1f1e6 && first <= 0x1f1ff) {
-    let count = 0
-    for (const _ of grapheme) count++
-    return count === 1 ? 1 : 2
+    let count = 0;
+    for (const _ of grapheme) count++;
+    return count === 1 ? 1 : 2;
   }
 
   if (grapheme.length === 2) {
-    const second = grapheme.codePointAt(1)
+    const second = grapheme.codePointAt(1);
     if (
       second === 0xfe0f &&
       ((first >= 0x30 && first <= 0x39) || first === 0x23 || first === 0x2a)
     ) {
-      return 1
+      return 1;
     }
   }
 
-  return 2
+  return 2;
 }
 
 function isZeroWidth(codePoint: number): boolean {
-  if (codePoint >= 0x20 && codePoint < 0x7f) return false
-  if (codePoint >= 0xa0 && codePoint < 0x0300) return codePoint === 0x00ad
+  if (codePoint >= 0x20 && codePoint < 0x7f) return false;
+  if (codePoint >= 0xa0 && codePoint < 0x0300) return codePoint === 0x00ad;
 
-  if (codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f)) return true
+  if (codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f)) return true;
 
   if (
     (codePoint >= 0x200b && codePoint <= 0x200d) ||
     codePoint === 0xfeff ||
     (codePoint >= 0x2060 && codePoint <= 0x2064)
   ) {
-    return true
+    return true;
   }
 
   if (
     (codePoint >= 0xfe00 && codePoint <= 0xfe0f) ||
     (codePoint >= 0xe0100 && codePoint <= 0xe01ef)
   ) {
-    return true
+    return true;
   }
 
   if (
@@ -129,15 +129,15 @@ function isZeroWidth(codePoint: number): boolean {
     (codePoint >= 0x20d0 && codePoint <= 0x20ff) ||
     (codePoint >= 0xfe20 && codePoint <= 0xfe2f)
   ) {
-    return true
+    return true;
   }
 
   if (codePoint >= 0x0900 && codePoint <= 0x0d4f) {
-    const offset = codePoint & 0x7f
-    if (offset <= 0x03) return true
-    if (offset >= 0x3a && offset <= 0x4f) return true
-    if (offset >= 0x51 && offset <= 0x57) return true
-    if (offset >= 0x62 && offset <= 0x63) return true
+    const offset = codePoint & 0x7f;
+    if (offset <= 0x03) return true;
+    if (offset >= 0x3a && offset <= 0x4f) return true;
+    if (offset >= 0x51 && offset <= 0x57) return true;
+    if (offset >= 0x62 && offset <= 0x63) return true;
   }
 
   if (
@@ -148,7 +148,7 @@ function isZeroWidth(codePoint: number): boolean {
     (codePoint >= 0x0eb4 && codePoint <= 0x0ebc) ||
     (codePoint >= 0x0ec8 && codePoint <= 0x0ecd)
   ) {
-    return true
+    return true;
   }
 
   if (
@@ -157,13 +157,13 @@ function isZeroWidth(codePoint: number): boolean {
     codePoint === 0x070f ||
     codePoint === 0x08e2
   ) {
-    return true
+    return true;
   }
 
-  if (codePoint >= 0xd800 && codePoint <= 0xdfff) return true
-  if (codePoint >= 0xe0000 && codePoint <= 0xe007f) return true
+  if (codePoint >= 0xd800 && codePoint <= 0xdfff) return true;
+  if (codePoint >= 0xe0000 && codePoint <= 0xe007f) return true;
 
-  return false
+  return false;
 }
 
-export const stringWidth: (str: string) => number = stringWidthJavaScript
+export const stringWidth: (str: string) => number = stringWidthJavaScript;

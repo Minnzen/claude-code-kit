@@ -1,5 +1,5 @@
-import type { CompactionStrategy, Message } from "../types.js";
 import { estimateTokens } from "../context-manager.js";
+import type { CompactionStrategy, Message } from "../types.js";
 
 /**
  * Sliding window compaction: keeps the system message (if any) plus

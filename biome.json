@@ -1,6 +1,6 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "organizeImports": { "enabled": true },
+  "$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
@@ -10,7 +10,14 @@
         "noUnusedVariables": "warn"
       },
       "style": {
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "useImportType": "warn"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "warn"
+      },
+      "a11y": {
+        "noStaticElementInteractions": "off"
       }
     }
   },
@@ -21,6 +28,28 @@
     "lineWidth": 100
   },
   "files": {
-    "ignore": ["node_modules", "dist", ".turbo", "*.d.ts"]
-  }
+    "includes": ["**", "!**/node_modules", "!**/dist", "!**/.turbo", "!**/*.d.ts"]
+  },
+  "overrides": [
+    {
+      "includes": ["packages/ink-renderer/src/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noImplicitAnyLet": "off",
+            "noControlCharactersInRegex": "off",
+            "noAssignInExpressions": "off",
+            "noConfusingLabels": "off",
+            "noConsole": "off",
+            "noEmptyBlockStatements": "off"
+          },
+          "correctness": {
+            "useExhaustiveDependencies": "off",
+            "noUnusedVariables": "off",
+            "noConstantCondition": "off"
+          }
+        }
+      }
+    }
+  ]
 }

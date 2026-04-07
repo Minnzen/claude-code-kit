@@ -1,18 +1,19 @@
+import React, { type Ref, useEffect, useRef, useState } from "react";
 import { c as _c } from "react/compiler-runtime";
-import React, { type Ref, useCallback, useEffect, useRef, useState } from 'react';
-import type { Except } from 'type-fest';
-import type { DOMElement } from '../dom';
-import type { ClickEvent } from '../events/click-event';
-import type { FocusEvent } from '../events/focus-event';
-import type { KeyboardEvent } from '../events/keyboard-event';
-import type { Styles } from '../styles';
-import Box from './Box';
+import type { Except } from "type-fest";
+import type { DOMElement } from "../dom";
+import type { ClickEvent } from "../events/click-event";
+import type { FocusEvent } from "../events/focus-event";
+import type { KeyboardEvent } from "../events/keyboard-event";
+import type { Styles } from "../styles";
+import Box from "./Box";
+
 type ButtonState = {
   focused: boolean;
   hovered: boolean;
   active: boolean;
 };
-export type Props = Except<Styles, 'textWrap'> & {
+export type Props = Except<Styles, "textWrap"> & {
   ref?: Ref<DOMElement>;
   /**
    * Called when the button is activated via Enter, Space, or click.
@@ -45,14 +46,7 @@ function Button(t0: Props) {
   let style;
   let t1;
   if ($[0] !== t0) {
-    ({
-      onAction,
-      tabIndex: t1,
-      autoFocus,
-      children,
-      ref,
-      ...style
-    } = t0);
+    ({ onAction, tabIndex: t1, autoFocus, children, ref, ...style } = t0);
     $[0] = t0;
     $[1] = autoFocus;
     $[2] = children;
@@ -156,7 +150,7 @@ function Button(t0: Props) {
     const state = {
       focused: isFocused,
       hovered: isHovered,
-      active: isActive
+      active: isActive,
     };
     t10 = typeof children === "function" ? children(state) : children;
     $[17] = children;
@@ -169,8 +163,31 @@ function Button(t0: Props) {
   }
   const content = t10;
   let t11;
-  if ($[22] !== autoFocus || $[23] !== content || $[24] !== handleClick || $[25] !== handleKeyDown || $[26] !== ref || $[27] !== style || $[28] !== tabIndex) {
-    t11 = <Box ref={ref} tabIndex={tabIndex} autoFocus={autoFocus} onKeyDown={handleKeyDown} onClick={handleClick} onFocus={handleFocus} onBlur={handleBlur} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} {...style}>{content}</Box>;
+  if (
+    $[22] !== autoFocus ||
+    $[23] !== content ||
+    $[24] !== handleClick ||
+    $[25] !== handleKeyDown ||
+    $[26] !== ref ||
+    $[27] !== style ||
+    $[28] !== tabIndex
+  ) {
+    t11 = (
+      <Box
+        ref={ref}
+        tabIndex={tabIndex}
+        autoFocus={autoFocus}
+        onKeyDown={handleKeyDown}
+        onClick={handleClick}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        {...style}
+      >
+        {content}
+      </Box>
+    );
     $[22] = autoFocus;
     $[23] = content;
     $[24] = handleClick;

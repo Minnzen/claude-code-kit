@@ -1,19 +1,20 @@
-import React, { useCallback } from 'react'
-import { Box, Text, useInput } from '@claude-code-kit/ink-renderer'
-import type { Theme } from './ThemeProvider'
-import { Byline } from './Byline'
-import { KeyboardShortcutHint } from './KeyboardShortcutHint'
-import { Pane } from './Pane'
+import { Box, Text, useInput } from "@claude-code-kit/ink-renderer";
+import type React from "react";
+import { useCallback } from "react";
+import { Byline } from "./Byline";
+import { KeyboardShortcutHint } from "./KeyboardShortcutHint";
+import { Pane } from "./Pane";
+import type { Theme } from "./ThemeProvider";
 
 type DialogProps = {
-  title: React.ReactNode
-  subtitle?: React.ReactNode
-  children: React.ReactNode
-  onCancel: () => void
-  color?: keyof Theme
-  hideInputGuide?: boolean
-  hideBorder?: boolean
-}
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
+  children: React.ReactNode;
+  onCancel: () => void;
+  color?: keyof Theme;
+  hideInputGuide?: boolean;
+  hideBorder?: boolean;
+};
 
 /**
  * A dialog box with title, content, and keyboard hints.
@@ -24,7 +25,7 @@ export function Dialog({
   subtitle,
   children,
   onCancel,
-  color = 'permission',
+  color = "permission",
   hideInputGuide,
   hideBorder,
 }: DialogProps): React.ReactNode {
@@ -32,19 +33,19 @@ export function Dialog({
     useCallback(
       (_input: string, key: { escape?: boolean }) => {
         if (key.escape) {
-          onCancel()
+          onCancel();
         }
       },
       [onCancel],
     ),
-  )
+  );
 
   const defaultInputGuide = (
     <Byline>
       <KeyboardShortcutHint shortcut="Enter" action="confirm" />
       <KeyboardShortcutHint shortcut="Esc" action="cancel" />
     </Byline>
-  )
+  );
 
   const content = (
     <>
@@ -65,11 +66,11 @@ export function Dialog({
         </Box>
       )}
     </>
-  )
+  );
 
   if (hideBorder) {
-    return content
+    return content;
   }
 
-  return <Pane color={color}>{content}</Pane>
+  return <Pane color={color}>{content}</Pane>;
 }

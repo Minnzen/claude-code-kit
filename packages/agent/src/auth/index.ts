@@ -1,24 +1,32 @@
-export { AuthRegistry } from "./registry.js";
-export type { ProviderInfo } from "./registry.js";
-export { FileAuthStorage, MemoryAuthStorage } from "./storage.js";
+export type { OAuthFlowResult, OAuthTokenResponse } from "./oauth.js";
+export {
+  generateCodeChallenge,
+  generateCodeVerifier,
+  openBrowser,
+  startOAuthFlow,
+} from "./oauth.js";
 export { PRESET_PROVIDERS } from "./presets.js";
+export type { ProviderInfo } from "./registry.js";
+export { AuthRegistry } from "./registry.js";
+export { FileAuthStorage, MemoryAuthStorage } from "./storage.js";
 export type {
-  AuthType,
+  AuthFlowProviderOption,
+  AuthFlowState,
+  AuthFlowStep,
   AuthMethod,
   AuthMethodApiKey,
   AuthMethodBaseUrlKey,
   AuthMethodNone,
-  ProviderRegistration,
-  AuthStorage,
+  AuthMethodOAuth,
   AuthOptions,
-  AuthFlowStep,
-  AuthFlowState,
-  AuthFlowProviderOption,
+  AuthStorage,
+  AuthType,
+  ProviderRegistration,
 } from "./types.js";
 
-import type { AuthOptions } from "./types.js";
-import { AuthRegistry } from "./registry.js";
 import { PRESET_PROVIDERS } from "./presets.js";
+import { AuthRegistry } from "./registry.js";
+import type { AuthOptions } from "./types.js";
 
 /**
  * Create an AuthRegistry with all preset providers pre-registered.

@@ -1,26 +1,26 @@
-import React from 'react'
-import { Box, Text } from '@claude-code-kit/ink-renderer'
-import { Spinner } from '../Spinner'
+import { Box, Text } from "@claude-code-kit/ink-renderer";
+import type React from "react";
+import { Spinner } from "../Spinner";
 
 type LoadingStateProps = {
   /** The loading message to display next to the spinner. */
-  message: string
+  message: string;
 
   /**
    * Display the message in bold.
    * @default false
    */
-  bold?: boolean
+  bold?: boolean;
 
   /**
    * Display the message in dimmed color.
    * @default false
    */
-  dimColor?: boolean
+  dimColor?: boolean;
 
   /** Optional subtitle displayed below the main message. */
-  subtitle?: string
-}
+  subtitle?: string;
+};
 
 /**
  * A spinner with loading message for async operations.
@@ -42,11 +42,11 @@ export function LoadingState({
       <Box flexDirection="row">
         <Spinner />
         <Text bold={bold} dimColor={dimColor}>
-          {' '}
+          {" "}
           {message}
         </Text>
       </Box>
       {subtitle && <Text dimColor>{subtitle}</Text>}
     </Box>
-  )
+  );
 }

@@ -1,5 +1,5 @@
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 const MAX_RESULT_SIZE = 50_000;
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
@@ -12,11 +12,19 @@ function isPrivateUrl(urlStr: string): boolean {
   const url = new URL(urlStr);
   const hostname = url.hostname;
   const blocked = [
-    /^127\./, /^10\./, /^172\.(1[6-9]|2\d|3[01])\./, /^192\.168\./,
-    /^169\.254\./, /^0\./, /^localhost$/i, /^::1$/, /^\[::1\]$/,
-    /^metadata\.google/, /^169\.254\.169\.254$/,
+    /^127\./,
+    /^10\./,
+    /^172\.(1[6-9]|2\d|3[01])\./,
+    /^192\.168\./,
+    /^169\.254\./,
+    /^0\./,
+    /^localhost$/i,
+    /^::1$/,
+    /^\[::1\]$/,
+    /^metadata\.google/,
+    /^169\.254\.169\.254$/,
   ];
-  return blocked.some(re => re.test(hostname));
+  return blocked.some((re) => re.test(hostname));
 }
 
 // ---------------------------------------------------------------------------
@@ -24,10 +32,20 @@ function isPrivateUrl(urlStr: string): boolean {
 // ---------------------------------------------------------------------------
 
 const NAMED_ENTITIES: Record<string, string> = {
-  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
-  nbsp: "\u00A0", mdash: "\u2014", ndash: "\u2013",
-  laquo: "\u00AB", raquo: "\u00BB", copy: "\u00A9",
-  reg: "\u00AE", trade: "\u2122", hellip: "\u2026",
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: "\u00A0",
+  mdash: "\u2014",
+  ndash: "\u2013",
+  laquo: "\u00AB",
+  raquo: "\u00BB",
+  copy: "\u00A9",
+  reg: "\u00AE",
+  trade: "\u2122",
+  hellip: "\u2026",
 };
 
 function decodeHtmlEntities(text: string): string {
@@ -56,28 +74,54 @@ export function htmlToMarkdown(html: string): string {
   }
 
   // <pre> blocks (code blocks) — must come before inline <code> handling
-  md = md.replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (_, inner) => `\n\n\`\`\`\n${decodeHtmlEntities(inner.replace(/<[^>]*>/g, "").trim())}\n\`\`\`\n\n`);
-  md = md.replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, (_, inner) => `\n\n\`\`\`\n${decodeHtmlEntities(inner.replace(/<[^>]*>/g, "").trim())}\n\`\`\`\n\n`);
+  md = md.replace(
+    /<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi,
+    (_, inner) =>
+      `\n\n\`\`\`\n${decodeHtmlEntities(inner.replace(/<[^>]*>/g, "").trim())}\n\`\`\`\n\n`,
+  );
+  md = md.replace(
+    /<pre[^>]*>([\s\S]*?)<\/pre>/gi,
+    (_, inner) =>
+      `\n\n\`\`\`\n${decodeHtmlEntities(inner.replace(/<[^>]*>/g, "").trim())}\n\`\`\`\n\n`,
+  );
 
   // Inline code
-  md = md.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_, inner) => `\`${inner.replace(/<[^>]*>/g, "").trim()}\``);
+  md = md.replace(
+    /<code[^>]*>([\s\S]*?)<\/code>/gi,
+    (_, inner) => `\`${inner.replace(/<[^>]*>/g, "").trim()}\``,
+  );
 
   // Bold — word boundary (\b) prevents matching <body>, <blockquote>, etc.
-  md = md.replace(/<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, (_, inner) => `**${inner.trim()}**`);
+  md = md.replace(
+    /<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi,
+    (_, inner) => `**${inner.trim()}**`,
+  );
 
   // Italic — word boundary prevents matching <img>, <input>, etc.
   md = md.replace(/<(?:em|i)\b[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, (_, inner) => `*${inner.trim()}*`);
 
   // Links
-  md = md.replace(/<a[^>]+href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, text) => `[${text.replace(/<[^>]*>/g, "").trim()}](${href})`);
+  md = md.replace(
+    /<a[^>]+href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi,
+    (_, href, text) => `[${text.replace(/<[^>]*>/g, "").trim()}](${href})`,
+  );
 
   // Images
-  md = md.replace(/<img[^>]+alt="([^"]*)"[^>]*src="([^"]*)"[^>]*\/?>/gi, (_, alt, src) => `![${alt}](${src})`);
-  md = md.replace(/<img[^>]+src="([^"]*)"[^>]*alt="([^"]*)"[^>]*\/?>/gi, (_, src, alt) => `![${alt}](${src})`);
+  md = md.replace(
+    /<img[^>]+alt="([^"]*)"[^>]*src="([^"]*)"[^>]*\/?>/gi,
+    (_, alt, src) => `![${alt}](${src})`,
+  );
+  md = md.replace(
+    /<img[^>]+src="([^"]*)"[^>]*alt="([^"]*)"[^>]*\/?>/gi,
+    (_, src, alt) => `![${alt}](${src})`,
+  );
   md = md.replace(/<img[^>]+src="([^"]*)"[^>]*\/?>/gi, (_, src) => `![](${src})`);
 
   // List items
-  md = md.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_, inner) => `- ${inner.replace(/<[^>]*>/g, "").trim()}\n`);
+  md = md.replace(
+    /<li[^>]*>([\s\S]*?)<\/li>/gi,
+    (_, inner) => `- ${inner.replace(/<[^>]*>/g, "").trim()}\n`,
+  );
 
   // <br> / <br/>
   md = md.replace(/<br\s*\/?>/gi, "\n");
@@ -180,7 +224,10 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   // Block requests to private/internal network addresses (SSRF prevention)
   try {
     if (isPrivateUrl(url)) {
-      return { content: `Error: request to private/internal address denied — ${url}`, isError: true };
+      return {
+        content: `Error: request to private/internal address denied — ${url}`,
+        isError: true,
+      };
     }
   } catch {
     return { content: `Error: invalid URL — ${url}`, isError: true };

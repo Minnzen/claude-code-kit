@@ -354,9 +354,7 @@ export class Agent {
       try {
         await client.disconnect();
       } catch (error) {
-        errors.push(
-          error instanceof Error ? error : new Error(String(error)),
-        );
+        errors.push(error instanceof Error ? error : new Error(String(error)));
       }
     }
     this.mcpClients = [];

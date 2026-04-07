@@ -1,9 +1,10 @@
+import React from "react";
 import { c as _c } from "react/compiler-runtime";
-import React from 'react';
-import Link from './components/Link';
-import Text from './components/Text';
-import type { Color } from './styles';
-import { type NamedColor, Parser, type Color as TermioColor, type TextStyle } from './termio';
+import Link from "./components/Link";
+import Text from "./components/Text";
+import type { Color } from "./styles";
+import { type NamedColor, Parser, type Color as TermioColor, type TextStyle } from "./termio";
+
 type Props = {
   children: string;
   /** When true, force all text to be rendered with dim styling */
@@ -31,10 +32,7 @@ type SpanProps = {
  */
 export const Ansi = React.memo(function Ansi(t0: Props) {
   const $ = _c(12);
-  const {
-    children,
-    dimColor
-  } = t0;
+  const { children, dimColor } = t0;
   if (typeof children !== "string") {
     let t1;
     if ($[0] !== children || $[1] !== dimColor) {
@@ -73,9 +71,44 @@ export const Ansi = React.memo(function Ansi(t0: Props) {
           }
           const hasTextProps = hasAnyTextProps(span.props);
           if (hyperlink) {
-            return hasTextProps ? <Link key={i} url={hyperlink}><StyledText color={span.props.color} backgroundColor={span.props.backgroundColor} dim={span.props.dim} bold={span.props.bold} italic={span.props.italic} underline={span.props.underline} strikethrough={span.props.strikethrough} inverse={span.props.inverse}>{span.text}</StyledText></Link> : <Link key={i} url={hyperlink}>{span.text}</Link>;
+            return hasTextProps ? (
+              <Link key={i} url={hyperlink}>
+                <StyledText
+                  color={span.props.color}
+                  backgroundColor={span.props.backgroundColor}
+                  dim={span.props.dim}
+                  bold={span.props.bold}
+                  italic={span.props.italic}
+                  underline={span.props.underline}
+                  strikethrough={span.props.strikethrough}
+                  inverse={span.props.inverse}
+                >
+                  {span.text}
+                </StyledText>
+              </Link>
+            ) : (
+              <Link key={i} url={hyperlink}>
+                {span.text}
+              </Link>
+            );
           }
-          return hasTextProps ? <StyledText key={i} color={span.props.color} backgroundColor={span.props.backgroundColor} dim={span.props.dim} bold={span.props.bold} italic={span.props.italic} underline={span.props.underline} strikethrough={span.props.strikethrough} inverse={span.props.inverse}>{span.text}</StyledText> : span.text;
+          return hasTextProps ? (
+            <StyledText
+              key={i}
+              color={span.props.color}
+              backgroundColor={span.props.backgroundColor}
+              dim={span.props.dim}
+              bold={span.props.bold}
+              italic={span.props.italic}
+              underline={span.props.underline}
+              strikethrough={span.props.strikethrough}
+              inverse={span.props.inverse}
+            >
+              {span.text}
+            </StyledText>
+          ) : (
+            span.text
+          );
         };
         $[7] = dimColor;
         $[8] = t3;
@@ -121,16 +154,16 @@ function parseToSpans(input: string): Span[] {
   const spans: Span[] = [];
   let currentHyperlink: string | undefined;
   for (const action of actions) {
-    if (action.type === 'link') {
-      if (action.action.type === 'start') {
+    if (action.type === "link") {
+      if (action.action.type === "start") {
         currentHyperlink = action.action.url;
       } else {
         currentHyperlink = undefined;
       }
       continue;
     }
-    if (action.type === 'text') {
-      const text = action.graphemes.map(g => g.value).join('');
+    if (action.type === "text") {
+      const text = action.graphemes.map((g) => g.value).join("");
       if (!text) continue;
       const props = textStyleToSpanProps(action.style);
       if (currentHyperlink) {
@@ -144,7 +177,7 @@ function parseToSpans(input: string): Span[] {
       } else {
         spans.push({
           text,
-          props
+          props,
         });
       }
     }
@@ -160,7 +193,7 @@ function textStyleToSpanProps(style: TextStyle): SpanProps {
   if (style.bold) props.bold = true;
   if (style.dim) props.dim = true;
   if (style.italic) props.italic = true;
-  if (style.underline !== 'none') props.underline = true;
+  if (style.underline !== "none") props.underline = true;
   if (style.strikethrough) props.strikethrough = true;
   if (style.inverse) props.inverse = true;
   const fgColor = colorToString(style.fg);
@@ -172,22 +205,22 @@ function textStyleToSpanProps(style: TextStyle): SpanProps {
 
 // Map termio named colors to the ansi: format
 const NAMED_COLOR_MAP: Record<NamedColor, string> = {
-  black: 'ansi:black',
-  red: 'ansi:red',
-  green: 'ansi:green',
-  yellow: 'ansi:yellow',
-  blue: 'ansi:blue',
-  magenta: 'ansi:magenta',
-  cyan: 'ansi:cyan',
-  white: 'ansi:white',
-  brightBlack: 'ansi:blackBright',
-  brightRed: 'ansi:redBright',
-  brightGreen: 'ansi:greenBright',
-  brightYellow: 'ansi:yellowBright',
-  brightBlue: 'ansi:blueBright',
-  brightMagenta: 'ansi:magentaBright',
-  brightCyan: 'ansi:cyanBright',
-  brightWhite: 'ansi:whiteBright'
+  black: "ansi:black",
+  red: "ansi:red",
+  green: "ansi:green",
+  yellow: "ansi:yellow",
+  blue: "ansi:blue",
+  magenta: "ansi:magenta",
+  cyan: "ansi:cyan",
+  white: "ansi:white",
+  brightBlack: "ansi:blackBright",
+  brightRed: "ansi:redBright",
+  brightGreen: "ansi:greenBright",
+  brightYellow: "ansi:yellowBright",
+  brightBlue: "ansi:blueBright",
+  brightMagenta: "ansi:magentaBright",
+  brightCyan: "ansi:cyanBright",
+  brightWhite: "ansi:whiteBright",
 };
 
 /**
@@ -195,13 +228,13 @@ const NAMED_COLOR_MAP: Record<NamedColor, string> = {
  */
 function colorToString(color: TermioColor): Color | undefined {
   switch (color.type) {
-    case 'named':
+    case "named":
       return NAMED_COLOR_MAP[color.name] as Color;
-    case 'indexed':
+    case "indexed":
       return `ansi256(${color.index})` as Color;
-    case 'rgb':
+    case "rgb":
       return `rgb(${color.r},${color.g},${color.b})` as Color;
-    case 'default':
+    case "default":
       return undefined;
   }
 }
@@ -210,13 +243,42 @@ function colorToString(color: TermioColor): Color | undefined {
  * Check if two SpanProps are equal for merging.
  */
 function propsEqual(a: SpanProps, b: SpanProps): boolean {
-  return a.color === b.color && a.backgroundColor === b.backgroundColor && a.bold === b.bold && a.dim === b.dim && a.italic === b.italic && a.underline === b.underline && a.strikethrough === b.strikethrough && a.inverse === b.inverse && a.hyperlink === b.hyperlink;
+  return (
+    a.color === b.color &&
+    a.backgroundColor === b.backgroundColor &&
+    a.bold === b.bold &&
+    a.dim === b.dim &&
+    a.italic === b.italic &&
+    a.underline === b.underline &&
+    a.strikethrough === b.strikethrough &&
+    a.inverse === b.inverse &&
+    a.hyperlink === b.hyperlink
+  );
 }
 function hasAnyProps(props: SpanProps): boolean {
-  return props.color !== undefined || props.backgroundColor !== undefined || props.dim === true || props.bold === true || props.italic === true || props.underline === true || props.strikethrough === true || props.inverse === true || props.hyperlink !== undefined;
+  return (
+    props.color !== undefined ||
+    props.backgroundColor !== undefined ||
+    props.dim === true ||
+    props.bold === true ||
+    props.italic === true ||
+    props.underline === true ||
+    props.strikethrough === true ||
+    props.inverse === true ||
+    props.hyperlink !== undefined
+  );
 }
 function hasAnyTextProps(props: SpanProps): boolean {
-  return props.color !== undefined || props.backgroundColor !== undefined || props.dim === true || props.bold === true || props.italic === true || props.underline === true || props.strikethrough === true || props.inverse === true;
+  return (
+    props.color !== undefined ||
+    props.backgroundColor !== undefined ||
+    props.dim === true ||
+    props.bold === true ||
+    props.italic === true ||
+    props.underline === true ||
+    props.strikethrough === true ||
+    props.inverse === true
+  );
 }
 
 // Text style props without weight (bold/dim) - these are handled separately
@@ -237,12 +299,7 @@ function StyledText(t0: SpanProps & { children: React.ReactNode }) {
   let dim;
   let rest;
   if ($[0] !== t0) {
-    ({
-      bold,
-      dim,
-      children,
-      ...rest
-    } = t0);
+    ({ bold, dim, children, ...rest } = t0);
     $[0] = t0;
     $[1] = bold;
     $[2] = children;
@@ -257,7 +314,11 @@ function StyledText(t0: SpanProps & { children: React.ReactNode }) {
   if (dim) {
     let t1;
     if ($[5] !== children || $[6] !== rest) {
-      t1 = <Text {...rest} dim={true}>{children}</Text>;
+      t1 = (
+        <Text {...rest} dim={true}>
+          {children}
+        </Text>
+      );
       $[5] = children;
       $[6] = rest;
       $[7] = t1;
@@ -269,7 +330,11 @@ function StyledText(t0: SpanProps & { children: React.ReactNode }) {
   if (bold) {
     let t1;
     if ($[8] !== children || $[9] !== rest) {
-      t1 = <Text {...rest} bold={true}>{children}</Text>;
+      t1 = (
+        <Text {...rest} bold={true}>
+          {children}
+        </Text>
+      );
       $[8] = children;
       $[9] = rest;
       $[10] = t1;

@@ -237,8 +237,6 @@ async function loadSDK() {
     sdkModule = await import("openai");
     return sdkModule.default;
   } catch {
-    throw new Error(
-      'OpenAIProvider requires "openai" package. Install it with: pnpm add openai',
-    );
+    throw new Error('OpenAIProvider requires "openai" package. Install it with: pnpm add openai');
   }
 }

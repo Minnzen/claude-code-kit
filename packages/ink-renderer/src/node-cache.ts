@@ -1,5 +1,5 @@
-import type { DOMElement } from './dom'
-import type { Rectangle } from './layout/geometry'
+import type { DOMElement } from "./dom";
+import type { Rectangle } from "./layout/geometry";
 
 /**
  * Cached layout bounds for each rendered node (used for blit + clearing).
@@ -8,17 +8,17 @@ import type { Rectangle } from './layout/geometry'
  * shifted (O(dirty) instead of O(mounted) first-pass).
  */
 export type CachedLayout = {
-  x: number
-  y: number
-  width: number
-  height: number
-  top?: number
-}
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  top?: number;
+};
 
-export const nodeCache = new WeakMap<DOMElement, CachedLayout>()
+export const nodeCache = new WeakMap<DOMElement, CachedLayout>();
 
 /** Rects of removed children that need clearing on next render */
-export const pendingClears = new WeakMap<DOMElement, Rectangle[]>()
+export const pendingClears = new WeakMap<DOMElement, Rectangle[]>();
 
 /**
  * Set when a pendingClear is added for an absolute-positioned node.
@@ -29,27 +29,22 @@ export const pendingClears = new WeakMap<DOMElement, Rectangle[]>()
  * hasRemovedChild at the parent level; only absolute positioning paints
  * cross-subtree. Reset at the start of each render.
  */
-let absoluteNodeRemoved = false
+let absoluteNodeRemoved = false;
 
-export function addPendingClear(
-  parent: DOMElement,
-  rect: Rectangle,
-  isAbsolute: boolean,
-): void {
-  const existing = pendingClears.get(parent)
+export function addPendingClear(parent: DOMElement, rect: Rectangle, isAbsolute: boolean): void {
+  const existing = pendingClears.get(parent);
   if (existing) {
-    existing.push(rect)
+    existing.push(rect);
   } else {
-    pendingClears.set(parent, [rect])
+    pendingClears.set(parent, [rect]);
   }
   if (isAbsolute) {
-    absoluteNodeRemoved = true
+    absoluteNodeRemoved = true;
   }
 }
 
 export function consumeAbsoluteRemovedFlag(): boolean {
-  const had = absoluteNodeRemoved
-  absoluteNodeRemoved = false
-  return had
+  const had = absoluteNodeRemoved;
+  absoluteNodeRemoved = false;
+  return had;
 }
-

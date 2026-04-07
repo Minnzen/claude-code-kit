@@ -1,15 +1,15 @@
-import { useCallback, useEffect } from 'react'
-import type { InputEvent } from '@claude-code-kit/ink-renderer'
-import { type Key, useInput } from '@claude-code-kit/ink-renderer'
-import { useOptionalKeybindingContext } from './KeybindingContext'
-import type { KeybindingContextName } from './types'
+import type { InputEvent } from "@claude-code-kit/ink-renderer";
+import { type Key, useInput } from "@claude-code-kit/ink-renderer";
+import { useCallback, useEffect } from "react";
+import { useOptionalKeybindingContext } from "./KeybindingContext";
+import type { KeybindingContextName } from "./types";
 
 type Options = {
   /** Which context this binding belongs to (default: 'Global') */
-  context?: KeybindingContextName
+  context?: KeybindingContextName;
   /** Only handle when active (like useInput's isActive) */
-  isActive?: boolean
-}
+  isActive?: boolean;
+};
 
 /**
  * Ink-native hook for handling a keybinding.
@@ -35,56 +35,56 @@ export function useKeybinding(
   handler: () => void | false | Promise<void>,
   options: Options = {},
 ): void {
-  const { context = 'Global', isActive = true } = options
-  const keybindingContext = useOptionalKeybindingContext()
+  const { context = "Global", isActive = true } = options;
+  const keybindingContext = useOptionalKeybindingContext();
 
   // Register handler with the context for ChordInterceptor to invoke
   useEffect(() => {
-    if (!keybindingContext || !isActive) return
-    return keybindingContext.registerHandler({ action, context, handler })
-  }, [action, context, handler, keybindingContext, isActive])
+    if (!keybindingContext || !isActive) return;
+    return keybindingContext.registerHandler({ action, context, handler });
+  }, [action, context, handler, keybindingContext, isActive]);
 
   const handleInput = useCallback(
     (input: string, key: Key, event: InputEvent) => {
-      if (!keybindingContext) return
+      if (!keybindingContext) return;
 
       const contextsToCheck: KeybindingContextName[] = [
         ...keybindingContext.activeContexts,
         context,
-        'Global',
-      ]
-      const uniqueContexts = [...new Set(contextsToCheck)]
+        "Global",
+      ];
+      const uniqueContexts = [...new Set(contextsToCheck)];
 
-      const result = keybindingContext.resolve(input, key, uniqueContexts)
+      const result = keybindingContext.resolve(input, key, uniqueContexts);
 
       switch (result.type) {
-        case 'match':
-          keybindingContext.setPendingChord(null)
+        case "match":
+          keybindingContext.setPendingChord(null);
           if (result.action === action) {
             if (handler() !== false) {
-              event.stopImmediatePropagation()
+              event.stopImmediatePropagation();
             }
           }
-          break
-        case 'chord_started':
-          keybindingContext.setPendingChord(result.pending)
-          event.stopImmediatePropagation()
-          break
-        case 'chord_cancelled':
-          keybindingContext.setPendingChord(null)
-          break
-        case 'unbound':
-          keybindingContext.setPendingChord(null)
-          event.stopImmediatePropagation()
-          break
-        case 'none':
-          break
+          break;
+        case "chord_started":
+          keybindingContext.setPendingChord(result.pending);
+          event.stopImmediatePropagation();
+          break;
+        case "chord_cancelled":
+          keybindingContext.setPendingChord(null);
+          break;
+        case "unbound":
+          keybindingContext.setPendingChord(null);
+          event.stopImmediatePropagation();
+          break;
+        case "none":
+          break;
       }
     },
     [action, context, handler, keybindingContext],
-  )
+  );
 
-  useInput(handleInput, { isActive })
+  useInput(handleInput, { isActive });
 }
 
 /**
@@ -105,67 +105,65 @@ export function useKeybindings(
   handlers: Record<string, () => void | false | Promise<void>>,
   options: Options = {},
 ): void {
-  const { context = 'Global', isActive = true } = options
-  const keybindingContext = useOptionalKeybindingContext()
+  const { context = "Global", isActive = true } = options;
+  const keybindingContext = useOptionalKeybindingContext();
 
   // Register all handlers with the context for ChordInterceptor to invoke
   useEffect(() => {
-    if (!keybindingContext || !isActive) return
+    if (!keybindingContext || !isActive) return;
 
-    const unregisterFns: Array<() => void> = []
+    const unregisterFns: Array<() => void> = [];
     for (const [action, handler] of Object.entries(handlers)) {
-      unregisterFns.push(
-        keybindingContext.registerHandler({ action, context, handler }),
-      )
+      unregisterFns.push(keybindingContext.registerHandler({ action, context, handler }));
     }
 
     return () => {
       for (const unregister of unregisterFns) {
-        unregister()
+        unregister();
       }
-    }
-  }, [context, handlers, keybindingContext, isActive])
+    };
+  }, [context, handlers, keybindingContext, isActive]);
 
   const handleInput = useCallback(
     (input: string, key: Key, event: InputEvent) => {
-      if (!keybindingContext) return
+      if (!keybindingContext) return;
 
       const contextsToCheck: KeybindingContextName[] = [
         ...keybindingContext.activeContexts,
         context,
-        'Global',
-      ]
-      const uniqueContexts = [...new Set(contextsToCheck)]
+        "Global",
+      ];
+      const uniqueContexts = [...new Set(contextsToCheck)];
 
-      const result = keybindingContext.resolve(input, key, uniqueContexts)
+      const result = keybindingContext.resolve(input, key, uniqueContexts);
 
       switch (result.type) {
-        case 'match':
-          keybindingContext.setPendingChord(null)
+        case "match":
+          keybindingContext.setPendingChord(null);
           if (result.action in handlers) {
-            const handler = handlers[result.action]
+            const handler = handlers[result.action];
             if (handler && handler() !== false) {
-              event.stopImmediatePropagation()
+              event.stopImmediatePropagation();
             }
           }
-          break
-        case 'chord_started':
-          keybindingContext.setPendingChord(result.pending)
-          event.stopImmediatePropagation()
-          break
-        case 'chord_cancelled':
-          keybindingContext.setPendingChord(null)
-          break
-        case 'unbound':
-          keybindingContext.setPendingChord(null)
-          event.stopImmediatePropagation()
-          break
-        case 'none':
-          break
+          break;
+        case "chord_started":
+          keybindingContext.setPendingChord(result.pending);
+          event.stopImmediatePropagation();
+          break;
+        case "chord_cancelled":
+          keybindingContext.setPendingChord(null);
+          break;
+        case "unbound":
+          keybindingContext.setPendingChord(null);
+          event.stopImmediatePropagation();
+          break;
+        case "none":
+          break;
       }
     },
     [context, handlers, keybindingContext],
-  )
+  );
 
-  useInput(handleInput, { isActive })
+  useInput(handleInput, { isActive });
 }

@@ -1,5 +1,5 @@
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 // ---------------------------------------------------------------------------
 // Task type
@@ -58,7 +58,10 @@ const updateInputSchema = z.object({
   description: z.string().optional().describe("New task description"),
   owner: z.string().optional().describe("Assign task to this owner"),
   add_blocks: z.array(z.string()).optional().describe("Task IDs that this task blocks (appended)"),
-  add_blocked_by: z.array(z.string()).optional().describe("Task IDs that block this task (appended)"),
+  add_blocked_by: z
+    .array(z.string())
+    .optional()
+    .describe("Task IDs that block this task (appended)"),
 });
 
 const getInputSchema = z.object({
@@ -164,15 +167,12 @@ export function createTaskTool(): TaskToolSet {
       return { content: `Error: task ${input.id} not found`, isError: true };
     }
 
-    const lines: string[] = [
-      `ID: ${task.id}`,
-      `Title: ${task.title}`,
-      `Status: ${task.status}`,
-    ];
+    const lines: string[] = [`ID: ${task.id}`, `Title: ${task.title}`, `Status: ${task.status}`];
     if (task.description) lines.push(`Description: ${task.description}`);
     if (task.owner) lines.push(`Owner: ${task.owner}`);
     if (task.blocks && task.blocks.length > 0) lines.push(`Blocks: ${task.blocks.join(", ")}`);
-    if (task.blockedBy && task.blockedBy.length > 0) lines.push(`Blocked by: ${task.blockedBy.join(", ")}`);
+    if (task.blockedBy && task.blockedBy.length > 0)
+      lines.push(`Blocked by: ${task.blockedBy.join(", ")}`);
     lines.push(`Created: ${task.createdAt}`);
     lines.push(`Updated: ${task.updatedAt}`);
 
@@ -205,7 +205,8 @@ export function createTaskTool(): TaskToolSet {
       return { content: `No tasks${qualifier}`, metadata: { tasks: [] } };
     }
     const lines = all.map(
-      (t) => `[${t.status}] ${t.id}: ${t.title}${t.description ? ` — ${t.description}` : ""}${t.owner ? ` (${t.owner})` : ""}`,
+      (t) =>
+        `[${t.status}] ${t.id}: ${t.title}${t.description ? ` — ${t.description}` : ""}${t.owner ? ` (${t.owner})` : ""}`,
     );
     return {
       content: lines.join("\n"),

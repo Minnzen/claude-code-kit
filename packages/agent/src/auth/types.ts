@@ -21,10 +21,19 @@ export type AuthMethodNone = {
   type: "none";
 };
 
-export type AuthMethod =
-  | AuthMethodApiKey
-  | AuthMethodBaseUrlKey
-  | AuthMethodNone;
+export type AuthMethodOAuth = {
+  type: "oauth";
+  authorizationURL: string;
+  tokenURL: string;
+  clientId: string;
+  scopes?: string[];
+  /** Port for local callback server. Default: 9876 */
+  callbackPort?: number;
+  /** Timeout in ms for the OAuth flow. Default: 300000 (5 minutes) */
+  timeoutMs?: number;
+};
+
+export type AuthMethod = AuthMethodApiKey | AuthMethodBaseUrlKey | AuthMethodNone | AuthMethodOAuth;
 
 export type AuthType = AuthMethod["type"];
 
@@ -39,11 +48,7 @@ export interface ProviderRegistration {
   defaultModel?: string;
   models?: string[];
   /** Factory that creates a configured LLMProvider from resolved credentials */
-  createProvider: (config: {
-    apiKey?: string;
-    baseURL?: string;
-    token?: string;
-  }) => LLMProvider;
+  createProvider: (config: { apiKey?: string; baseURL?: string; token?: string }) => LLMProvider;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,6 +59,8 @@ export type AuthFlowStep =
   | "select-provider"
   | "select-auth-method"
   | "input-credentials"
+  | "oauth-pending"
+  | "validating"
   | "select-model"
   | "done";
 

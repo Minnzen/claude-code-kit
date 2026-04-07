@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 export const inputSchema = z.object({
   file_path: z.string().describe("Absolute or relative file path to write"),
@@ -17,7 +17,10 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
   // Prevent path traversal outside the working directory
   if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
-    return { content: `Error: path traversal denied — ${input.file_path} escapes working directory`, isError: true };
+    return {
+      content: `Error: path traversal denied — ${input.file_path} escapes working directory`,
+      isError: true,
+    };
   }
 
   try {

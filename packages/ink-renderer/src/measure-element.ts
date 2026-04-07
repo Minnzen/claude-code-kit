@@ -1,16 +1,16 @@
-import type { DOMElement } from './dom'
+import type { DOMElement } from "./dom";
 
 type Output = {
   /**
    * Element width.
    */
-  width: number
+  width: number;
 
   /**
    * Element height.
    */
-  height: number
-}
+  height: number;
+};
 
 /**
  * Measure the dimensions of a particular `<Box>` element.
@@ -18,7 +18,6 @@ type Output = {
 const measureElement = (node: DOMElement): Output => ({
   width: node.yogaNode?.getComputedWidth() ?? 0,
   height: node.yogaNode?.getComputedHeight() ?? 0,
-})
+});
 
-export default measureElement
-
+export default measureElement;

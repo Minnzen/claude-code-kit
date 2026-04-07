@@ -1,17 +1,15 @@
 // Debug & logging
-export { logForDebugging, enableDebugLogging, type DebugLogLevel } from './debug'
-export { logError } from './log'
+export { type DebugLogLevel, enableDebugLogging, logForDebugging } from "./debug";
+export { env } from "./env";
 
 // Environment
-export { isEnvTruthy, isEnvDefinedFalsy } from './envUtils'
-export { env } from './env'
-
-// Text processing
-export { default as sliceAnsi } from './sliceAnsi'
-export { getGraphemeSegmenter, getWordSegmenter } from './intl'
+export { isEnvDefinedFalsy, isEnvTruthy } from "./envUtils";
+// Process utilities
+export { execFileNoThrow } from "./execFileNoThrow";
+export { getGraphemeSegmenter, getWordSegmenter } from "./intl";
+export { logError } from "./log";
 
 // Semver
-export { gt, gte, lt, lte, satisfies, order } from './semver'
-
-// Process utilities
-export { execFileNoThrow } from './execFileNoThrow'
+export { gt, gte, lt, lte, order, satisfies } from "./semver";
+// Text processing
+export { default as sliceAnsi } from "./sliceAnsi";

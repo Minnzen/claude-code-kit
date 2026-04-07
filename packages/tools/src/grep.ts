@@ -1,8 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import fg from "fast-glob";
+import { z } from "zod";
 
 const MAX_FILES = 5_000;
 const DEFAULT_HEAD_LIMIT = 250;
@@ -50,16 +50,21 @@ const FILE_TYPE_MAP: Record<string, string[]> = {
 export const inputSchema = z.object({
   pattern: z.string().describe("Regex pattern to search for in file contents"),
   path: z.string().optional().describe("File or directory to search in"),
-  glob: z.string().optional().describe("Glob pattern to filter files (e.g. \"*.js\", \"*.{ts,tsx}\")"),
+  glob: z.string().optional().describe('Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}")'),
   output_mode: z
     .enum(["content", "files_with_matches", "count"])
     .optional()
     .default("files_with_matches")
-    .describe("Output mode: content (matching lines), files_with_matches (file paths), count (match counts)"),
+    .describe(
+      "Output mode: content (matching lines), files_with_matches (file paths), count (match counts)",
+    ),
   "-A": z.number().optional().describe("Lines after each match (requires output_mode: content)"),
   "-B": z.number().optional().describe("Lines before each match (requires output_mode: content)"),
   "-C": z.number().optional().describe("Alias for context"),
-  context: z.number().optional().describe("Lines before and after each match (requires output_mode: content)"),
+  context: z
+    .number()
+    .optional()
+    .describe("Lines before and after each match (requires output_mode: content)"),
   head_limit: z
     .number()
     .optional()
@@ -77,14 +82,18 @@ export const inputSchema = z.object({
     .describe("Enable multiline mode (dotAll flag, patterns can span lines)"),
   type: z.string().optional().describe("File type filter (js, ts, py, etc.)"),
   "-i": z.boolean().optional().describe("Case insensitive search"),
-  "-n": z.boolean().optional().default(true).describe("Show line numbers (content mode only). Defaults to true."),
+  "-n": z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Show line numbers (content mode only). Defaults to true."),
 });
 
 type Input = z.infer<typeof inputSchema>;
 
 interface MatchRange {
   lineStart: number; // 0-indexed
-  lineEnd: number;   // 0-indexed, inclusive
+  lineEnd: number; // 0-indexed, inclusive
 }
 
 /**
@@ -107,7 +116,12 @@ function offsetToLine(offsets: number[], charOffset: number): number {
  * Find all match ranges in file content. For single-line mode, each match
  * range spans a single line. For multiline mode, a match may span multiple lines.
  */
-function findMatchRanges(lines: string[], fullContent: string, regex: RegExp, multiline: boolean): MatchRange[] {
+function findMatchRanges(
+  lines: string[],
+  fullContent: string,
+  regex: RegExp,
+  multiline: boolean,
+): MatchRange[] {
   const ranges: MatchRange[] = [];
 
   if (multiline) {
@@ -122,6 +136,7 @@ function findMatchRanges(lines: string[], fullContent: string, regex: RegExp, mu
     // Use a fresh regex with global flag to find all matches
     const globalRegex = new RegExp(regex.source, `${regex.flags.replace("g", "")}g`);
     let match: RegExpExecArray | null;
+    // biome-ignore lint/suspicious/noAssignInExpressions: standard regex exec loop
     while ((match = globalRegex.exec(fullContent)) !== null) {
       const startChar = match.index;
       const endChar = startChar + match[0].length - 1;
@@ -211,7 +226,7 @@ function buildContextBlocks(
 function resolveTypeGlobs(fileType: string): string[] {
   const extensions = FILE_TYPE_MAP[fileType.toLowerCase()];
   if (!extensions) return [];
-  return extensions.map(ext => `**/*${ext}`);
+  return extensions.map((ext) => `**/*${ext}`);
 }
 
 function matchesType(filePath: string, fileType: string): boolean {
@@ -224,7 +239,9 @@ function matchesType(filePath: string, fileType: string): boolean {
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
 
-  const searchPath = input.path ? path.resolve(ctx.workingDirectory, input.path) : ctx.workingDirectory;
+  const searchPath = input.path
+    ? path.resolve(ctx.workingDirectory, input.path)
+    : ctx.workingDirectory;
   const outputMode = input.output_mode ?? "files_with_matches";
   const headLimit = input.head_limit ?? DEFAULT_HEAD_LIMIT;
   const offsetSkip = input.offset ?? 0;
@@ -284,7 +301,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
           ignore: ["**/node_modules/**", "**/.git/**", "**/*.min.*"],
         });
         const globSet = new Set(globFilter);
-        files = files.filter(f => globSet.has(f));
+        files = files.filter((f) => globSet.has(f));
       }
 
       files.sort();
@@ -328,7 +345,14 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
           const hasContext = beforeCtx > 0 || afterCtx > 0;
 
           if (hasContext) {
-            const blockLines = buildContextBlocks(lines, matchRanges, beforeCtx, afterCtx, showLineNumbers, relPath);
+            const blockLines = buildContextBlocks(
+              lines,
+              matchRanges,
+              beforeCtx,
+              afterCtx,
+              showLineNumbers,
+              relPath,
+            );
             for (const line of blockLines) {
               if (entryIndex >= offsetSkip && entryIndex < endIndex) {
                 entries.push(line);
@@ -365,7 +389,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
     return {
       content: entries.join("\n"),
-      metadata: { matchCount: entries.filter(e => e !== "--").length },
+      metadata: { matchCount: entries.filter((e) => e !== "--").length },
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

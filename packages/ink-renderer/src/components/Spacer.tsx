@@ -1,7 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
-import React from 'react';
-import Box from './Box';
-
+import Box from "./Box";
 
 /**
  * A flexible space that expands along the major axis of its containing layout.

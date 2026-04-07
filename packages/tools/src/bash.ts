@@ -2,8 +2,8 @@ import { exec, spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 const MAX_RESULT_SIZE = 100_000;
 const DEFAULT_TIMEOUT = 120_000;
@@ -27,7 +27,9 @@ export const inputSchema = z.object({
     .boolean()
     .optional()
     .default(false)
-    .describe("Set to true to disable sandbox restrictions. Use with caution — bypasses security constraints."),
+    .describe(
+      "Set to true to disable sandbox restrictions. Use with caution — bypasses security constraints.",
+    ),
 });
 
 type Input = z.infer<typeof inputSchema>;
@@ -38,7 +40,10 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   const sandboxed = !input.dangerously_disable_sandbox;
 
   if (input.run_in_background) {
-    const outFile = path.join(os.tmpdir(), `cck-bg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.log`);
+    const outFile = path.join(
+      os.tmpdir(),
+      `cck-bg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.log`,
+    );
     const out = fs.openSync(outFile, "w");
     const child = spawn("sh", ["-c", input.command], {
       cwd,
@@ -61,21 +66,33 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
       resolve({ content: "Command aborted", isError: true, metadata: { sandboxed } });
     };
 
-    const child = exec(input.command, { cwd, timeout, env: { ...process.env, ...ctx.env } }, (err, stdout, stderr) => {
-      // Clean up abort listener to avoid leaking event handlers
-      ctx.abortSignal.removeEventListener("abort", onAbort);
+    const child = exec(
+      input.command,
+      { cwd, timeout, env: { ...process.env, ...ctx.env } },
+      (err, stdout, stderr) => {
+        // Clean up abort listener to avoid leaking event handlers
+        ctx.abortSignal.removeEventListener("abort", onAbort);
 
-      const output = (stdout + (stderr ? `\n${stderr}` : "")).slice(0, MAX_RESULT_SIZE);
-      if (err && err.killed) {
-        resolve({ content: `Command timed out after ${timeout}ms\n${output}`, isError: true, metadata: { sandboxed } });
-        return;
-      }
-      if (err) {
-        resolve({ content: output || err.message, isError: true, metadata: { exitCode: err.code, sandboxed } });
-        return;
-      }
-      resolve({ content: output || "(no output)", metadata: { sandboxed } });
-    });
+        const output = (stdout + (stderr ? `\n${stderr}` : "")).slice(0, MAX_RESULT_SIZE);
+        if (err?.killed) {
+          resolve({
+            content: `Command timed out after ${timeout}ms\n${output}`,
+            isError: true,
+            metadata: { sandboxed },
+          });
+          return;
+        }
+        if (err) {
+          resolve({
+            content: output || err.message,
+            isError: true,
+            metadata: { exitCode: err.code, sandboxed },
+          });
+          return;
+        }
+        resolve({ content: output || "(no output)", metadata: { sandboxed } });
+      },
+    );
 
     if (ctx.abortSignal.aborted) {
       onAbort();

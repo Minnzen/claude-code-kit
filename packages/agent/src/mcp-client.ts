@@ -70,16 +70,17 @@ export class MCPClient {
           stderr: "pipe",
         })
       : new sdk.StreamableHTTPClientTransport(new URL(this.config.url), {
-          requestInit: this.config.headers
-            ? { headers: this.config.headers }
-            : undefined,
+          requestInit: this.config.headers ? { headers: this.config.headers } : undefined,
         });
 
     const timeout = this.config.connectTimeout ?? DEFAULT_CONNECT_TIMEOUT;
     const connectPromise = this.client.connect(this.transport);
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(
-        () => reject(new Error(`MCP server "${this.config.name}" connection timed out after ${timeout}ms`)),
+        () =>
+          reject(
+            new Error(`MCP server "${this.config.name}" connection timed out after ${timeout}ms`),
+          ),
         timeout,
       );
     });
@@ -100,9 +101,7 @@ export class MCPClient {
     const result = await this.client.listTools();
     const serverName = this.config.name;
 
-    this._tools = result.tools.map((mcpTool) =>
-      convertMCPTool(mcpTool, serverName, this.client!),
-    );
+    this._tools = result.tools.map((mcpTool) => convertMCPTool(mcpTool, serverName, this.client!));
 
     return this._tools;
   }
@@ -180,10 +179,7 @@ function convertMCPTool(
     isDestructive,
     rawInputSchema: originalJsonSchema,
 
-    async execute(
-      input: Record<string, unknown>,
-      _context: ToolContext,
-    ): Promise<ToolResult> {
+    async execute(input: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> {
       try {
         const result = await client.callTool({
           name: mcpTool.name,
@@ -225,9 +221,7 @@ function extractTextContent(result: Record<string, unknown>): string {
       } else if ("data" in part && typeof part.data === "string") {
         // Binary/image content — return a placeholder
         const mimeType =
-          "mimeType" in part && typeof part.mimeType === "string"
-            ? part.mimeType
-            : "unknown";
+          "mimeType" in part && typeof part.mimeType === "string" ? part.mimeType : "unknown";
         parts.push(`[binary content: ${mimeType}]`);
       } else {
         parts.push(JSON.stringify(part));
@@ -278,12 +272,8 @@ async function loadMCPSdk(): Promise<MCPSdk> {
 
   try {
     const clientMod = await import("@modelcontextprotocol/sdk/client");
-    const stdioMod = await import(
-      "@modelcontextprotocol/sdk/client/stdio.js"
-    );
-    const httpMod = await import(
-      "@modelcontextprotocol/sdk/client/streamableHttp.js"
-    );
+    const stdioMod = await import("@modelcontextprotocol/sdk/client/stdio.js");
+    const httpMod = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
 
     const sdk: MCPSdk = {
       Client: clientMod.Client,
@@ -295,7 +285,7 @@ async function loadMCPSdk(): Promise<MCPSdk> {
     return sdk;
   } catch {
     throw new Error(
-      'MCP support requires @modelcontextprotocol/sdk. Install it: pnpm add @modelcontextprotocol/sdk',
+      "MCP support requires @modelcontextprotocol/sdk. Install it: pnpm add @modelcontextprotocol/sdk",
     );
   }
 }

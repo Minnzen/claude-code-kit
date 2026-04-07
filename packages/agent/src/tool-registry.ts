@@ -1,5 +1,5 @@
-import type { ProviderTool, ToolContext, ToolDefinition, ToolResult } from "./types.js";
 import { toolToProviderFormat } from "./tool-formatter.js";
+import type { ProviderTool, ToolContext, ToolDefinition, ToolResult } from "./types.js";
 
 /**
  * Registry that holds tool definitions and provides lookup + execution.

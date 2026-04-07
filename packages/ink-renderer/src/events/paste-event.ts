@@ -1,10 +1,10 @@
-import { Event } from './event'
+import { Event } from "./event";
 
 export class PasteEvent extends Event {
-  readonly text: string
+  readonly text: string;
 
   constructor(text: string) {
-    super()
-    this.text = text
+    super();
+    this.text = text;
   }
 }

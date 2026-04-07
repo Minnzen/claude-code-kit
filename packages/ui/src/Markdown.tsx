@@ -1,25 +1,26 @@
-import { marked, type Token, type Tokens } from 'marked'
-import React, { Suspense, use, useMemo, useRef } from 'react'
-import { Ansi, Box } from '@claude-code-kit/ink-renderer'
-import { useTheme } from './design-system/ThemeProvider'
-import { getCliHighlightPromise, type CliHighlight } from './utils/optional/cliHighlight'
-import { hashContent } from './utils/hash'
-import { configureMarked, formatToken } from './utils/markdown'
-import { MarkdownTable } from './MarkdownTable'
+import { Ansi, Box } from "@claude-code-kit/ink-renderer";
+import { marked, type Token, type Tokens } from "marked";
+import type React from "react";
+import { Suspense, use, useMemo, useRef } from "react";
+import { useTheme } from "./design-system/ThemeProvider";
+import { MarkdownTable } from "./MarkdownTable";
+import { hashContent } from "./utils/hash";
+import { configureMarked, formatToken } from "./utils/markdown";
+import { type CliHighlight, getCliHighlightPromise } from "./utils/optional/cliHighlight";
 
 type Props = {
-  children: string
+  children: string;
   /** When true, render all text content as dim */
-  dimColor?: boolean
-}
+  dimColor?: boolean;
+};
 
 // Module-level token cache — marked.lexer is the hot cost on virtual-scroll
 // remounts (~3ms per message). useMemo doesn't survive unmount→remount, so
 // scrolling back to a previously-visible message re-parses. Messages are
 // immutable in history; same content → same tokens. Keyed by hash to avoid
 // retaining full content strings (turn50→turn99 RSS regression, #24180).
-const TOKEN_CACHE_MAX = 500
-const tokenCache = new Map<string, Token[]>()
+const TOKEN_CACHE_MAX = 500;
+const tokenCache = new Map<string, Token[]>();
 
 // Characters that indicate markdown syntax. If none are present, skip the
 // ~3ms marked.lexer call entirely — render as a single paragraph. Covers
@@ -27,17 +28,17 @@ const tokenCache = new Map<string, Token[]>()
 // plain sentences. Checked via indexOf (not regex) for speed.
 // Single regex: matches any MD marker or ordered-list start (N. at line start).
 // One pass instead of 10× includes scans.
-const MD_SYNTAX_RE = /[#*`|[>\-_~]|\n\n|^\d+\. |\n\d+\. /
+const MD_SYNTAX_RE = /[#*`|[>\-_~]|\n\n|^\d+\. |\n\d+\. /;
 function hasMarkdownSyntax(s: string): boolean {
   // Sample first 500 chars — if markdown exists it's usually early (headers,
   // code fence, list). Long tool outputs are mostly plain text tails.
-  return MD_SYNTAX_RE.test(s.length > 500 ? s.slice(0, 500) : s)
+  return MD_SYNTAX_RE.test(s.length > 500 ? s.slice(0, 500) : s);
 }
 
 function stripPromptXMLTags(content: string): string {
   return content
-    .replace(/<(commit_analysis|context|function_analysis|pr_analysis)>.*?<\/\1>\n?/gs, '')
-    .trim()
+    .replace(/<(commit_analysis|context|function_analysis|pr_analysis)>.*?<\/\1>\n?/gs, "")
+    .trim();
 }
 
 function cachedLexer(content: string): Token[] {
@@ -48,36 +49,36 @@ function cachedLexer(content: string): Token[] {
   if (!hasMarkdownSyntax(content)) {
     return [
       {
-        type: 'paragraph',
+        type: "paragraph",
         raw: content,
         text: content,
-        tokens: [{ type: 'text', raw: content, text: content }],
+        tokens: [{ type: "text", raw: content, text: content }],
       } as Token,
-    ]
+    ];
   }
-  const key = hashContent(content)
-  const hit = tokenCache.get(key)
+  const key = hashContent(content);
+  const hit = tokenCache.get(key);
   if (hit) {
     // Promote to MRU — without this the eviction is FIFO (scrolling back to
     // an early message evicts the very item you're looking at).
-    tokenCache.delete(key)
-    tokenCache.set(key, hit)
-    return hit
+    tokenCache.delete(key);
+    tokenCache.set(key, hit);
+    return hit;
   }
-  const tokens = marked.lexer(content)
+  const tokens = marked.lexer(content);
   if (tokenCache.size >= TOKEN_CACHE_MAX) {
     // LRU-ish: drop oldest. Map preserves insertion order.
-    const first = tokenCache.keys().next().value
-    if (first !== undefined) tokenCache.delete(first)
+    const first = tokenCache.keys().next().value;
+    if (first !== undefined) tokenCache.delete(first);
   }
-  tokenCache.set(key, tokens)
-  return tokens
+  tokenCache.set(key, tokens);
+  return tokens;
 }
 
 export function Markdown(props: Props): React.ReactNode {
-  const settings: { syntaxHighlightingDisabled?: boolean } = {}
+  const settings: { syntaxHighlightingDisabled?: boolean } = {};
   if (settings.syntaxHighlightingDisabled) {
-    return <MarkdownBody {...props} highlight={null} />
+    return <MarkdownBody {...props} highlight={null} />;
   }
   // Suspense fallback renders with highlight=null — plain markdown shows
   // for ~50ms on first ever render while cli-highlight loads.
@@ -85,12 +86,12 @@ export function Markdown(props: Props): React.ReactNode {
     <Suspense fallback={<MarkdownBody {...props} highlight={null} />}>
       <MarkdownWithHighlight {...props} />
     </Suspense>
-  )
+  );
 }
 
 function MarkdownWithHighlight(props: Props): React.ReactNode {
-  const highlight = use(getCliHighlightPromise())
-  return <MarkdownBody {...props} highlight={highlight} />
+  const highlight = use(getCliHighlightPromise());
+  return <MarkdownBody {...props} highlight={highlight} />;
 }
 
 function MarkdownBody({
@@ -98,13 +99,13 @@ function MarkdownBody({
   dimColor,
   highlight,
 }: Props & { highlight: CliHighlight | null }): React.ReactNode {
-  const [theme] = useTheme()
-  configureMarked()
+  const [theme] = useTheme();
+  configureMarked();
 
   const elements = useMemo(() => {
-    const tokens = cachedLexer(stripPromptXMLTags(children))
-    const elements: React.ReactNode[] = []
-    let nonTableContent = ''
+    const tokens = cachedLexer(stripPromptXMLTags(children));
+    const elements: React.ReactNode[] = [];
+    let nonTableContent = "";
 
     function flushNonTableContent(): void {
       if (nonTableContent) {
@@ -112,86 +113,84 @@ function MarkdownBody({
           <Ansi key={elements.length} dimColor={dimColor}>
             {nonTableContent.trim()}
           </Ansi>,
-        )
-        nonTableContent = ''
+        );
+        nonTableContent = "";
       }
     }
 
     for (const token of tokens) {
-      if (token.type === 'table') {
-        flushNonTableContent()
+      if (token.type === "table") {
+        flushNonTableContent();
         elements.push(
           <MarkdownTable
             key={elements.length}
             token={token as Tokens.Table}
             highlight={highlight}
           />,
-        )
+        );
       } else {
-        nonTableContent += formatToken(token, theme, 0, null, null, highlight)
+        nonTableContent += formatToken(token, theme, 0, null, null, highlight);
       }
     }
 
-    flushNonTableContent()
-    return elements
-  }, [children, dimColor, highlight, theme])
+    flushNonTableContent();
+    return elements;
+  }, [children, dimColor, highlight, theme]);
 
   return (
     <Box flexDirection="column" gap={1}>
       {elements}
     </Box>
-  )
+  );
 }
 
 type StreamingProps = {
-  children: string
-}
+  children: string;
+};
 
 // Splits at the last top-level block boundary so only the unstable tail
 // is re-parsed per delta. The stable prefix is memoized inside <Markdown>.
 // Boundary only advances (monotonic), so ref mutation during render is
 // idempotent under StrictMode double-render.
-export function StreamingMarkdown({
-  children,
-}: StreamingProps): React.ReactNode {
+export function StreamingMarkdown({ children }: StreamingProps): React.ReactNode {
   // Opted out of React Compiler: ref mutations during render are intentionally
   // monotonic, but the compiler can't prove idempotency and would stale the boundary.
-  'use no memo'
+  "use no memo";
 
-  configureMarked()
+  configureMarked();
 
   // Strip before boundary tracking to match <Markdown>'s stripping.
   // startsWith reset below handles non-prefix cases from closing tags.
-  const stripped = stripPromptXMLTags(children)
+  const stripped = stripPromptXMLTags(children);
 
-  const stablePrefixRef = useRef('')
+  const stablePrefixRef = useRef("");
 
   if (!stripped.startsWith(stablePrefixRef.current)) {
-    stablePrefixRef.current = ''
+    stablePrefixRef.current = "";
   }
 
-  const boundary = stablePrefixRef.current.length
-  const tokens = marked.lexer(stripped.substring(boundary))
+  const boundary = stablePrefixRef.current.length;
+  const tokens = marked.lexer(stripped.substring(boundary));
 
-  let lastContentIdx = tokens.length - 1
-  while (lastContentIdx >= 0 && tokens[lastContentIdx]!.type === 'space') {
-    lastContentIdx--
+  let lastContentIdx = tokens.length - 1;
+  while (lastContentIdx >= 0 && tokens[lastContentIdx]!.type === "space") {
+    lastContentIdx--;
   }
-  let advance = 0
+  let advance = 0;
   for (let i = 0; i < lastContentIdx; i++) {
-    advance += tokens[i]!.raw.length
+    advance += tokens[i]!.raw.length;
   }
   if (advance > 0) {
-    stablePrefixRef.current = stripped.substring(0, boundary + advance)
+    stablePrefixRef.current = stripped.substring(0, boundary + advance);
   }
 
-  const stablePrefix = stablePrefixRef.current
-  const unstableSuffix = stripped.substring(stablePrefix.length)
+  const stablePrefix = stablePrefixRef.current;
+  const unstableSuffix = stripped.substring(stablePrefix.length);
 
   return (
     <Box flexDirection="column" gap={1}>
       {stablePrefix && <Markdown>{stablePrefix}</Markdown>}
       {unstableSuffix && <Markdown>{unstableSuffix}</Markdown>}
     </Box>
-  )
+  );
 }

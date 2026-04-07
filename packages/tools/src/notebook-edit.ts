@@ -1,15 +1,27 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 export const inputSchema = z.object({
   notebook_path: z.string().describe("Absolute or relative path to a .ipynb notebook file"),
   edit_mode: z.enum(["insert", "replace", "delete"]).describe("Action to perform on the cell"),
-  cell_number: z.number().int().min(0).optional().describe("0-based cell index (insert position or target cell)"),
-  cell_id: z.string().optional().describe("Cell ID to locate by metadata.id (alternative to cell_number)"),
-  cell_type: z.enum(["code", "markdown"]).optional()
-    .describe("Cell type for insert/replace (default: code for insert, preserves original for replace)"),
+  cell_number: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("0-based cell index (insert position or target cell)"),
+  cell_id: z
+    .string()
+    .optional()
+    .describe("Cell ID to locate by metadata.id (alternative to cell_number)"),
+  cell_type: z
+    .enum(["code", "markdown"])
+    .optional()
+    .describe(
+      "Cell type for insert/replace (default: code for insert, preserves original for replace)",
+    ),
   new_source: z.string().optional().describe("Cell content for insert/replace"),
 });
 
@@ -63,7 +75,10 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
   // Path traversal check
   if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
-    return { content: `Error: path traversal denied — ${input.notebook_path} escapes working directory`, isError: true };
+    return {
+      content: `Error: path traversal denied — ${input.notebook_path} escapes working directory`,
+      isError: true,
+    };
   }
 
   // Extension check
@@ -101,7 +116,10 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
         (c: NotebookCell) => (c.metadata as Record<string, unknown>).id === input.cell_id,
       );
       if (idx === -1) {
-        return { content: `Error: no cell found with metadata.id "${input.cell_id}"`, isError: true };
+        return {
+          content: `Error: no cell found with metadata.id "${input.cell_id}"`,
+          isError: true,
+        };
       }
       resolvedCellNumber = idx;
     }
@@ -162,16 +180,22 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
       }
     }
 
-    await fs.writeFile(filePath, JSON.stringify(notebook, null, 1) + "\n", "utf-8");
+    await fs.writeFile(filePath, `${JSON.stringify(notebook, null, 1)}\n`, "utf-8");
 
     const totalCells = cells.length;
     switch (action) {
       case "insert":
-        return { content: `Inserted ${cellType} cell at index ${cellIndex} in ${filePath} (${totalCells} cells total)` };
+        return {
+          content: `Inserted ${cellType} cell at index ${cellIndex} in ${filePath} (${totalCells} cells total)`,
+        };
       case "replace":
-        return { content: `Replaced cell at index ${cellIndex} with ${cellType} cell in ${filePath} (${totalCells} cells total)` };
+        return {
+          content: `Replaced cell at index ${cellIndex} with ${cellType} cell in ${filePath} (${totalCells} cells total)`,
+        };
       case "delete":
-        return { content: `Deleted cell at index ${cellIndex} from ${filePath} (${totalCells} cells total)` };
+        return {
+          content: `Deleted cell at index ${cellIndex} from ${filePath} (${totalCells} cells total)`,
+        };
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

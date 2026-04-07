@@ -1,5 +1,5 @@
-import { useOptionalKeybindingContext } from './KeybindingContext'
-import type { KeybindingContextName } from './types'
+import { useOptionalKeybindingContext } from "./KeybindingContext";
+import type { KeybindingContextName } from "./types";
 
 /**
  * Hook to get the display text for a configured shortcut.
@@ -19,7 +19,7 @@ export function useShortcutDisplay(
   context: KeybindingContextName,
   fallback: string,
 ): string {
-  const keybindingContext = useOptionalKeybindingContext()
-  const resolved = keybindingContext?.getDisplayText(action, context)
-  return resolved ?? fallback
+  const keybindingContext = useOptionalKeybindingContext();
+  const resolved = keybindingContext?.getDisplayText(action, context);
+  return resolved ?? fallback;
 }

@@ -123,9 +123,7 @@ export class FileSessionStore {
   async list(): Promise<string[]> {
     try {
       const entries = await fs.readdir(this.directory);
-      return entries
-        .filter((f) => f.endsWith(".jsonl"))
-        .map((f) => f.slice(0, -".jsonl".length));
+      return entries.filter((f) => f.endsWith(".jsonl")).map((f) => f.slice(0, -".jsonl".length));
     } catch (err: unknown) {
       if (isErrnoException(err) && err.code === "ENOENT") {
         return [];

@@ -1,5 +1,5 @@
-import { useContext } from 'react'
-import TerminalFocusContext from '../components/TerminalFocusContext'
+import { useContext } from "react";
+import TerminalFocusContext from "../components/TerminalFocusContext";
 
 /**
  * Hook to check if the terminal has focus.
@@ -11,7 +11,6 @@ import TerminalFocusContext from '../components/TerminalFocusContext'
  * @returns true if the terminal is focused (or focus state is unknown)
  */
 export function useTerminalFocus(): boolean {
-  const { isTerminalFocused } = useContext(TerminalFocusContext)
-  return isTerminalFocused
+  const { isTerminalFocused } = useContext(TerminalFocusContext);
+  return isTerminalFocused;
 }
-

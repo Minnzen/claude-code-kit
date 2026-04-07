@@ -1,8 +1,11 @@
 import type { LLMProvider } from "../types.js";
+import type { OAuthFlowResult } from "./oauth.js";
+import { startOAuthFlow } from "./oauth.js";
 import { FileAuthStorage } from "./storage.js";
 import type {
   AuthFlowState,
   AuthMethod,
+  AuthMethodOAuth,
   AuthOptions,
   AuthStorage,
   ProviderRegistration,
@@ -31,8 +34,7 @@ export class AuthRegistry {
   private storage: AuthStorage;
 
   constructor(options?: AuthOptions) {
-    this.storage =
-      options?.storage ?? new FileAuthStorage(options?.storagePath);
+    this.storage = options?.storage ?? new FileAuthStorage(options?.storagePath);
   }
 
   /**
@@ -68,13 +70,10 @@ export class AuthRegistry {
   // Resolve credential from an auth method (env → storage → null)
   // -------------------------------------------------------------------------
 
-  private resolveEnvCredential(
-    method: AuthMethod,
-  ): { apiKey?: string; baseURL?: string } | null {
-    if (method.type === "none") return {};
+  private resolveEnvCredential(method: AuthMethod): { apiKey?: string; baseURL?: string } | null {
+    if (method.type === "none" || method.type === "oauth") return null;
 
-    const envVar =
-      method.type === "api-key" ? method.envVar : method.envVar;
+    const envVar = method.envVar;
     if (envVar) {
       const value = process.env[envVar];
       if (value) {
@@ -112,6 +111,15 @@ export class AuthRegistry {
       // 'none' — no credential needed
       if (method.type === "none") {
         return reg.createProvider({});
+      }
+
+      // 'oauth' — try stored token only (no env var for OAuth)
+      if (method.type === "oauth") {
+        const stored = await this.storage.get(name);
+        if (stored) {
+          return reg.createProvider({ token: stored, apiKey: stored });
+        }
+        continue;
       }
 
       // Try env var
@@ -179,9 +187,7 @@ export class AuthRegistry {
       .filter(Boolean);
 
     if (envVars.length === 0) {
-      throw new Error(
-        `Provider "${name}" has no envVar configured for env-only auth.`,
-      );
+      throw new Error(`Provider "${name}" has no envVar configured for env-only auth.`);
     }
 
     throw new Error(
@@ -199,9 +205,7 @@ export class AuthRegistry {
 
     const result: ProviderInfo[] = [];
     for (const [name, registration] of this.providers) {
-      let hasCredential = registration.authMethods.some(
-        (m) => m.type === "none",
-      );
+      let hasCredential = registration.authMethods.some((m) => m.type === "none");
 
       if (!hasCredential) {
         for (const method of registration.authMethods) {
@@ -225,6 +229,100 @@ export class AuthRegistry {
 
   async logout(name: string): Promise<void> {
     await this.storage.delete(name);
+  }
+
+  /**
+   * Validate credentials by creating a provider and making a lightweight call.
+   * Throws with a descriptive error if invalid.
+   */
+  async validateCredentials(
+    providerName: string,
+    credentials: { apiKey?: string; baseURL?: string; token?: string },
+  ): Promise<void> {
+    const reg = this.providers.get(providerName);
+    if (!reg) {
+      throw new Error(`Provider "${providerName}" is not registered.`);
+    }
+
+    const provider = reg.createProvider(credentials);
+
+    try {
+      const gen = provider.chat({
+        model: reg.defaultModel ?? "test",
+        messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
+        maxTokens: 1,
+      });
+
+      for await (const chunk of gen) {
+        if (chunk.type === "error") {
+          throw new Error(chunk.error?.message ?? "Unknown provider error");
+        }
+        break;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("401") || msg.includes("Unauthorized") || msg.includes("invalid")) {
+        throw new Error(`Invalid API key for ${providerName}: ${msg}`);
+      }
+      if (msg.includes("403") || msg.includes("Forbidden")) {
+        throw new Error(`API key lacks permissions for ${providerName}: ${msg}`);
+      }
+      throw new Error(`Failed to validate credentials for ${providerName}: ${msg}`);
+    }
+  }
+
+  /**
+   * Run the full OAuth PKCE flow for a provider.
+   */
+  startOAuthFlow(
+    providerName: string,
+    method: AuthMethodOAuth,
+  ): { promise: Promise<OAuthFlowResult>; abort: () => void; authorizationURL: string } {
+    const reg = this.providers.get(providerName);
+    if (!reg) {
+      throw new Error(`Provider "${providerName}" is not registered.`);
+    }
+    return startOAuthFlow(method);
+  }
+
+  /**
+   * Complete an OAuth flow — store the token and advance to model selection or done.
+   */
+  async completeOAuth(
+    providerName: string,
+    method: AuthMethodOAuth,
+    oauthResult: OAuthFlowResult,
+  ): Promise<AuthFlowState> {
+    const reg = this.providers.get(providerName);
+    if (!reg) {
+      throw new Error(`Provider "${providerName}" is not registered.`);
+    }
+
+    await this.storage.set(providerName, oauthResult.accessToken);
+
+    const credentials = { token: oauthResult.accessToken, apiKey: oauthResult.accessToken };
+
+    if (reg.models && reg.models.length > 0) {
+      return {
+        step: "select-model",
+        currentProvider: providerName,
+        currentAuthMethod: method,
+        models: reg.models,
+        currentModel: reg.defaultModel,
+      };
+    }
+
+    return {
+      step: "done",
+      currentProvider: providerName,
+      currentAuthMethod: method,
+      currentModel: reg.defaultModel,
+      result: {
+        provider: reg.createProvider(credentials),
+        model: reg.defaultModel ?? "",
+        providerName,
+      },
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -289,6 +387,15 @@ export class AuthRegistry {
         };
       }
 
+      // OAuth — go to oauth-pending step
+      if (method.type === "oauth") {
+        return {
+          step: "oauth-pending",
+          currentProvider: providerName,
+          currentAuthMethod: method,
+        };
+      }
+
       // Single method that needs credentials
       return {
         step: "input-credentials",
@@ -345,6 +452,14 @@ export class AuthRegistry {
       };
     }
 
+    if (method.type === "oauth") {
+      return {
+        step: "oauth-pending",
+        currentProvider: providerName,
+        currentAuthMethod: method,
+      };
+    }
+
     return {
       step: "input-credentials",
       currentProvider: providerName,
@@ -373,11 +488,7 @@ export class AuthRegistry {
 
     // Merge defaultBaseURL if not explicitly provided
     const resolvedCredentials = { ...credentials };
-    if (
-      method.type === "base-url-key" &&
-      !resolvedCredentials.baseURL &&
-      method.defaultBaseURL
-    ) {
+    if (method.type === "base-url-key" && !resolvedCredentials.baseURL && method.defaultBaseURL) {
       resolvedCredentials.baseURL = method.defaultBaseURL;
     }
 

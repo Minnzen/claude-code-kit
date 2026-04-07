@@ -1,12 +1,12 @@
-import React from 'react'
-import { Box } from '@claude-code-kit/ink-renderer'
-import type { Theme } from './ThemeProvider'
-import { Divider } from '../Divider'
+import { Box } from "@claude-code-kit/ink-renderer";
+import type React from "react";
+import { Divider } from "../Divider";
+import type { Theme } from "./ThemeProvider";
 
 type PaneProps = {
-  children: React.ReactNode
-  color?: keyof Theme
-}
+  children: React.ReactNode;
+  color?: keyof Theme;
+};
 
 /**
  * A pane -- a region of the terminal bounded by a colored top line with
@@ -20,5 +20,5 @@ export function Pane({ children, color }: PaneProps): React.ReactNode {
         {children}
       </Box>
     </Box>
-  )
+  );
 }

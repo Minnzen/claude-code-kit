@@ -1,5 +1,5 @@
-import type { PermissionHandler, ToolCall, ToolContext, ToolResultMessage } from "./types.js";
 import type { ToolRegistry } from "./tool-registry.js";
+import type { PermissionHandler, ToolCall, ToolContext, ToolResultMessage } from "./types.js";
 
 const DEFAULT_MAX_CONCURRENT = 5;
 
@@ -89,10 +89,7 @@ type ExecutionGroup =
  * isReadOnly unset are already untrusted and run sequentially. `isDestructive`
  * is advisory metadata for UI/logging and does not change the execution plan.
  */
-function buildExecutionPlan(
-  toolCalls: ToolCall[],
-  registry: ToolRegistry,
-): ExecutionGroup[] {
+function buildExecutionPlan(toolCalls: ToolCall[], registry: ToolRegistry): ExecutionGroup[] {
   const groups: ExecutionGroup[] = [];
   let currentParallelBatch: PlanEntry[] = [];
 

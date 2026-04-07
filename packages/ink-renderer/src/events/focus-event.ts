@@ -1,4 +1,4 @@
-import { type EventTarget, TerminalEvent } from './terminal-event'
+import { type EventTarget, TerminalEvent } from "./terminal-event";
 
 /**
  * Focus event for component focus changes.
@@ -9,14 +9,10 @@ import { type EventTarget, TerminalEvent } from './terminal-event'
  * so parent components can observe descendant focus changes.
  */
 export class FocusEvent extends TerminalEvent {
-  readonly relatedTarget: EventTarget | null
+  readonly relatedTarget: EventTarget | null;
 
-  constructor(
-    type: 'focus' | 'blur',
-    relatedTarget: EventTarget | null = null,
-  ) {
-    super(type, { bubbles: true, cancelable: false })
-    this.relatedTarget = relatedTarget
+  constructor(type: "focus" | "blur", relatedTarget: EventTarget | null = null) {
+    super(type, { bubbles: true, cancelable: false });
+    this.relatedTarget = relatedTarget;
   }
 }
-

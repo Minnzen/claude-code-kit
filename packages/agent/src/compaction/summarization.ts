@@ -1,5 +1,11 @@
-import type { AssistantMessage, CompactionStrategy, LLMProvider, Message, UserMessage } from "../types.js";
 import { estimateTotalTokens } from "../context-manager.js";
+import type {
+  AssistantMessage,
+  CompactionStrategy,
+  LLMProvider,
+  Message,
+  UserMessage,
+} from "../types.js";
 
 export interface CompactionResult {
   /** The compacted message array. */
@@ -98,9 +104,7 @@ export class SummarizationCompaction implements CompactionStrategy {
         const text =
           typeof m.content === "string"
             ? m.content
-            : m.content
-                .map((part) => (part.type === "text" ? part.text : "[image]"))
-                .join("");
+            : m.content.map((part) => (part.type === "text" ? part.text : "[image]")).join("");
         return `${role}: ${text}`;
       })
       .join("\n\n");

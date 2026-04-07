@@ -1,5 +1,5 @@
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 const MAX_RESULTS_LIMIT = 20;
 const DEFAULT_MAX_RESULTS = 5;
@@ -55,6 +55,7 @@ export function parseSearchResults(html: string, maxResults: number): SearchResu
   const resultBlockRegex = /<div[^>]*class="[^"]*result\b[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/g;
   let blockMatch: RegExpExecArray | null;
 
+  // biome-ignore lint/suspicious/noAssignInExpressions: standard regex exec loop
   while ((blockMatch = resultBlockRegex.exec(html)) !== null && results.length < maxResults) {
     const block = blockMatch[1];
 
@@ -87,18 +88,20 @@ export function parseSearchResults(html: string, maxResults: number): SearchResu
 
 /** Strip HTML tags and decode common HTML entities */
 export function stripHtmlTags(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&nbsp;/g, " ")
-    // Decode numeric entities: &#123; (decimal) and &#x1A; (hex)
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number.parseInt(dec, 10)))
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    html
+      .replace(/<[^>]*>/g, "")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&nbsp;/g, " ")
+      // Decode numeric entities: &#123; (decimal) and &#x1A; (hex)
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number.parseInt(dec, 10)))
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 /** Extract actual URL from DuckDuckGo redirect wrapper */
@@ -170,10 +173,7 @@ function formatResults(results: SearchResult[]): string {
   }
 
   return results
-    .map(
-      (r, i) =>
-        `${i + 1}. ${r.title}\n   URL: ${r.url}${r.snippet ? `\n   ${r.snippet}` : ""}`,
-    )
+    .map((r, i) => `${i + 1}. ${r.title}\n   URL: ${r.url}${r.snippet ? `\n   ${r.snippet}` : ""}`)
     .join("\n\n");
 }
 

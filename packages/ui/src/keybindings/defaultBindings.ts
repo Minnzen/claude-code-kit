@@ -1,16 +1,12 @@
-import { satisfies } from '@claude-code-kit/shared'
-import type { KeybindingBlock } from './types'
+import { satisfies } from "@claude-code-kit/shared";
+import type { KeybindingBlock } from "./types";
 
-const feature = (): boolean => false
+const feature = (): boolean => false;
 
 const getPlatform = (): string =>
-  process.platform === 'darwin'
-    ? 'macos'
-    : process.platform === 'win32'
-      ? 'windows'
-      : 'linux'
+  process.platform === "darwin" ? "macos" : process.platform === "win32" ? "windows" : "linux";
 
-const isRunningWithBun = (): boolean => false
+const isRunningWithBun = (): boolean => false;
 
 /**
  * Default keybindings that match current Claude Code behavior.
@@ -20,299 +16,295 @@ const isRunningWithBun = (): boolean => false
 // Platform-specific image paste shortcut:
 // - Windows: alt+v (ctrl+v is system paste)
 // - Other platforms: ctrl+v
-const IMAGE_PASTE_KEY = getPlatform() === 'windows' ? 'alt+v' : 'ctrl+v'
+const IMAGE_PASTE_KEY = getPlatform() === "windows" ? "alt+v" : "ctrl+v";
 
 // Modifier-only chords (like shift+tab) may fail on Windows Terminal without VT mode
 // See: https://github.com/microsoft/terminal/issues/879#issuecomment-618801651
 // Node enabled VT mode in 24.2.0 / 22.17.0: https://github.com/nodejs/node/pull/58358
 // Bun enabled VT mode in 1.2.23: https://github.com/oven-sh/bun/pull/21161
 const SUPPORTS_TERMINAL_VT_MODE =
-  getPlatform() !== 'windows' ||
+  getPlatform() !== "windows" ||
   (isRunningWithBun()
-    ? satisfies(process.versions.bun ?? '0.0.0', '>=1.2.23')
-    : satisfies(process.versions.node, '>=22.17.0 <23.0.0 || >=24.2.0'))
+    ? satisfies(process.versions.bun ?? "0.0.0", ">=1.2.23")
+    : satisfies(process.versions.node, ">=22.17.0 <23.0.0 || >=24.2.0"));
 
 // Platform-specific mode cycle shortcut:
 // - Windows without VT mode: meta+m (shift+tab doesn't work reliably)
 // - Other platforms: shift+tab
-const MODE_CYCLE_KEY = SUPPORTS_TERMINAL_VT_MODE ? 'shift+tab' : 'meta+m'
+const MODE_CYCLE_KEY = SUPPORTS_TERMINAL_VT_MODE ? "shift+tab" : "meta+m";
 
 export const DEFAULT_BINDINGS: KeybindingBlock[] = [
   {
-    context: 'Global',
+    context: "Global",
     bindings: {
       // ctrl+c and ctrl+d use special time-based double-press handling.
       // They ARE defined here so the resolver can find them, but they
       // CANNOT be rebound by users - validation in reservedShortcuts.ts
       // will show an error if users try to override these keys.
-      'ctrl+c': 'app:interrupt',
-      'ctrl+d': 'app:exit',
-      'ctrl+l': 'app:redraw',
-      'ctrl+t': 'app:toggleTodos',
-      'ctrl+o': 'app:toggleTranscript',
-      ...(feature()
-        ? { 'ctrl+shift+b': 'app:toggleBrief' as const }
-        : {}),
-      'ctrl+shift+o': 'app:toggleTeammatePreview',
-      'ctrl+r': 'history:search',
+      "ctrl+c": "app:interrupt",
+      "ctrl+d": "app:exit",
+      "ctrl+l": "app:redraw",
+      "ctrl+t": "app:toggleTodos",
+      "ctrl+o": "app:toggleTranscript",
+      ...(feature() ? { "ctrl+shift+b": "app:toggleBrief" as const } : {}),
+      "ctrl+shift+o": "app:toggleTeammatePreview",
+      "ctrl+r": "history:search",
       // File navigation. cmd+ bindings only fire on kitty-protocol terminals;
       // ctrl+shift is the portable fallback.
       ...(feature()
         ? {
-            'ctrl+shift+f': 'app:globalSearch' as const,
-            'cmd+shift+f': 'app:globalSearch' as const,
-            'ctrl+shift+p': 'app:quickOpen' as const,
-            'cmd+shift+p': 'app:quickOpen' as const,
+            "ctrl+shift+f": "app:globalSearch" as const,
+            "cmd+shift+f": "app:globalSearch" as const,
+            "ctrl+shift+p": "app:quickOpen" as const,
+            "cmd+shift+p": "app:quickOpen" as const,
           }
         : {}),
-      ...(feature() ? { 'meta+j': 'app:toggleTerminal' } : {}),
+      ...(feature() ? { "meta+j": "app:toggleTerminal" } : {}),
     },
   },
   {
-    context: 'Chat',
+    context: "Chat",
     bindings: {
-      escape: 'chat:cancel',
+      escape: "chat:cancel",
       // ctrl+x chord prefix avoids shadowing readline editing keys (ctrl+a/b/e/f/...).
-      'ctrl+x ctrl+k': 'chat:killAgents',
-      [MODE_CYCLE_KEY]: 'chat:cycleMode',
-      'meta+p': 'chat:modelPicker',
-      'meta+o': 'chat:fastMode',
-      'meta+t': 'chat:thinkingToggle',
-      enter: 'chat:submit',
-      up: 'history:previous',
-      down: 'history:next',
+      "ctrl+x ctrl+k": "chat:killAgents",
+      [MODE_CYCLE_KEY]: "chat:cycleMode",
+      "meta+p": "chat:modelPicker",
+      "meta+o": "chat:fastMode",
+      "meta+t": "chat:thinkingToggle",
+      enter: "chat:submit",
+      up: "history:previous",
+      down: "history:next",
       // Undo has two bindings to support different terminal behaviors:
       // - ctrl+_ for legacy terminals (send \x1f control char)
       // - ctrl+shift+- for Kitty protocol (sends physical key with modifiers)
-      'ctrl+_': 'chat:undo',
-      'ctrl+shift+-': 'chat:undo',
+      "ctrl+_": "chat:undo",
+      "ctrl+shift+-": "chat:undo",
       // ctrl+x ctrl+e is the readline-native edit-and-execute-command binding.
-      'ctrl+x ctrl+e': 'chat:externalEditor',
-      'ctrl+g': 'chat:externalEditor',
-      'ctrl+s': 'chat:stash',
+      "ctrl+x ctrl+e": "chat:externalEditor",
+      "ctrl+g": "chat:externalEditor",
+      "ctrl+s": "chat:stash",
       // Image paste shortcut (platform-specific key defined above)
-      [IMAGE_PASTE_KEY]: 'chat:imagePaste',
-      ...(feature()
-        ? { 'shift+up': 'chat:messageActions' as const }
-        : {}),
+      [IMAGE_PASTE_KEY]: "chat:imagePaste",
+      ...(feature() ? { "shift+up": "chat:messageActions" as const } : {}),
       // Voice activation (hold-to-talk). Registered so getShortcutDisplay
       // finds it without hitting the fallback analytics log. To rebind,
       // add a voice:pushToTalk entry (last wins); to disable, use /voice
       // — null-unbinding space hits a pre-existing useKeybinding.ts trap
       // where 'unbound' swallows the event (space dead for typing).
-      ...(feature() ? { space: 'voice:pushToTalk' } : {}),
+      ...(feature() ? { space: "voice:pushToTalk" } : {}),
     },
   },
   {
-    context: 'Autocomplete',
+    context: "Autocomplete",
     bindings: {
-      tab: 'autocomplete:accept',
-      escape: 'autocomplete:dismiss',
-      up: 'autocomplete:previous',
-      down: 'autocomplete:next',
+      tab: "autocomplete:accept",
+      escape: "autocomplete:dismiss",
+      up: "autocomplete:previous",
+      down: "autocomplete:next",
     },
   },
   {
-    context: 'Settings',
+    context: "Settings",
     bindings: {
       // Settings menu uses escape only (not 'n') to dismiss
-      escape: 'confirm:no',
+      escape: "confirm:no",
       // Config panel list navigation (reuses Select actions)
-      up: 'select:previous',
-      down: 'select:next',
-      k: 'select:previous',
-      j: 'select:next',
-      'ctrl+p': 'select:previous',
-      'ctrl+n': 'select:next',
+      up: "select:previous",
+      down: "select:next",
+      k: "select:previous",
+      j: "select:next",
+      "ctrl+p": "select:previous",
+      "ctrl+n": "select:next",
       // Toggle/activate the selected setting (space only — enter saves & closes)
-      space: 'select:accept',
+      space: "select:accept",
       // Save and close the config panel
-      enter: 'settings:close',
+      enter: "settings:close",
       // Enter search mode
-      '/': 'settings:search',
+      "/": "settings:search",
       // Retry loading usage data (only active on error)
-      r: 'settings:retry',
+      r: "settings:retry",
     },
   },
   {
-    context: 'Confirmation',
+    context: "Confirmation",
     bindings: {
-      y: 'confirm:yes',
-      n: 'confirm:no',
-      enter: 'confirm:yes',
-      escape: 'confirm:no',
+      y: "confirm:yes",
+      n: "confirm:no",
+      enter: "confirm:yes",
+      escape: "confirm:no",
       // Navigation for dialogs with lists
-      up: 'confirm:previous',
-      down: 'confirm:next',
-      tab: 'confirm:nextField',
-      space: 'confirm:toggle',
+      up: "confirm:previous",
+      down: "confirm:next",
+      tab: "confirm:nextField",
+      space: "confirm:toggle",
       // Cycle modes (used in file permission dialogs and teams dialog)
-      'shift+tab': 'confirm:cycleMode',
+      "shift+tab": "confirm:cycleMode",
       // Toggle permission explanation in permission dialogs
-      'ctrl+e': 'confirm:toggleExplanation',
+      "ctrl+e": "confirm:toggleExplanation",
       // Toggle permission debug info
-      'ctrl+d': 'permission:toggleDebug',
+      "ctrl+d": "permission:toggleDebug",
     },
   },
   {
-    context: 'Tabs',
+    context: "Tabs",
     bindings: {
       // Tab cycling navigation
-      tab: 'tabs:next',
-      'shift+tab': 'tabs:previous',
-      right: 'tabs:next',
-      left: 'tabs:previous',
+      tab: "tabs:next",
+      "shift+tab": "tabs:previous",
+      right: "tabs:next",
+      left: "tabs:previous",
     },
   },
   {
-    context: 'Transcript',
+    context: "Transcript",
     bindings: {
-      'ctrl+e': 'transcript:toggleShowAll',
-      'ctrl+c': 'transcript:exit',
-      escape: 'transcript:exit',
+      "ctrl+e": "transcript:toggleShowAll",
+      "ctrl+c": "transcript:exit",
+      escape: "transcript:exit",
       // q — pager convention (less, tmux copy-mode). Transcript is a modal
       // reading view with no prompt, so q-as-literal-char has no owner.
-      q: 'transcript:exit',
+      q: "transcript:exit",
     },
   },
   {
-    context: 'HistorySearch',
+    context: "HistorySearch",
     bindings: {
-      'ctrl+r': 'historySearch:next',
-      escape: 'historySearch:accept',
-      tab: 'historySearch:accept',
-      'ctrl+c': 'historySearch:cancel',
-      enter: 'historySearch:execute',
+      "ctrl+r": "historySearch:next",
+      escape: "historySearch:accept",
+      tab: "historySearch:accept",
+      "ctrl+c": "historySearch:cancel",
+      enter: "historySearch:execute",
     },
   },
   {
-    context: 'Task',
+    context: "Task",
     bindings: {
       // Background running foreground tasks (bash commands, agents)
       // In tmux, users must press ctrl+b twice (tmux prefix escape)
-      'ctrl+b': 'task:background',
+      "ctrl+b": "task:background",
     },
   },
   {
-    context: 'ThemePicker',
+    context: "ThemePicker",
     bindings: {
-      'ctrl+t': 'theme:toggleSyntaxHighlighting',
+      "ctrl+t": "theme:toggleSyntaxHighlighting",
     },
   },
   {
-    context: 'Scroll',
+    context: "Scroll",
     bindings: {
-      pageup: 'scroll:pageUp',
-      pagedown: 'scroll:pageDown',
-      wheelup: 'scroll:lineUp',
-      wheeldown: 'scroll:lineDown',
-      'ctrl+home': 'scroll:top',
-      'ctrl+end': 'scroll:bottom',
+      pageup: "scroll:pageUp",
+      pagedown: "scroll:pageDown",
+      wheelup: "scroll:lineUp",
+      wheeldown: "scroll:lineDown",
+      "ctrl+home": "scroll:top",
+      "ctrl+end": "scroll:bottom",
       // Selection copy. ctrl+shift+c is standard terminal copy.
       // cmd+c only fires on terminals using the kitty keyboard
       // protocol (kitty/WezTerm/ghostty/iTerm2) where the super
       // modifier actually reaches the pty — inert elsewhere.
       // Esc-to-clear and contextual ctrl+c are handled via raw
       // useInput so they can conditionally propagate.
-      'ctrl+shift+c': 'selection:copy',
-      'cmd+c': 'selection:copy',
+      "ctrl+shift+c": "selection:copy",
+      "cmd+c": "selection:copy",
     },
   },
   {
-    context: 'Help',
+    context: "Help",
     bindings: {
-      escape: 'help:dismiss',
+      escape: "help:dismiss",
     },
   },
   // Attachment navigation (select dialog image attachments)
   {
-    context: 'Attachments',
+    context: "Attachments",
     bindings: {
-      right: 'attachments:next',
-      left: 'attachments:previous',
-      backspace: 'attachments:remove',
-      delete: 'attachments:remove',
-      down: 'attachments:exit',
-      escape: 'attachments:exit',
+      right: "attachments:next",
+      left: "attachments:previous",
+      backspace: "attachments:remove",
+      delete: "attachments:remove",
+      down: "attachments:exit",
+      escape: "attachments:exit",
     },
   },
   // Footer indicator navigation (tasks, teams, diff, loop)
   {
-    context: 'Footer',
+    context: "Footer",
     bindings: {
-      up: 'footer:up',
-      'ctrl+p': 'footer:up',
-      down: 'footer:down',
-      'ctrl+n': 'footer:down',
-      right: 'footer:next',
-      left: 'footer:previous',
-      enter: 'footer:openSelected',
-      escape: 'footer:clearSelection',
+      up: "footer:up",
+      "ctrl+p": "footer:up",
+      down: "footer:down",
+      "ctrl+n": "footer:down",
+      right: "footer:next",
+      left: "footer:previous",
+      enter: "footer:openSelected",
+      escape: "footer:clearSelection",
     },
   },
   // Message selector (rewind dialog) navigation
   {
-    context: 'MessageSelector',
+    context: "MessageSelector",
     bindings: {
-      up: 'messageSelector:up',
-      down: 'messageSelector:down',
-      k: 'messageSelector:up',
-      j: 'messageSelector:down',
-      'ctrl+p': 'messageSelector:up',
-      'ctrl+n': 'messageSelector:down',
-      'ctrl+up': 'messageSelector:top',
-      'shift+up': 'messageSelector:top',
-      'meta+up': 'messageSelector:top',
-      'shift+k': 'messageSelector:top',
-      'ctrl+down': 'messageSelector:bottom',
-      'shift+down': 'messageSelector:bottom',
-      'meta+down': 'messageSelector:bottom',
-      'shift+j': 'messageSelector:bottom',
-      enter: 'messageSelector:select',
+      up: "messageSelector:up",
+      down: "messageSelector:down",
+      k: "messageSelector:up",
+      j: "messageSelector:down",
+      "ctrl+p": "messageSelector:up",
+      "ctrl+n": "messageSelector:down",
+      "ctrl+up": "messageSelector:top",
+      "shift+up": "messageSelector:top",
+      "meta+up": "messageSelector:top",
+      "shift+k": "messageSelector:top",
+      "ctrl+down": "messageSelector:bottom",
+      "shift+down": "messageSelector:bottom",
+      "meta+down": "messageSelector:bottom",
+      "shift+j": "messageSelector:bottom",
+      enter: "messageSelector:select",
     },
   },
   // Diff dialog navigation
   {
-    context: 'DiffDialog',
+    context: "DiffDialog",
     bindings: {
-      escape: 'diff:dismiss',
-      left: 'diff:previousSource',
-      right: 'diff:nextSource',
-      up: 'diff:previousFile',
-      down: 'diff:nextFile',
-      enter: 'diff:viewDetails',
+      escape: "diff:dismiss",
+      left: "diff:previousSource",
+      right: "diff:nextSource",
+      up: "diff:previousFile",
+      down: "diff:nextFile",
+      enter: "diff:viewDetails",
       // Note: diff:back is handled by left arrow in detail mode
     },
   },
   // Model picker effort cycling (ant-only)
   {
-    context: 'ModelPicker',
+    context: "ModelPicker",
     bindings: {
-      left: 'modelPicker:decreaseEffort',
-      right: 'modelPicker:increaseEffort',
+      left: "modelPicker:decreaseEffort",
+      right: "modelPicker:increaseEffort",
     },
   },
   // Select component navigation (used by /model, /resume, permission prompts, etc.)
   {
-    context: 'Select',
+    context: "Select",
     bindings: {
-      up: 'select:previous',
-      down: 'select:next',
-      j: 'select:next',
-      k: 'select:previous',
-      'ctrl+n': 'select:next',
-      'ctrl+p': 'select:previous',
-      enter: 'select:accept',
-      escape: 'select:cancel',
+      up: "select:previous",
+      down: "select:next",
+      j: "select:next",
+      k: "select:previous",
+      "ctrl+n": "select:next",
+      "ctrl+p": "select:previous",
+      enter: "select:accept",
+      escape: "select:cancel",
     },
   },
   // Plugin dialog actions (manage, browse, discover plugins)
   // Navigation (select:*) uses the Select context above
   {
-    context: 'Plugin',
+    context: "Plugin",
     bindings: {
-      space: 'plugin:toggle',
-      i: 'plugin:install',
+      space: "plugin:toggle",
+      i: "plugin:install",
     },
   },
-]
+];

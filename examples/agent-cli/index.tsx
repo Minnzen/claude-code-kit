@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { render } from '@claude-code-kit/ink-renderer'
 import { AgentREPL, WelcomeScreen, AuthFlowUI } from '@claude-code-kit/ui'
 import {
@@ -101,6 +101,25 @@ function tryAutoAuth(auth: AuthRegistry): { provider: LLMProvider; name: string;
   return null
 }
 
+/**
+ * Try to resolve a provider from stored credentials (async).
+ * Falls back to env vars first, then checks storage.
+ */
+async function tryStoredAuth(auth: AuthRegistry): Promise<{ provider: LLMProvider; name: string; model: string } | null> {
+  const PROVIDER_ORDER = ['anthropic', 'openai', 'deepseek', 'siliconflow', 'groq', 'ollama'] as const
+  for (const name of PROVIDER_ORDER) {
+    try {
+      const provider = await auth.authenticate(name)
+      const reg = auth.getRegistration(name)
+      const model = reg?.defaultModel ?? 'unknown'
+      return { provider, name, model }
+    } catch {
+      // No credential for this provider, try next
+    }
+  }
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // 5. Main App — handles auth flow vs REPL state
 // ---------------------------------------------------------------------------
@@ -112,7 +131,7 @@ type AppState =
 function App() {
   const [auth] = useState(() => createAuth())
   const [state, setState] = useState<AppState>(() => {
-    // Try env-based auto-auth first
+    // Try env-based auto-auth first (sync)
     const resolved = tryAutoAuth(auth)
     if (resolved) {
       return {
@@ -122,9 +141,25 @@ function App() {
         model: resolved.model,
       }
     }
-    // No env var found — show interactive auth flow
+    // Will check stored credentials async
     return { phase: 'auth' }
   })
+
+  // Check stored credentials on mount (async fallback after sync env check)
+  useEffect(() => {
+    if (state.phase !== 'auth') return
+    let cancelled = false
+    tryStoredAuth(auth).then(resolved => {
+      if (cancelled || !resolved) return
+      setState({
+        phase: 'repl',
+        agent: createAgent(resolved.provider, resolved.model),
+        providerName: resolved.name,
+        model: resolved.model,
+      })
+    })
+    return () => { cancelled = true }
+  }, []) // Only run on mount
 
   const handleAuthComplete = useCallback((provider: LLMProvider, providerName: string, model: string) => {
     setState({
@@ -248,6 +283,7 @@ function AuthFlowWithDemoOption({
       onComplete={handleComplete}
       onCancel={handleCancel}
       title="Welcome to cck-agent — Select a provider to get started"
+      validateCredentials
     />
   )
 }

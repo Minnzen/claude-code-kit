@@ -1,5 +1,5 @@
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 // ---------------------------------------------------------------------------
 // LSP connection interface
@@ -71,9 +71,18 @@ const inputSchema = z
     action: actionEnum.describe(
       "The LSP action to perform: goToDefinition, findReferences, hover, documentSymbol, or workspaceSymbol",
     ),
-    file_path: z.string().optional().describe("Absolute path to the file (required for all actions except workspaceSymbol)"),
-    line: z.number().optional().describe("0-based line number (required for goToDefinition, findReferences, hover)"),
-    character: z.number().optional().describe("0-based character offset (required for goToDefinition, findReferences, hover)"),
+    file_path: z
+      .string()
+      .optional()
+      .describe("Absolute path to the file (required for all actions except workspaceSymbol)"),
+    line: z
+      .number()
+      .optional()
+      .describe("0-based line number (required for goToDefinition, findReferences, hover)"),
+    character: z
+      .number()
+      .optional()
+      .describe("0-based character offset (required for goToDefinition, findReferences, hover)"),
     query: z.string().optional().describe("Search query for workspaceSymbol"),
   })
   .superRefine((data, ctx) => {
@@ -217,7 +226,11 @@ function formatLocations(result: unknown): string {
   if (!result) return "No results found";
 
   // Single location
-  if (!Array.isArray(result) && typeof result === "object" && "uri" in (result as Record<string, unknown>)) {
+  if (
+    !Array.isArray(result) &&
+    typeof result === "object" &&
+    "uri" in (result as Record<string, unknown>)
+  ) {
     return formatLocation(result as LspLocation);
   }
 
@@ -245,7 +258,9 @@ function formatHover(result: unknown): string {
     // MarkedString[] or MarkupContent[]
     if (Array.isArray(contents)) {
       return contents
-        .map((c) => (typeof c === "string" ? c : (c as { value?: string }).value ?? JSON.stringify(c)))
+        .map((c) =>
+          typeof c === "string" ? c : ((c as { value?: string }).value ?? JSON.stringify(c)),
+        )
         .join("\n\n");
     }
   }

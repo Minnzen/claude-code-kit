@@ -21,7 +21,7 @@
  */
 
 // Parser
-export { Parser } from './termio/parser'
+export { Parser } from "./termio/parser";
 // Types
 export type {
   Action,
@@ -38,6 +38,5 @@ export type {
   TextStyle,
   TitleAction,
   UnderlineStyle,
-} from './termio/types'
-export { colorsEqual, defaultStyle, stylesEqual } from './termio/types'
-
+} from "./termio/types";
+export { colorsEqual, defaultStyle, stylesEqual } from "./termio/types";

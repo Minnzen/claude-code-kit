@@ -1,5 +1,5 @@
-import type { CompactionStrategy, LLMProvider, Message } from "./types.js";
 import { NoopCompaction } from "./compaction/interface.js";
+import type { CompactionStrategy, LLMProvider, Message } from "./types.js";
 
 /**
  * Estimate token count for a message using the ~4 chars/token heuristic.
@@ -9,9 +9,7 @@ export function estimateTokens(message: Message): number {
   if (typeof message.content === "string") {
     text = message.content;
   } else {
-    text = message.content
-      .map((part) => (part.type === "text" ? part.text : "[image]"))
-      .join("");
+    text = message.content.map((part) => (part.type === "text" ? part.text : "[image]")).join("");
   }
 
   // Add overhead for tool calls on assistant messages

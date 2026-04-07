@@ -40,8 +40,15 @@ export class AnthropicProvider implements LLMProvider {
     const client = await this.clientPromise;
 
     // Separate system prompt from messages
-    const { systemPrompt, messages: rawMessages, tools, model, maxTokens, temperature, signal } =
-      options;
+    const {
+      systemPrompt,
+      messages: rawMessages,
+      tools,
+      model,
+      maxTokens,
+      temperature,
+      signal,
+    } = options;
 
     // Safe cast: system messages are filtered out, so only User/Assistant/ToolResult remain
     const anthropicMessages = rawMessages

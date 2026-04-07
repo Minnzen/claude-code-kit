@@ -1,12 +1,12 @@
-import { Event } from './event'
+import { Event } from "./event";
 
 export class ResizeEvent extends Event {
-  readonly columns: number
-  readonly rows: number
+  readonly columns: number;
+  readonly rows: number;
 
   constructor(columns: number, rows: number) {
-    super()
-    this.columns = columns
-    this.rows = rows
+    super();
+    this.columns = columns;
+    this.rows = rows;
   }
 }

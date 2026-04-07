@@ -1,7 +1,7 @@
 import { exec } from "node:child_process";
 import * as path from "node:path";
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 const DEFAULT_TIMEOUT = 30_000;
 
@@ -11,7 +11,9 @@ export const inputSchema = z.object({
     .boolean()
     .optional()
     .default(false)
-    .describe("If true, keep the worktree on disk (only unregister from git). If false (default), remove the worktree directory entirely"),
+    .describe(
+      "If true, keep the worktree on disk (only unregister from git). If false (default), remove the worktree directory entirely",
+    ),
 });
 
 type Input = z.infer<typeof inputSchema>;

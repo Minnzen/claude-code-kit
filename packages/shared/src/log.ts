@@ -5,9 +5,9 @@
 
 export function logError(error: unknown): void {
   try {
-    const err = error instanceof Error ? error : new Error(String(error))
-    const errorStr = err.stack || err.message
-    process.stderr.write(`[ERROR] ${errorStr}\n`)
+    const err = error instanceof Error ? error : new Error(String(error));
+    const errorStr = err.stack || err.message;
+    process.stderr.write(`[ERROR] ${errorStr}\n`);
   } catch {
     // pass
   }

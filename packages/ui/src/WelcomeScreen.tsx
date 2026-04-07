@@ -1,26 +1,26 @@
-import React from 'react'
-import { Box, Text } from '@claude-code-kit/ink-renderer'
+import { Box, Text } from "@claude-code-kit/ink-renderer";
+import type React from "react";
 
-const DEFAULT_COLOR = '#DA7756'
+const DEFAULT_COLOR = "#DA7756";
 
 export type WelcomeScreenProps = {
-  appName: string
-  subtitle?: string
-  version?: string
-  tips?: string[]
-  logo?: React.ReactNode
-  model?: string
-  color?: string
-}
+  appName: string;
+  subtitle?: string;
+  version?: string;
+  tips?: string[];
+  logo?: React.ReactNode;
+  model?: string;
+  color?: string;
+};
 
 export function ClawdLogo({ color = DEFAULT_COLOR }: { color?: string }): React.ReactNode {
   return (
     <Box flexDirection="column">
-      <Text color={color}>{' ▐▛███▜▌'}</Text>
-      <Text color={color}>{'▝▜█████▛▘'}</Text>
-      <Text color={color}>{'  ▘▘ ▝▝  '}</Text>
+      <Text color={color}>{" ▐▛███▜▌"}</Text>
+      <Text color={color}>{"▝▜█████▛▘"}</Text>
+      <Text color={color}>{"  ▘▘ ▝▝  "}</Text>
     </Box>
-  )
+  );
 }
 
 export function WelcomeScreen({
@@ -32,7 +32,7 @@ export function WelcomeScreen({
   model,
   color = DEFAULT_COLOR,
 }: WelcomeScreenProps): React.ReactNode {
-  const logoNode = logo ?? <ClawdLogo color={color} />
+  const logoNode = logo ?? <ClawdLogo color={color} />;
 
   return (
     <Box flexDirection="column" gap={1} marginTop={1} marginLeft={1}>
@@ -40,17 +40,13 @@ export function WelcomeScreen({
         {logoNode}
         <Box flexDirection="column" justifyContent="center">
           <Box flexDirection="row" gap={1}>
-            <Text bold color={color}>{appName}</Text>
-            {version && (
-              <Text dimColor>{`v${version}`}</Text>
-            )}
+            <Text bold color={color}>
+              {appName}
+            </Text>
+            {version && <Text dimColor>{`v${version}`}</Text>}
           </Box>
-          {subtitle && (
-            <Text dimColor>{subtitle}</Text>
-          )}
-          {model && (
-            <Text dimColor>{model}</Text>
-          )}
+          {subtitle && <Text dimColor>{subtitle}</Text>}
+          {model && <Text dimColor>{model}</Text>}
         </Box>
       </Box>
 
@@ -63,5 +59,5 @@ export function WelcomeScreen({
         </Box>
       )}
     </Box>
-  )
+  );
 }

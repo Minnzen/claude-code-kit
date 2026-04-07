@@ -1,50 +1,51 @@
-import React, { useState, useCallback, useRef } from 'react'
-import { Box, useInput, useApp, type Key } from '@claude-code-kit/ink-renderer'
-import { MessageList, type Message } from './MessageList'
-import { PromptInput } from './PromptInput'
-import { Spinner } from './Spinner'
-import { StatusLine, type StatusLineSegment } from './StatusLine'
-import { Divider } from './Divider'
-import { PermissionRequest, type PermissionAction } from './PermissionRequest'
-import { SearchOverlay, computeMatches } from './SearchOverlay'
+import { Box, type Key, useApp, useInput } from "@claude-code-kit/ink-renderer";
+import type React from "react";
+import { useCallback, useRef, useState } from "react";
+import { Divider } from "./Divider";
+import { type Message, MessageList } from "./MessageList";
+import { type PermissionAction, PermissionRequest } from "./PermissionRequest";
+import { PromptInput } from "./PromptInput";
+import { computeMatches, SearchOverlay } from "./SearchOverlay";
+import { Spinner } from "./Spinner";
+import { StatusLine, type StatusLineSegment } from "./StatusLine";
 
 type REPLCommand = {
-  name: string
-  description: string
-  onExecute: (args: string) => void
-}
+  name: string;
+  description: string;
+  onExecute: (args: string) => void;
+};
 
 type PermissionRequestState = {
-  toolName: string
-  description: string
-  details?: string
-  preview?: React.ReactNode
-  onDecision: (action: PermissionAction) => void
-}
+  toolName: string;
+  description: string;
+  details?: string;
+  preview?: React.ReactNode;
+  onDecision: (action: PermissionAction) => void;
+};
 
 export type REPLProps = {
-  onSubmit: (message: string) => Promise<void> | void
-  onExit?: () => void
+  onSubmit: (message: string) => Promise<void> | void;
+  onExit?: () => void;
 
-  messages: Message[]
-  isLoading?: boolean
-  streamingContent?: string | null
+  messages: Message[];
+  isLoading?: boolean;
+  streamingContent?: string | null;
 
-  welcome?: React.ReactNode
+  welcome?: React.ReactNode;
 
-  permissionRequest?: PermissionRequestState
+  permissionRequest?: PermissionRequestState;
 
-  commands?: REPLCommand[]
-  model?: string
-  statusSegments?: StatusLineSegment[]
+  commands?: REPLCommand[];
+  model?: string;
+  statusSegments?: StatusLineSegment[];
 
-  prefix?: string
-  placeholder?: string
-  history?: string[]
+  prefix?: string;
+  placeholder?: string;
+  history?: string[];
 
-  renderMessage?: (message: Message) => React.ReactNode
-  spinner?: React.ReactNode
-}
+  renderMessage?: (message: Message) => React.ReactNode;
+  spinner?: React.ReactNode;
+};
 
 export function REPL({
   onSubmit,
@@ -57,97 +58,97 @@ export function REPL({
   commands = [],
   model,
   statusSegments,
-  prefix = '\u276F',
+  prefix = "\u276F",
   placeholder,
   history: externalHistory,
   renderMessage,
   spinner,
 }: REPLProps): React.ReactNode {
-  const { exit } = useApp()
-  const [inputValue, setInputValue] = useState('')
-  const [internalHistory, setInternalHistory] = useState<string[]>([])
-  const [searchOpen, setSearchOpen] = useState(false)
-  const submittingRef = useRef(false)
+  const { exit } = useApp();
+  const [inputValue, setInputValue] = useState("");
+  const [internalHistory, setInternalHistory] = useState<string[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const submittingRef = useRef(false);
 
-  const history = externalHistory ?? internalHistory
+  const history = externalHistory ?? internalHistory;
 
   const messageContents = messages.map((m) =>
-    typeof m.content === 'string' ? m.content : m.content.map((b) => ('text' in b ? b.text : '')).join(' '),
-  )
+    typeof m.content === "string"
+      ? m.content
+      : m.content.map((b) => ("text" in b ? b.text : "")).join(" "),
+  );
 
   const promptCommands = commands.map((c) => ({
     name: c.name,
     description: c.description,
-  }))
+  }));
 
   const handleSubmit = useCallback(
     (value: string) => {
-      if (submittingRef.current) return
+      if (submittingRef.current) return;
 
-      const trimmed = value.trim()
-      if (!trimmed) return
+      const trimmed = value.trim();
+      if (!trimmed) return;
 
-      if (trimmed.startsWith('/')) {
-        const spaceIndex = trimmed.indexOf(' ')
-        const cmdName = spaceIndex >= 0 ? trimmed.slice(1, spaceIndex) : trimmed.slice(1)
-        const cmdArgs = spaceIndex >= 0 ? trimmed.slice(spaceIndex + 1).trim() : ''
+      if (trimmed.startsWith("/")) {
+        const spaceIndex = trimmed.indexOf(" ");
+        const cmdName = spaceIndex >= 0 ? trimmed.slice(1, spaceIndex) : trimmed.slice(1);
+        const cmdArgs = spaceIndex >= 0 ? trimmed.slice(spaceIndex + 1).trim() : "";
 
-        const cmd = commands.find((c) => c.name === cmdName)
+        const cmd = commands.find((c) => c.name === cmdName);
         if (cmd) {
-          setInputValue('')
-          cmd.onExecute(cmdArgs)
-          return
+          setInputValue("");
+          cmd.onExecute(cmdArgs);
+          return;
         }
       }
 
-      submittingRef.current = true
-      setInputValue('')
+      submittingRef.current = true;
+      setInputValue("");
       if (!externalHistory) {
-        setInternalHistory((prev) => [trimmed, ...prev])
+        setInternalHistory((prev) => [trimmed, ...prev]);
       }
 
-      const result = onSubmit(trimmed)
-      if (result && typeof result.then === 'function') {
+      const result = onSubmit(trimmed);
+      if (result && typeof result.then === "function") {
         result.finally(() => {
-          submittingRef.current = false
-        })
+          submittingRef.current = false;
+        });
       } else {
-        submittingRef.current = false
+        submittingRef.current = false;
       }
     },
     [commands, onSubmit, externalHistory],
-  )
+  );
 
   useInput(
     (_input: string, key: Key) => {
-      if (key.ctrl && _input === 'c' && isLoading) {
-        return
+      if (key.ctrl && _input === "c" && isLoading) {
+        return;
       }
-      if (key.ctrl && _input === 'd') {
+      if (key.ctrl && _input === "d") {
         if (onExit) {
-          onExit()
+          onExit();
         } else {
-          exit()
+          exit();
         }
       }
-      if (key.ctrl && _input === 'f') {
-        setSearchOpen(true)
+      if (key.ctrl && _input === "f") {
+        setSearchOpen(true);
       }
     },
     // Deactivate when search overlay is open so only SearchOverlay handles input.
     { isActive: !searchOpen },
-  )
+  );
 
-  const resolvedSegments = statusSegments ?? buildDefaultSegments(model)
-  const showWelcome = welcome && messages.length === 0 && !isLoading
-  const showPermission = !!permissionRequest
+  const resolvedSegments = statusSegments ?? buildDefaultSegments(model);
+  const showWelcome = welcome && messages.length === 0 && !isLoading;
+  const showPermission = !!permissionRequest;
 
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box flexDirection="column" flexGrow={1}>
-        {showWelcome && (
-          <Box marginBottom={1}>{welcome}</Box>
-        )}
+        {showWelcome && <Box marginBottom={1}>{welcome}</Box>}
 
         <MessageList
           messages={messages}
@@ -156,9 +157,7 @@ export function REPL({
         />
 
         {isLoading && !streamingContent && (
-          <Box marginTop={messages.length > 0 ? 1 : 0}>
-            {spinner ?? <Spinner />}
-          </Box>
+          <Box marginTop={messages.length > 0 ? 1 : 0}>{spinner ?? <Spinner />}</Box>
         )}
       </Box>
 
@@ -196,14 +195,12 @@ export function REPL({
 
       <Divider />
 
-      {resolvedSegments.length > 0 && (
-        <StatusLine segments={resolvedSegments} />
-      )}
+      {resolvedSegments.length > 0 && <StatusLine segments={resolvedSegments} />}
     </Box>
-  )
+  );
 }
 
 function buildDefaultSegments(model?: string): StatusLineSegment[] {
-  if (!model) return []
-  return [{ content: model, color: 'green' }]
+  if (!model) return [];
+  return [{ content: model, color: "green" }];
 }

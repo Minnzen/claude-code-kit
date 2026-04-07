@@ -19,7 +19,12 @@ export function zodToInputSchema(schema: z.ZodType): Record<string, unknown> {
   // Fallback: try zod-to-json-schema (for Zod v3).
   // Install `zod-to-json-schema` as an optional peer dependency when using Zod v3.
   try {
-    const mod = require("zod-to-json-schema") as { zodToJsonSchema: (schema: z.ZodType, opts?: Record<string, unknown>) => Record<string, unknown> };
+    const mod = require("zod-to-json-schema") as {
+      zodToJsonSchema: (
+        schema: z.ZodType,
+        opts?: Record<string, unknown>,
+      ) => Record<string, unknown>;
+    };
     const jsonSchema = mod.zodToJsonSchema(schema, { target: "openApi3" });
     const { $schema: _, ...rest } = jsonSchema;
     return rest;

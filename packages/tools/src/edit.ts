@@ -1,13 +1,21 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 export const inputSchema = z.object({
   file_path: z.string().describe("Absolute or relative file path to edit"),
-  old_string: z.string().describe("Exact string to find and replace (must be unique in file unless replace_all is true)"),
+  old_string: z
+    .string()
+    .describe(
+      "Exact string to find and replace (must be unique in file unless replace_all is true)",
+    ),
   new_string: z.string().describe("Replacement string"),
-  replace_all: z.boolean().optional().default(false).describe("Replace all occurrences of old_string (default false)"),
+  replace_all: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Replace all occurrences of old_string (default false)"),
 });
 
 type Input = z.infer<typeof inputSchema>;
@@ -19,7 +27,10 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
 
   // Prevent path traversal outside the working directory
   if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
-    return { content: `Error: path traversal denied — ${input.file_path} escapes working directory`, isError: true };
+    return {
+      content: `Error: path traversal denied — ${input.file_path} escapes working directory`,
+      isError: true,
+    };
   }
 
   try {
@@ -45,7 +56,9 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     await fs.writeFile(filePath, updated, "utf-8");
 
     const replacedCount = input.replace_all ? occurrences : 1;
-    return { content: `Successfully edited ${filePath} (${replacedCount} replacement${replacedCount > 1 ? "s" : ""})` };
+    return {
+      content: `Successfully edited ${filePath} (${replacedCount} replacement${replacedCount > 1 ? "s" : ""})`,
+    };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { content: `Error editing file: ${msg}`, isError: true };

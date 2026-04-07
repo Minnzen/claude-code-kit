@@ -4,7 +4,6 @@
  * (CVE code injection via _.template, prototype pollution via _.unset/_.omit).
  */
 
-// biome-ignore lint/suspicious/noEmptyBlockStatements: intentional no-op
 export function noop(): void {}
 
 export interface ThrottledFunction<T extends (...args: unknown[]) => unknown> {
@@ -110,7 +109,7 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
     return result;
   } as ThrottledFunction<T>;
 
-  throttled.cancel = function (): void {
+  throttled.cancel = (): void => {
     if (timerId !== undefined) {
       clearTimeout(timerId);
     }
@@ -120,7 +119,7 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
     timerId = undefined;
   };
 
-  throttled.flush = function (): ReturnType<T> | undefined {
+  throttled.flush = (): ReturnType<T> | undefined => {
     if (timerId === undefined) {
       return result;
     }

@@ -1,8 +1,8 @@
 import { exec } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
-import type { ToolDefinition, ToolContext, ToolResult } from "@claude-code-kit/agent";
 
 const DEFAULT_TIMEOUT = 30_000;
 
@@ -10,11 +10,15 @@ export const inputSchema = z.object({
   branch: z
     .string()
     .optional()
-    .describe("Branch name for the worktree. Auto-generated if omitted (e.g. worktree-<timestamp>)"),
+    .describe(
+      "Branch name for the worktree. Auto-generated if omitted (e.g. worktree-<timestamp>)",
+    ),
   path: z
     .string()
     .optional()
-    .describe("Filesystem path for the worktree. Defaults to .worktrees/<branch> relative to the repo root"),
+    .describe(
+      "Filesystem path for the worktree. Defaults to .worktrees/<branch> relative to the repo root",
+    ),
 });
 
 type Input = z.infer<typeof inputSchema>;

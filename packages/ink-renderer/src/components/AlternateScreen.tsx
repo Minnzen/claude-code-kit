@@ -1,10 +1,16 @@
+import { type PropsWithChildren, useContext, useInsertionEffect } from "react";
 import { c as _c } from "react/compiler-runtime";
-import React, { type PropsWithChildren, useContext, useInsertionEffect } from 'react';
-import instances from '../instances';
-import { DISABLE_MOUSE_TRACKING, ENABLE_MOUSE_TRACKING, ENTER_ALT_SCREEN, EXIT_ALT_SCREEN } from '../termio/dec';
-import { TerminalWriteContext } from '../useTerminalNotification';
-import Box from './Box';
-import { TerminalSizeContext } from './TerminalSizeContext';
+import instances from "../instances";
+import {
+  DISABLE_MOUSE_TRACKING,
+  ENABLE_MOUSE_TRACKING,
+  ENTER_ALT_SCREEN,
+  EXIT_ALT_SCREEN,
+} from "../termio/dec";
+import { TerminalWriteContext } from "../useTerminalNotification";
+import Box from "./Box";
+import { TerminalSizeContext } from "./TerminalSizeContext";
+
 type Props = PropsWithChildren<{
   /** Enable SGR mouse tracking (wheel + click/drag). Default true. */
   mouseTracking?: boolean;
@@ -32,10 +38,7 @@ type Props = PropsWithChildren<{
  */
 export function AlternateScreen(t0: Props) {
   const $ = _c(7);
-  const {
-    children,
-    mouseTracking: t1
-  } = t0;
+  const { children, mouseTracking: t1 } = t0;
   const mouseTracking = t1 === undefined ? true : t1;
   const size = useContext(TerminalSizeContext);
   const writeRaw = useContext(TerminalWriteContext);
@@ -47,7 +50,7 @@ export function AlternateScreen(t0: Props) {
       if (!writeRaw) {
         return;
       }
-      writeRaw(ENTER_ALT_SCREEN + "\x1B[2J\x1B[H" + (mouseTracking ? ENABLE_MOUSE_TRACKING : ""));
+      writeRaw(`${ENTER_ALT_SCREEN}\x1B[2J\x1B[H${mouseTracking ? ENABLE_MOUSE_TRACKING : ""}`);
       ink?.setAltScreenActive(true, mouseTracking);
       return () => {
         ink?.setAltScreenActive(false);
@@ -68,7 +71,11 @@ export function AlternateScreen(t0: Props) {
   const t4 = size?.rows ?? 24;
   let t5;
   if ($[4] !== children || $[5] !== t4) {
-    t5 = <Box flexDirection="column" height={t4} width="100%" flexShrink={0}>{children}</Box>;
+    t5 = (
+      <Box flexDirection="column" height={t4} width="100%" flexShrink={0}>
+        {children}
+      </Box>
+    );
     $[4] = children;
     $[5] = t4;
     $[6] = t5;
