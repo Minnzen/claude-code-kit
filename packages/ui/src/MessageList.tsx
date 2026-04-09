@@ -2,6 +2,7 @@ import { Box, Text } from "@claude-code-kit/ink-renderer";
 import type React from "react";
 import { useState } from "react";
 import { Spinner } from "./Spinner";
+import { getStableKeys, getStableLineEntries } from "./utils/stableKeys";
 
 export type MessageContent =
   | { type: "text"; text: string }
@@ -48,10 +49,11 @@ const ROLE_CONFIG = {
 const GUTTER = "\u23BF"; // ⎿
 
 function TextBlock({ text, dim }: { text: string; dim?: boolean }): React.ReactNode {
+  const lines = getStableLineEntries(text, "text");
   return (
     <>
-      {text.split("\n").map((line, i) => (
-        <Box key={i} marginLeft={2}>
+      {lines.map(({ key, line }) => (
+        <Box key={key} marginLeft={2}>
           <Text dimColor={dim}>{line}</Text>
         </Box>
       ))}
@@ -64,6 +66,11 @@ function ToolUseBlock({
 }: {
   content: Extract<MessageContent, { type: "tool_use" }>;
 }): React.ReactNode {
+  const inputLines = getStableLineEntries(content.input, `${content.toolName}:input`);
+  const resultLines =
+    content.result != null
+      ? getStableLineEntries(content.result, `${content.toolName}:result`)
+      : [];
   const statusColor =
     content.status === "error" ? "red" : content.status === "success" ? "green" : undefined;
 
@@ -73,8 +80,8 @@ function ToolUseBlock({
         <Text dimColor>{GUTTER} </Text>
         <Text bold>{content.toolName}</Text>
       </Box>
-      {content.input.split("\n").map((line, i) => (
-        <Box key={i} marginLeft={4}>
+      {inputLines.map(({ key, line }) => (
+        <Box key={key} marginLeft={4}>
           <Text dimColor>{line}</Text>
         </Box>
       ))}
@@ -89,8 +96,8 @@ function ToolUseBlock({
             <Text dimColor>{GUTTER} </Text>
             <Text color={statusColor}>result ({content.status ?? "done"})</Text>
           </Box>
-          {content.result.split("\n").map((line, i) => (
-            <Box key={i} marginLeft={6}>
+          {resultLines.map(({ key, line }) => (
+            <Box key={key} marginLeft={6}>
               <Text color={statusColor} dimColor={!statusColor}>
                 {line}
               </Text>
@@ -108,6 +115,7 @@ function ThinkingBlock({
   content: Extract<MessageContent, { type: "thinking" }>;
 }): React.ReactNode {
   const [collapsed, setCollapsed] = useState(content.collapsed ?? true);
+  const lines = getStableLineEntries(content.text, "thinking");
 
   return (
     <Box flexDirection="column" marginLeft={2}>
@@ -117,8 +125,8 @@ function ThinkingBlock({
         <Text dimColor>Thinking...{collapsed ? " (click to expand)" : ""}</Text>
       </Box>
       {!collapsed &&
-        content.text.split("\n").map((line, i) => (
-          <Box key={i} marginLeft={4}>
+        lines.map(({ key, line }) => (
+          <Box key={key} marginLeft={4}>
             <Text dimColor>{line}</Text>
           </Box>
         ))}
@@ -131,19 +139,21 @@ function DiffBlock({
 }: {
   content: Extract<MessageContent, { type: "diff" }>;
 }): React.ReactNode {
+  const diffLines = getStableLineEntries(content.diff, `${content.filename}:diff`);
+
   return (
     <Box flexDirection="column" marginLeft={2}>
       <Box>
         <Text dimColor>{GUTTER} </Text>
         <Text bold>{content.filename}</Text>
       </Box>
-      {content.diff.split("\n").map((line, i) => {
+      {diffLines.map(({ key, line }) => {
         let color: string | undefined;
         if (line.startsWith("+")) color = "green";
         else if (line.startsWith("-")) color = "red";
         else if (line.startsWith("@")) color = "cyan";
         return (
-          <Box key={i} marginLeft={4}>
+          <Box key={key} marginLeft={4}>
             <Text color={color} dimColor={!color}>
               {line}
             </Text>
@@ -159,11 +169,13 @@ function CodeBlock({
 }: {
   content: Extract<MessageContent, { type: "code" }>;
 }): React.ReactNode {
+  const codeLines = getStableLineEntries(content.code, `code:${content.language ?? "plain"}`);
+
   return (
     <Box flexDirection="column" marginLeft={2}>
       <Text dimColor>```{content.language ?? ""}</Text>
-      {content.code.split("\n").map((line, i) => (
-        <Box key={i} marginLeft={2}>
+      {codeLines.map(({ key, line }) => (
+        <Box key={key} marginLeft={2}>
           <Text>{line}</Text>
         </Box>
       ))}
@@ -177,14 +189,16 @@ function ErrorBlock({
 }: {
   content: Extract<MessageContent, { type: "error" }>;
 }): React.ReactNode {
+  const detailLines = content.details ? getStableLineEntries(content.details, "error-details") : [];
+
   return (
     <Box flexDirection="column" marginLeft={2}>
       <Box>
         <Text color="red">{"\u2716"} Error: </Text>
         <Text color="red">{content.message}</Text>
       </Box>
-      {content.details?.split("\n").map((line, i) => (
-        <Box key={i} marginLeft={4}>
+      {detailLines.map(({ key, line }) => (
+        <Box key={key} marginLeft={4}>
           <Text color="red" dimColor>
             {line}
           </Text>
@@ -213,6 +227,10 @@ function ContentBlock({ block }: { block: MessageContent }): React.ReactNode {
   }
 }
 
+function getMessageContentFingerprint(block: MessageContent): string {
+  return `${block.type}:${JSON.stringify(block)}`;
+}
+
 function MessageItem({
   message,
   renderMessage,
@@ -228,6 +246,7 @@ function MessageItem({
   const isSystem = message.role === "system";
 
   if (typeof message.content === "string") {
+    const textLines = getStableLineEntries(message.content, `${message.id}:message`);
     return (
       <Box flexDirection="column">
         <Box>
@@ -239,14 +258,16 @@ function MessageItem({
             {config.label}
           </Text>
         </Box>
-        {message.content.split("\n").map((line, i) => (
-          <Box key={i} marginLeft={2}>
+        {textLines.map(({ key, line }) => (
+          <Box key={key} marginLeft={2}>
             <Text dimColor={isSystem}>{line}</Text>
           </Box>
         ))}
       </Box>
     );
   }
+
+  const blockKeys = getStableKeys(message.content, getMessageContentFingerprint);
 
   return (
     <Box flexDirection="column">
@@ -260,7 +281,7 @@ function MessageItem({
         </Text>
       </Box>
       {message.content.map((block, i) => (
-        <ContentBlock key={i} block={block} />
+        <ContentBlock key={blockKeys[i]} block={block} />
       ))}
     </Box>
   );
@@ -271,6 +292,11 @@ export function MessageList({
   streamingContent,
   renderMessage,
 }: MessageListProps): React.ReactNode {
+  const streamingLines =
+    streamingContent != null && streamingContent.length > 0
+      ? getStableLineEntries(streamingContent, "streaming")
+      : [];
+
   return (
     <Box flexDirection="column">
       {messages.map((message, i) => (
@@ -288,13 +314,11 @@ export function MessageList({
               Claude
             </Text>
           </Box>
-          {streamingContent.split("\n").map((line, i) => (
-            <Box key={i} marginLeft={2}>
+          {streamingLines.map(({ key, line }, i) => (
+            <Box key={key} marginLeft={2}>
               <Text>
                 {line}
-                {i === streamingContent.split("\n").length - 1 && (
-                  <Text color="#DA7756">{"\u2588"}</Text>
-                )}
+                {i === streamingLines.length - 1 && <Text color="#DA7756">{"\u2588"}</Text>}
               </Text>
             </Box>
           ))}

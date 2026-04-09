@@ -60,7 +60,7 @@ export class SummarizationCompaction implements CompactionStrategy {
   }
 
   /** Return true when the current usage exceeds the configured threshold. */
-  shouldCompact(messages: Message[], tokenCount: number, contextLimit: number): boolean {
+  shouldCompact(_messages: Message[], tokenCount: number, contextLimit: number): boolean {
     return tokenCount >= contextLimit * this.thresholdFraction;
   }
 

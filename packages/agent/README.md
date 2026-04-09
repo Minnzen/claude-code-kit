@@ -10,7 +10,13 @@ Headless agent framework for building LLM-powered tools and applications. Provid
 - **Tiered permissions**: Allow/deny lists, session approvals, read-only auto-approve, custom callbacks
 - **Streaming**: AsyncGenerator-based event stream for real-time UI updates
 - **Stateful sessions**: Maintains conversation history across calls
+- **MCP client**: Optional Model Context Protocol client for dynamic tool discovery
 - **Headless**: No UI dependencies -- works in Node.js scripts, CLI apps, web servers, anywhere
+
+## API status
+
+- Stable in `v0.3.x`: `Agent`, providers, permissions, sessions, compaction, `ToolRegistry`
+- Experimental in `v0.3.x`: `MCPClient` and MCP-backed dynamic tool discovery
 
 ## Quick start
 
@@ -98,6 +104,10 @@ const agent = new Agent({
   }),
 })
 ```
+
+## MCP
+
+`MCPClient` is available when you want to connect to stdio or Streamable HTTP MCP servers. Treat it as an evolving API during `0.x`; the stable default remains explicit local tools passed via `tools`.
 
 ## License
 

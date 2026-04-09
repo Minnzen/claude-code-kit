@@ -1,6 +1,7 @@
 import { Box, type Color, Text } from "@claude-code-kit/ink-renderer";
 import type React from "react";
 import { useMemo } from "react";
+import { getStableKeys } from "./utils/stableKeys";
 
 export type DiffLine = {
   type: "added" | "removed" | "context";
@@ -127,6 +128,11 @@ export function DiffView({
 
   const truncated =
     maxHeight && resolvedLines.length > maxHeight ? resolvedLines.length - maxHeight : 0;
+  const lineKeys = getStableKeys(
+    visibleLines,
+    (line) =>
+      `${line.type}:${line.oldLineNumber ?? "na"}:${line.newLineNumber ?? "na"}:${line.content}`,
+  );
 
   return (
     <Box flexDirection="column">
@@ -138,7 +144,7 @@ export function DiffView({
 
       {visibleLines.map((line, i) => (
         <DiffLineRow
-          key={i}
+          key={lineKeys[i]}
           line={line}
           gutterWidth={gutterWidth}
           showLineNumbers={showLineNumbers}

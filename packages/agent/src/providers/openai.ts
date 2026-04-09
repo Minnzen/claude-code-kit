@@ -25,7 +25,7 @@ interface OpenAIProviderOptions {
 export class OpenAIProvider implements LLMProvider {
   private clientPromise: Promise<InstanceType<Awaited<ReturnType<typeof loadSDK>>>>;
 
-  constructor(private options: OpenAIProviderOptions = {}) {
+  constructor(options: OpenAIProviderOptions = {}) {
     this.clientPromise = loadSDK().then(
       (SDK) =>
         new SDK({

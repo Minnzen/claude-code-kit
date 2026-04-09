@@ -57,7 +57,7 @@ export class MCPClient {
     const sdk = await loadMCPSdk();
 
     this.client = new sdk.Client(
-      { name: "claude-code-kit", version: "0.2.0" },
+      { name: "claude-code-kit", version: "0.3.0" },
       { capabilities: {} },
     );
 
@@ -250,19 +250,26 @@ interface MCPTransport {
   close(): Promise<void>;
 }
 
-// Using `any` for SDK constructor signatures to avoid coupling to the SDK's
-// specific param types (which differ across versions). The actual constructor
-// arguments are assembled in connect() with the correct shape.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyConstructor = new (...args: any[]) => MCPTransport;
+type StdioTransportConstructor = new (config: {
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+  stderr?: "pipe";
+}) => MCPTransport;
+
+type StreamableHTTPTransportConstructor = new (
+  url: URL,
+  options?: { requestInit?: { headers?: Record<string, string> } },
+) => MCPTransport;
 
 interface MCPSdk {
   Client: new (
     info: { name: string; version: string },
     options: { capabilities: Record<string, unknown> },
   ) => MCPClientInstance;
-  StdioClientTransport: AnyConstructor;
-  StreamableHTTPClientTransport: AnyConstructor;
+  StdioClientTransport: StdioTransportConstructor;
+  StreamableHTTPClientTransport: StreamableHTTPTransportConstructor;
 }
 
 let _sdkCache: MCPSdk | undefined;

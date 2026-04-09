@@ -25,12 +25,33 @@
 
 ## Feature highlights
 
-- **17 built-in tools** aligned with Claude Code (Bash, Read, Edit, Grep, WebSearch, LSP, and more)
+- **10 ready-to-use built-in tools** for file, shell, web, and worktree workflows
+- **Advanced tool factories** for MCP-backed integrations, LSP, subagents, tasks, and notebooks
 - **MCP client** for dynamic tool discovery from any MCP server (stdio + HTTP)
 - **Parallel tool execution** -- read-only tools run concurrently
 - **React component model** with Flexbox layout via a pure-TS Yoga engine
 - **Provider-agnostic** -- Anthropic, OpenAI, Ollama, DeepSeek, Groq, or any OpenAI-compatible `baseURL`
 - **498 tests** across 20 test files
+
+## Current status
+
+- `v0.3.0` packages are published
+- `build`, `typecheck`, `test`, and `lint` all pass in the monorepo
+- 3 maintained examples: `hello-world`, `agent-cli`, `alt-screen-dashboard`
+
+## API status
+
+### Stable in v0.3.x
+
+- `@claude-code-kit/shared`, `@claude-code-kit/ink-renderer`, and the core `@claude-code-kit/ui` component set
+- Agent loop, Anthropic/OpenAI/Mock providers, permissions, sessions, and compaction
+- `builtinTools`: `Bash`, `Read`, `Edit`, `Write`, `Glob`, `Grep`, `WebFetch`, `WebSearch`, `EnterWorktree`, `ExitWorktree`
+
+### Experimental / evolving
+
+- `MCPClient` and MCP-backed tool discovery
+- Higher-level tool factories: `createLspTool`, `createSubagentTool`, `createTaskTool`, `notebookEditTool`
+- APIs outside `builtinTools` may still change during `0.x`
 
 ## Quick Start
 
@@ -102,11 +123,11 @@ await render(<AgentREPL agent={agent} placeholder="Ask me about your codebase...
 |---------|-------------|
 | [`@claude-code-kit/shared`](./packages/shared) | Yoga layout engine (pure TS), text measurement, ANSI utilities |
 | [`@claude-code-kit/ink-renderer`](./packages/ink-renderer) | Terminal rendering engine -- React reconciler, layout, diffed output |
-| [`@claude-code-kit/ui`](./packages/ui) | 30+ components -- REPL, Select, Spinner, AgentREPL, AuthFlow, etc. |
-| [`@claude-code-kit/agent`](./packages/agent) | Headless agent -- providers, MCP client, permissions, sessions |
-| [`@claude-code-kit/tools`](./packages/tools) | 17 built-in tools with security marks and Claude Code-style descriptions |
+| [`@claude-code-kit/ui`](./packages/ui) | 30+ components plus commands, keybindings, and optional agent bridge UI |
+| [`@claude-code-kit/agent`](./packages/agent) | Headless agent -- providers, permissions, sessions, compaction, experimental MCP |
+| [`@claude-code-kit/tools`](./packages/tools) | 10 ready-to-use built-ins plus advanced tool factories |
 
-## Tools
+## Ready-to-use built-ins
 
 | Tool | Type | Description |
 |------|------|-------------|
@@ -118,15 +139,19 @@ await render(<AgentREPL agent={agent} placeholder="Ask me about your codebase...
 | Grep | read | Regex search with context, head_limit, multiline, type filter |
 | WebFetch | read | HTTP fetch with HTML-to-Markdown, HTTPS upgrade, caching |
 | WebSearch | read | DuckDuckGo search with domain allow/block lists |
-| Agent | write | Spawn child agents with timeout and abort propagation |
-| NotebookEdit | write | Jupyter cell insert/replace/delete |
-| TaskCreate | write | Create tasks with owner and dependency tracking |
-| TaskUpdate | write | Update task status, blocks/blockedBy |
-| TaskGet | read | Retrieve a single task by ID |
-| TaskList | read | List/filter tasks |
 | EnterWorktree | write | Create and enter a git worktree |
 | ExitWorktree | write | Clean up and exit a git worktree |
-| LSP | read | Language Server Protocol queries (factory pattern) |
+
+These are the tools included in `builtinTools` and the safest default surface to depend on in `v0.3.x`.
+
+## Advanced tool factories
+
+| Export | Output | Status | Description |
+|--------|--------|--------|-------------|
+| `createLspTool` | `LSP` tool | Experimental | Language Server Protocol queries against a caller-provided transport |
+| `createSubagentTool` | `Agent` tool | Experimental | Delegates isolated work to a child agent with timeout and abort propagation |
+| `createTaskTool` | `TaskCreate` / `TaskUpdate` / `TaskGet` / `TaskList` | Experimental | In-memory task orchestration toolset for multi-step work |
+| `notebookEditTool` | `NotebookEdit` tool | Experimental | Jupyter notebook cell insert/replace/delete |
 
 ## Comparison
 
@@ -135,7 +160,7 @@ await render(<AgentREPL agent={agent} placeholder="Ask me about your codebase...
 | Terminal UI components | 30+ React components | 10+ (unmaintained) | -- | -- |
 | Flexbox layout | Pure TS Yoga | Native Yoga binding | -- | -- |
 | Headless agent | Yes (provider-agnostic) | -- | Yes (Python) | Yes (Python) |
-| Built-in tools | 17 | -- | ~10 | ~10 |
+| Built-in tools | 10 built-ins + factories | -- | ~10 | ~10 |
 | MCP client | Yes | -- | -- | Yes |
 | Parallel tool execution | Yes | -- | -- | -- |
 | Language | TypeScript | TypeScript | Python | Python |
@@ -156,7 +181,7 @@ pnpm --filter agent-cli-example start
 ## Development
 
 ```bash
-pnpm install && pnpm build && pnpm test
+pnpm install && pnpm release:check
 ```
 
 ## Provenance

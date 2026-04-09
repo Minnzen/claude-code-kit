@@ -1,5 +1,6 @@
 import { Box, Text } from "@claude-code-kit/ink-renderer";
 import type React from "react";
+import { getStableKeys } from "./utils/stableKeys";
 
 const DEFAULT_COLOR = "#DA7756";
 
@@ -33,6 +34,7 @@ export function WelcomeScreen({
   color = DEFAULT_COLOR,
 }: WelcomeScreenProps): React.ReactNode {
   const logoNode = logo ?? <ClawdLogo color={color} />;
+  const tipKeys = tips ? getStableKeys(tips, (tip) => tip) : [];
 
   return (
     <Box flexDirection="column" gap={1} marginTop={1} marginLeft={1}>
@@ -54,7 +56,7 @@ export function WelcomeScreen({
         <Box flexDirection="column" gap={0}>
           <Text dimColor>Tips:</Text>
           {tips.map((tip, i) => (
-            <Text key={i} dimColor>{`  - ${tip}`}</Text>
+            <Text key={tipKeys[i]} dimColor>{`  - ${tip}`}</Text>
           ))}
         </Box>
       )}

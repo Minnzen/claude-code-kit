@@ -334,8 +334,8 @@ export default class Ink {
       }
     };
 
-    // @ts-ignore @types/react-reconciler@0.32.3 declares 11 args with transitionCallbacks,
-    // but react-reconciler 0.33.0 source only accepts 10 args (no transitionCallbacks)
+    // react-reconciler 0.33.0 source accepts 10 args here; keep the call shape
+    // aligned with the runtime implementation.
     this.container = reconciler.createContainer(
       this.rootNode,
       ConcurrentRoot,
@@ -351,8 +351,8 @@ export default class Ink {
       // onRecoverableError
       noop, // onDefaultTransitionIndicator
     );
-    // @ts-ignore dead code from production build
-    if ("production" === "development") {
+    // Kept for parity with the upstream devtools injection path.
+    if (process.env.NODE_ENV === "development") {
       reconciler.injectIntoDevTools({
         bundleType: 0,
         // Reporting React DOM's version, not Ink's
@@ -932,7 +932,7 @@ export default class Ink {
   }
   pause(): void {
     // Flush pending React updates and render before pausing.
-    // @ts-ignore flushSyncFromReconciler exists in react-reconciler 0.31 but not in @types/react-reconciler
+    // flushSyncFromReconciler is available on the runtime reconciler instance.
     reconciler.flushSyncFromReconciler();
     this.onRender();
     this.isPaused = true;
@@ -1645,9 +1645,9 @@ export default class Ink {
       </App>
     );
 
-    // @ts-ignore updateContainerSync exists in react-reconciler but not in @types/react-reconciler
+    // updateContainerSync and flushSyncWork are available on the runtime
+    // reconciler instance and keep alternate-screen renders synchronous.
     reconciler.updateContainerSync(tree, this.container, null, noop);
-    // @ts-ignore flushSyncWork exists in react-reconciler but not in @types/react-reconciler
     reconciler.flushSyncWork();
   }
   unmount(error?: Error | number | null): void {
@@ -1712,9 +1712,9 @@ export default class Ink {
       this.drainTimer = null;
     }
 
-    // @ts-ignore updateContainerSync exists in react-reconciler but not in @types/react-reconciler
+    // updateContainerSync and flushSyncWork are available on the runtime
+    // reconciler instance and ensure unmount cleanup is flushed immediately.
     reconciler.updateContainerSync(null, this.container, null, noop);
-    // @ts-ignore flushSyncWork exists in react-reconciler but not in @types/react-reconciler
     reconciler.flushSyncWork();
     instances.delete(this.options.stdout);
 

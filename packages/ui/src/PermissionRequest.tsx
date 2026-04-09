@@ -1,5 +1,6 @@
 import { Box, TerminalSizeContext, Text, useInput } from "@claude-code-kit/ink-renderer";
 import React, { useCallback, useContext, useMemo } from "react";
+import { getStableLineEntries } from "./utils/stableKeys";
 
 export type PermissionAction = "allow" | "always_allow" | "deny";
 
@@ -56,6 +57,8 @@ export function FileEditPermissionContent({
   filename: string;
   diff: string;
 }): React.ReactNode {
+  const diffLines = getStableLineEntries(diff, `permission:${filename}`);
+
   return (
     <Box flexDirection="column">
       <Text>
@@ -66,13 +69,13 @@ export function FileEditPermissionContent({
       </Text>
       {diff && (
         <Box marginTop={1} flexDirection="column">
-          {diff.split("\n").map((line, i) => {
+          {diffLines.map(({ key, line }) => {
             let color: string | undefined;
             if (line.startsWith("+")) color = "green";
             else if (line.startsWith("-")) color = "red";
             else if (line.startsWith("@")) color = "cyan";
             return (
-              <Text key={i} color={color} dimColor={!color && !line.startsWith("+")}>
+              <Text key={key} color={color} dimColor={!color && !line.startsWith("+")}>
                 {line}
               </Text>
             );

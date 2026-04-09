@@ -1,5 +1,6 @@
 import { Ansi, Box, type Color, Text } from "@claude-code-kit/ink-renderer";
 import React, { useEffect, useState } from "react";
+import { getStableKeys } from "./utils/stableKeys";
 
 export type StatusLineSegment = {
   content: string;
@@ -33,6 +34,12 @@ export function StatusLine({
   borderColor,
 }: StatusLineProps): React.ReactNode {
   const border = borderStyle === "none" ? undefined : borderStyle;
+  const segmentKeys = segments
+    ? getStableKeys(
+        segments,
+        (seg) => `${seg.content}:${seg.color ?? "default"}:${seg.flex ? "flex" : "fixed"}`,
+      )
+    : [];
 
   return (
     <Box flexDirection="row" paddingX={paddingX} borderStyle={border} borderColor={borderColor}>
@@ -44,7 +51,7 @@ export function StatusLine({
         )
       ) : (
         segments?.map((seg, i) => (
-          <React.Fragment key={i}>
+          <React.Fragment key={segmentKeys[i]}>
             {i > 0 && <Text dimColor>{separator}</Text>}
             <Box flexGrow={seg.flex ? 1 : 0}>
               {hasAnsi(seg.content) ? (

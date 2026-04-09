@@ -26,7 +26,7 @@ interface AnthropicProviderOptions {
 export class AnthropicProvider implements LLMProvider {
   private clientPromise: Promise<InstanceType<Awaited<ReturnType<typeof loadSDK>>>>;
 
-  constructor(private options: AnthropicProviderOptions = {}) {
+  constructor(options: AnthropicProviderOptions = {}) {
     this.clientPromise = loadSDK().then(
       (SDK) =>
         new SDK({

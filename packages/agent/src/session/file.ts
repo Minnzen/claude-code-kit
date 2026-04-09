@@ -73,7 +73,7 @@ export class FileSession implements Session {
   /** Append a single message to the file without rewriting it. */
   async append(message: Message): Promise<void> {
     await fs.mkdir(this.directory, { recursive: true });
-    await fs.appendFile(this.filePath(), JSON.stringify(message) + "\n", "utf8");
+    await fs.appendFile(this.filePath(), `${JSON.stringify(message)}\n`, "utf8");
     this.messages.push(message);
   }
 }

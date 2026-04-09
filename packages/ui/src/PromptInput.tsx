@@ -330,7 +330,7 @@ export function PromptInput({
           off += line.length + 1;
           const active = i === cursorLine;
           return (
-            <Box key={i}>
+            <Box key={ls}>
               <Text color={prefixColor}>{i === 0 ? `${prefix} ` : "∙ "}</Text>
               {active ? renderCursor(line, cursor - ls) : <Text>{line}</Text>}
               {i === lines.length - 1 && vimTag}
