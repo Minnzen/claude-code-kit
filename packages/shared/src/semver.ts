@@ -1,36 +1,29 @@
 /**
  * Semver comparison utilities.
- * Uses npm semver package (no Bun.semver).
+ * Uses npm semver package with static ESM import to avoid CJS require() issues.
  */
-
-let _npmSemver: typeof import("semver") | undefined;
-
-function getNpmSemver(): typeof import("semver") {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  _npmSemver ??= require("semver") as typeof import("semver");
-  return _npmSemver;
-}
+import semver from "semver";
 
 export function gt(a: string, b: string): boolean {
-  return getNpmSemver().gt(a, b, { loose: true });
+  return semver.gt(a, b, { loose: true }) ?? false;
 }
 
 export function gte(a: string, b: string): boolean {
-  return getNpmSemver().gte(a, b, { loose: true });
+  return semver.gte(a, b, { loose: true }) ?? false;
 }
 
 export function lt(a: string, b: string): boolean {
-  return getNpmSemver().lt(a, b, { loose: true });
+  return semver.lt(a, b, { loose: true }) ?? false;
 }
 
 export function lte(a: string, b: string): boolean {
-  return getNpmSemver().lte(a, b, { loose: true });
+  return semver.lte(a, b, { loose: true }) ?? false;
 }
 
 export function satisfies(version: string, range: string): boolean {
-  return getNpmSemver().satisfies(version, range, { loose: true });
+  return semver.satisfies(version, range, { loose: true });
 }
 
 export function order(a: string, b: string): -1 | 0 | 1 {
-  return getNpmSemver().compare(a, b, { loose: true });
+  return semver.compare(a, b, { loose: true });
 }
