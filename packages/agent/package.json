@@ -1,6 +1,6 @@
 {
   "name": "@claude-code-kit/agent",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Headless agent framework for claude-code-kit — LLM query loop, tool execution, multi-provider",
   "license": "MIT",
   "main": "./dist/index.js",

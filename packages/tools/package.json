@@ -1,6 +1,6 @@
 {
   "name": "@claude-code-kit/tools",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Built-in tool collection for claude-code-kit agent framework",
   "license": "MIT",
   "main": "./dist/index.js",

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.1 (2026-05-09)
+
+### Bug Fixes
+- **shared**: replace CJS `require()` with static ESM import for `semver`,
+  fixes `Dynamic require of "semver" is not supported` crash under `tsx` and
+  other native ESM loaders (#1, thanks @EduardF1)
+- **ink-renderer**: use `Object.hasOwn` fallback for ES2020 lib compatibility
+- **ink-renderer**: resolve DTS build errors in `render-to-screen.ts` and `screen.ts`
+- **ui**: use stable React keys in `MessageList` / `DiffView` / `PermissionRequest` /
+  `StatusLine` / `WelcomeScreen` / `PromptInput` to avoid list-rerender state corruption
+- **agent**: tighten MCP transport constructor types and sync MCP client version to 0.3.0
+
+### Infrastructure
+- migrate Biome to v2.4.10 across all packages
+- CI now runs lint and tests in addition to build / typecheck
+
+---
+
 ## 0.3.0 (2026-04-04)
 
 ### Agent Core

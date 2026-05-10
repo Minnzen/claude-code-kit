@@ -1,6 +1,6 @@
 {
   "name": "@claude-code-kit/ui",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Terminal UI component library for claude-code-kit — Spinner, ProgressBar, Divider and more",
   "license": "MIT",
   "main": "./dist/index.js",
