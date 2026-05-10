@@ -10,7 +10,8 @@
     "format:check": "biome format .",
     "test": "vitest run tests/*.test.ts",
     "typecheck": "turbo run typecheck",
-    "release:check": "pnpm build && pnpm typecheck && pnpm test && pnpm lint && pnpm -r exec npm pack --dry-run"
+    "smoke": "pnpm --filter smoke-imports smoke",
+    "release:check": "pnpm build && pnpm typecheck && pnpm test && pnpm lint && pnpm smoke && pnpm -r exec npm pack --dry-run"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",

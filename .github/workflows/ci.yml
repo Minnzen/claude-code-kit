@@ -20,3 +20,28 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+
+  # Cross-environment smoke test: catches regressions where a published
+  # package fails to import under a specific Node version or loader.
+  # Motivated by 0.3.1 #1 (`Dynamic require of "semver" is not supported`)
+  # and the ESM-only ansi-tokenize / marked CJS-require crash discovered
+  # alongside it. Runs each built package through ESM, CJS, and tsx loaders
+  # on Node 18 / 20 / 22.
+  smoke:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+        loader: [esm, cjs, tsx]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm --filter smoke-imports smoke:${{ matrix.loader }}

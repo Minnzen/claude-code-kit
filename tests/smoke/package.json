@@ -1,0 +1,24 @@
+{
+  "name": "smoke-imports",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cross-environment import smoke tests for @claude-code-kit/* packages. Lives in its own workspace dir so peer/workspace deps resolve correctly under node, tsx, and CJS require().",
+  "scripts": {
+    "smoke": "node esm.mjs && node cjs.cjs && tsx tsx.ts",
+    "smoke:esm": "node esm.mjs",
+    "smoke:cjs": "node cjs.cjs",
+    "smoke:tsx": "tsx tsx.ts"
+  },
+  "dependencies": {
+    "@claude-code-kit/agent": "workspace:*",
+    "@claude-code-kit/ink-renderer": "workspace:*",
+    "@claude-code-kit/shared": "workspace:*",
+    "@claude-code-kit/tools": "workspace:*",
+    "@claude-code-kit/ui": "workspace:*",
+    "react": "*",
+    "zod": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0"
+  }
+}
