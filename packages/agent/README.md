@@ -105,6 +105,82 @@ const agent = new Agent({
 })
 ```
 
+## Context compaction
+
+The agent ships four compaction strategies, all implementing the same
+`CompactionStrategy` interface. Pass one to `AgentConfig.compactionStrategy`
+(or use `LayeredCompaction` to combine several). The defaults and naming
+mirror Claude Code's own compaction subsystem
+([`src/services/compact/microCompact.ts`](https://github.com/anthropics/claude-code))
+so behavior stays predictable for users coming from there.
+
+| Strategy | Cost | Information loss | When to use |
+|---|---|---|---|
+| `MicroCompaction` | zero LLM calls, deterministic | lowest — only old tool-result *bodies* are dropped, decisions in `assistant.toolCalls` survive | recommended first layer |
+| `SummarizationCompaction` | one LLM call per compaction | medium — older messages collapsed into a summary, details lost | long conversations |
+| `SlidingWindowCompaction` | zero LLM calls | high — middle messages dropped wholesale | last-resort fallback |
+| `LayeredCompaction` | sum of its layers (short-circuits) | depends on layers | the recommended way to combine the above |
+
+### MicroCompaction
+
+Mirrors Claude Code's microcompact strategy:
+
+- Replaces old tool-result `content` with the verbatim placeholder
+  `[Old tool result content cleared]` (exported as `TOOL_RESULT_CLEARED_MESSAGE`).
+- Default `keepRecentN: 5` — the last five compactable tool results survive.
+  The constructor floors this at 1, so `keepRecentN: 0` is treated as 1.
+- Defaults to a whitelist of 8 tool names (exported as
+  `DEFAULT_COMPACTABLE_TOOLS`): `Bash`, `Read`, `Edit`, `Write`, `Glob`, `Grep`,
+  `WebFetch`, `WebSearch`. Pass `compactableTools: 'all'` to clear every tool's
+  output, or pass an explicit array to narrow the set.
+- Idempotent: results that have already been cleared are returned by reference.
+
+When using `MicroCompaction`, it is recommended to instruct the model in your
+system prompt to record any important information from tool results in its
+own response, since the original output may later be cleared. Claude Code
+ships this exact instruction:
+
+> When working with tool results, write down any important information you
+> might need later in your response, as the original tool result may be
+> cleared later.
+
+### Recommended layered stack
+
+```typescript
+import {
+  Agent,
+  AnthropicProvider,
+  LayeredCompaction,
+  MicroCompaction,
+  SlidingWindowCompaction,
+  SummarizationCompaction,
+} from '@claude-code-kit/agent'
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+const agent = new Agent({
+  provider,
+  model: 'claude-sonnet-4-20250514',
+  compactionStrategy: new LayeredCompaction([
+    new MicroCompaction(),                              // free, lossless for decisions
+    new SummarizationCompaction(provider),              // one LLM call, lossy
+    new SlidingWindowCompaction(),                      // free, very lossy fallback
+  ]),
+})
+```
+
+`LayeredCompaction` re-estimates tokens after each layer and short-circuits
+once the budget is met, so the more expensive layers only run when the
+cheaper ones cannot recover enough room.
+
+### Known divergence from Claude Code
+
+Claude Code also ships a *time-based* microcompact trigger that fires when
+the gap since the last assistant message exceeds the prompt-cache TTL
+(default 60 minutes). Implementing it requires per-message timestamps, which
+are not yet part of our `Message` type. If you need this trigger today,
+combine `MicroCompaction` with your own scheduler.
+
 ## MCP
 
 `MCPClient` is available when you want to connect to stdio or Streamable HTTP MCP servers. Treat it as an evolving API during `0.x`; the stable default remains explicit local tools passed via `tools`.

@@ -22,6 +22,13 @@ export type {
 } from "./auth/types.js";
 // Compaction strategies
 export { NoopCompaction } from "./compaction/interface.js";
+export { LayeredCompaction } from "./compaction/layered.js";
+export {
+  DEFAULT_COMPACTABLE_TOOLS,
+  MicroCompaction,
+  type MicroCompactionOptions,
+  TOOL_RESULT_CLEARED_MESSAGE,
+} from "./compaction/micro-compact.js";
 export { SlidingWindowCompaction } from "./compaction/sliding-window.js";
 export type { CompactionResult } from "./compaction/summarization.js";
 export { SummarizationCompaction } from "./compaction/summarization.js";
