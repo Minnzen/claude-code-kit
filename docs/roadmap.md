@@ -5,16 +5,17 @@
 ### Packages
 | Package | Version | Status |
 |---------|---------|--------|
-| `@claude-code-kit/shared` | 0.3.1 | Published |
-| `@claude-code-kit/ink-renderer` | 0.3.1 | Published |
-| `@claude-code-kit/ui` | 0.3.1 | Published |
-| `@claude-code-kit/agent` | 0.3.1 | Published |
-| `@claude-code-kit/tools` | 0.3.1 | Published |
+| `@claude-code-kit/shared` | 0.3.2 | Published |
+| `@claude-code-kit/ink-renderer` | 0.3.2 | Published |
+| `@claude-code-kit/ui` | 0.3.2 | Published |
+| `@claude-code-kit/agent` | 0.3.2 | Published |
+| `@claude-code-kit/tools` | 0.3.2 | Published |
 
 ### Stats
-- 498 tests passing across 20 test files
+- 518 tests passing across 21 test files
+- 15-cell cross-env import smoke matrix green (3 loaders × 5 packages)
 - 3 examples (hello-world, agent-cli, alt-screen-dashboard)
-- Monorepo baseline green: build, typecheck, test, lint, npm pack dry-run
+- Monorepo baseline green: build, typecheck, test, lint, smoke, npm pack dry-run
 
 ### Current Focus: Stability & Optimization
 

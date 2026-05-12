@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.3.2 (2026-05-12)
+
+### Bug Fixes
+- **shared / ink-renderer / ui**: bundle ESM-only dependencies in CJS output.
+  `@alcalzone/ansi-tokenize` (used by shared and ink-renderer) and `marked@17`
+  (used by ui) are pure ESM packages with no `require` export. Without
+  bundling, our CJS dist emitted `require("...")` calls that crashed on
+  Node ≥ 20 with `ERR_REQUIRE_ESM` / `ERR_PACKAGE_PATH_NOT_EXPORTED`. Same
+  shape as the 0.3.1 semver fix (#1), but those packages are ESM-only so a
+  static import alone is not enough — they must be inlined via tsup's
+  `noExternal`. Discovered by the new cross-env smoke harness.
+
+### Features
+- **agent**: `MicroCompaction` — cheap, deterministic compaction that clears
+  old tool-result content while preserving every other message and the
+  assistant's `toolCalls` array (decision trail). Aligned with Claude Code's
+  microcompact strategy: same `[Old tool result content cleared]` placeholder,
+  same default `keepRecentN: 5`, same 8-tool whitelist
+  (`DEFAULT_COMPACTABLE_TOOLS`), same `Math.max(1, n)` floor. Idempotent.
+- **agent**: `LayeredCompaction` — runs an array of strategies in sequence,
+  re-estimating tokens after each layer and short-circuiting once the budget
+  is met. Recommended stack: MicroCompaction → SummarizationCompaction →
+  SlidingWindowCompaction.
+- **agent**: README gains a "Context compaction" section with a strategy
+  comparison table, recommended layered stack example, and the Claude Code
+  system-prompt instruction users should ship alongside `MicroCompaction`.
+
+### Infrastructure
+- **CI**: cross-environment import smoke matrix. Each published package is
+  loaded under three loaders (ESM, CJS, tsx) on Node 18 / 20 / 22 and at
+  least one named export is asserted. Runs locally as `pnpm smoke`. Catches
+  the regression class that produced both 0.3.1 #1 and the 0.3.2
+  ansi-tokenize / marked CJS-require crash.
+- `pnpm release:check` now includes the smoke job.
+- `tests/smoke/` workspace package added (own `package.json`).
+
+### Documentation
+- `docs/roadmap.md`: bumped to 0.3.1 baseline, "Now" section refocused on
+  stability + optimization (cross-env smoke matrix, UI behavior tests,
+  provider streaming tests, FileSession round-trip, bundle/perf budgets,
+  stable API contract pass, release checklist) ahead of adoption work
+  (docs site, scaffolding, starters).
+
+---
+
 ## 0.3.1 (2026-05-09)
 
 ### Bug Fixes
