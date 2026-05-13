@@ -16,6 +16,7 @@
     "@claude-code-kit/tools": "workspace:*",
     "@claude-code-kit/ui": "workspace:*",
     "react": "*",
+    "react-reconciler": "*",
     "zod": "*"
   },
   "devDependencies": {

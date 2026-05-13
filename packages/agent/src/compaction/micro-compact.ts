@@ -9,21 +9,29 @@ export const TOOL_RESULT_CLEARED_MESSAGE = "[Old tool result content cleared]";
 
 /**
  * Default whitelist of tool names whose results are eligible for clearing,
- * mirroring Claude Code's `COMPACTABLE_TOOLS` set in `microCompact.ts`.
+ * mirroring Claude Code's `COMPACTABLE_TOOLS` set in `microCompact.ts`
+ * verbatim. Names are the resolved string values of Claude Code's
+ * `FILE_READ_TOOL_NAME` / `SHELL_TOOL_NAMES` / etc constants.
  *
  * The intent is to clear results of tools whose output tends to be large
  * and re-derivable (file reads, shell output, search hits, web fetch) while
  * leaving results of bespoke tools alone.
+ *
+ * Note: `PowerShell` is included to mirror Claude Code even though our
+ * `tools` package does not currently ship a tool by that name. It is a
+ * harmless string that will only ever match if a downstream user defines
+ * their own tool literally named `PowerShell`.
  */
 export const DEFAULT_COMPACTABLE_TOOLS: readonly string[] = [
-  "Bash",
   "Read",
+  "Bash",
+  "PowerShell",
+  "Grep",
+  "Glob",
+  "WebSearch",
+  "WebFetch",
   "Edit",
   "Write",
-  "Glob",
-  "Grep",
-  "WebFetch",
-  "WebSearch",
 ];
 
 export interface MicroCompactionOptions {

@@ -6,7 +6,19 @@
 const cases = [
   { pkg: "@claude-code-kit/shared", expect: ["gt", "gte", "satisfies"] },
   { pkg: "@claude-code-kit/ink-renderer", expect: ["Box", "render"] },
-  { pkg: "@claude-code-kit/agent", expect: ["Agent", "MockProvider", "ToolRegistry"] },
+  {
+    pkg: "@claude-code-kit/agent",
+    expect: [
+      "Agent",
+      "MockProvider",
+      "ToolRegistry",
+      // 0.3.2: new compaction surface
+      "MicroCompaction",
+      "LayeredCompaction",
+      "TOOL_RESULT_CLEARED_MESSAGE",
+      "DEFAULT_COMPACTABLE_TOOLS",
+    ],
+  },
   { pkg: "@claude-code-kit/tools", expect: ["bashTool", "readTool", "grepTool"] },
   { pkg: "@claude-code-kit/ui", expect: ["MessageList", "DiffView", "AgentREPL"] },
 ];

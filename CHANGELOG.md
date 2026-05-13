@@ -2,39 +2,62 @@
 
 ## 0.3.2 (2026-05-12)
 
+### Breaking Changes
+- **engines.node bumped from `>=18` to `>=20`** in all 5 packages. The
+  prior `>=18` declaration was a false promise: one of our transitive deps
+  (`supports-hyperlinks@4`) requires Node ≥ 20 and uses ES2024 regex `v`
+  flags. Node 18 has been EOL since April 2025; the new cross-env smoke
+  matrix exposed the existing-but-silent breakage.
+
 ### Bug Fixes
-- **shared / ink-renderer / ui**: bundle ESM-only dependencies in CJS output.
-  `@alcalzone/ansi-tokenize` (used by shared and ink-renderer) and `marked@17`
-  (used by ui) are pure ESM packages with no `require` export. Without
-  bundling, our CJS dist emitted `require("...")` calls that crashed on
-  Node ≥ 20 with `ERR_REQUIRE_ESM` / `ERR_PACKAGE_PATH_NOT_EXPORTED`. Same
-  shape as the 0.3.1 semver fix (#1), but those packages are ESM-only so a
-  static import alone is not enough — they must be inlined via tsup's
-  `noExternal`. Discovered by the new cross-env smoke harness.
+- **shared / ink-renderer / ui**: bundle ESM-only dependencies into the CJS
+  output via tsup's `noExternal`. `@alcalzone/ansi-tokenize`,
+  `get-east-asian-width`, `supports-hyperlinks` (in shared / ink-renderer)
+  and `marked@17` (in ui) are pure ESM packages with no `require` export.
+  Without bundling, our CJS dist emitted `require("...")` calls that
+  crashed on Node 20.0–20.16 with `ERR_REQUIRE_ESM` /
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`. Same shape as the 0.3.1 semver fix
+  (#1), but those packages are ESM-only so a static import is not enough.
+  Discovered by the new cross-env smoke harness.
 
 ### Features
-- **agent**: `MicroCompaction` — cheap, deterministic compaction that clears
-  old tool-result content while preserving every other message and the
-  assistant's `toolCalls` array (decision trail). Aligned with Claude Code's
-  microcompact strategy: same `[Old tool result content cleared]` placeholder,
-  same default `keepRecentN: 5`, same 8-tool whitelist
-  (`DEFAULT_COMPACTABLE_TOOLS`), same `Math.max(1, n)` floor. Idempotent.
-- **agent**: `LayeredCompaction` — runs an array of strategies in sequence,
-  re-estimating tokens after each layer and short-circuiting once the budget
-  is met. Recommended stack: MicroCompaction → SummarizationCompaction →
-  SlidingWindowCompaction.
+- **agent**: `MicroCompaction` — cheap, deterministic compaction that
+  clears old tool-result content while preserving every other message and
+  the assistant's `toolCalls` array (decision trail). Aligned with Claude
+  Code's microcompact strategy verbatim: same
+  `[Old tool result content cleared]` placeholder, same default
+  `keepRecentN: 5`, same `Math.max(1, n)` floor, same 9-tool whitelist
+  (`DEFAULT_COMPACTABLE_TOOLS`: `Read`, `Bash`, `PowerShell`, `Grep`,
+  `Glob`, `WebSearch`, `WebFetch`, `Edit`, `Write`). Idempotent.
+- **agent**: `LayeredCompaction` — runs an array of strategies in
+  sequence, re-estimating tokens after each layer and short-circuiting
+  once the budget is met. Recommended stack: `MicroCompaction` →
+  `SummarizationCompaction` → `SlidingWindowCompaction`.
+- **agent**: `SummarizationCompaction` now filters out cleared tool-result
+  sentinels when building its transcript, so the recommended layered stack
+  does not produce a summary that literally echoes
+  `[Old tool result content cleared]`.
+- **agent**: `CompactionStrategy.shouldCompact` is now an optional method
+  on the interface, and `ContextManager.maybeCompact` honors it. Strategy
+  options like `MicroCompaction.thresholdFraction` and
+  `SummarizationCompaction.thresholdFraction` actually take effect now.
+  `LayeredCompaction.shouldCompact` returns true when any layer would
+  trigger.
 - **agent**: README gains a "Context compaction" section with a strategy
-  comparison table, recommended layered stack example, and the Claude Code
+  comparison table, recommended layered stack, and the Claude Code
   system-prompt instruction users should ship alongside `MicroCompaction`.
 
 ### Infrastructure
 - **CI**: cross-environment import smoke matrix. Each published package is
-  loaded under three loaders (ESM, CJS, tsx) on Node 18 / 20 / 22 and at
-  least one named export is asserted. Runs locally as `pnpm smoke`. Catches
-  the regression class that produced both 0.3.1 #1 and the 0.3.2
-  ansi-tokenize / marked CJS-require crash.
+  loaded under three loaders (ESM, CJS, tsx) on Node 20 / 22 / 24 and a
+  curated set of named exports is asserted (including the new 0.3.2
+  compaction surface: `MicroCompaction`, `LayeredCompaction`,
+  `TOOL_RESULT_CLEARED_MESSAGE`, `DEFAULT_COMPACTABLE_TOOLS`). Runs
+  locally as `pnpm smoke`. Catches the regression class that produced
+  both 0.3.1 #1 and the 0.3.2 ESM-only CJS-require crashes.
 - `pnpm release:check` now includes the smoke job.
-- `tests/smoke/` workspace package added (own `package.json`).
+- `tests/smoke/` workspace package added (own `package.json`,
+  workspace-level peers including `react-reconciler`).
 
 ### Documentation
 - `docs/roadmap.md`: bumped to 0.3.1 baseline, "Now" section refocused on

@@ -15,7 +15,20 @@ type Case = { name: string; mod: Record<string, unknown>; expect: string[] };
 const cases: Case[] = [
   { name: "@claude-code-kit/shared", mod: shared, expect: ["gt", "gte", "satisfies"] },
   { name: "@claude-code-kit/ink-renderer", mod: inkRenderer, expect: ["Box", "render"] },
-  { name: "@claude-code-kit/agent", mod: agent, expect: ["Agent", "MockProvider", "ToolRegistry"] },
+  {
+    name: "@claude-code-kit/agent",
+    mod: agent,
+    expect: [
+      "Agent",
+      "MockProvider",
+      "ToolRegistry",
+      // 0.3.2: new compaction surface
+      "MicroCompaction",
+      "LayeredCompaction",
+      "TOOL_RESULT_CLEARED_MESSAGE",
+      "DEFAULT_COMPACTABLE_TOOLS",
+    ],
+  },
   { name: "@claude-code-kit/tools", mod: tools, expect: ["bashTool", "readTool", "grepTool"] },
   { name: "@claude-code-kit/ui", mod: ui, expect: ["MessageList", "DiffView", "AgentREPL"] },
 ];

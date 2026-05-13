@@ -5,10 +5,12 @@ export default defineConfig({
   format: ['cjs', 'esm'],
   dts: true,
   clean: true,
-  // @alcalzone/ansi-tokenize is ESM-only ("type": "module" with no `require`
-  // export). Without bundling it our CJS output emits `require(...)` which
-  // crashes on Node ≥ 20 with ERR_REQUIRE_ESM. Same shape as the 0.3.1
-  // semver fix (#1), but semver had dual CJS+ESM so a static import was
-  // enough; ansi-tokenize must actually be inlined.
-  noExternal: ['@alcalzone/ansi-tokenize'],
+  // Bundle ESM-only dependencies into the CJS output. Without this our CJS
+  // dist emits `require(...)` calls that fail on Node 20.0–20.16 with
+  // ERR_REQUIRE_ESM (Node 20.17+ added stable require-of-ESM support, but
+  // we cannot assume every Node-20 consumer is on that minor). Same root
+  // cause as the 0.3.1 semver fix (#1); ansi-tokenize and
+  // get-east-asian-width are pure ESM with no `require` export, so a static
+  // import is not enough — they must actually be inlined.
+  noExternal: ['@alcalzone/ansi-tokenize', 'get-east-asian-width'],
 })

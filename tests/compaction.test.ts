@@ -212,21 +212,97 @@ describe('MicroCompaction', () => {
   })
 
   it('exports the same default whitelist that Claude Code uses', () => {
-    // Sanity check — these 8 names match Claude Code's COMPACTABLE_TOOLS set.
+    // Sanity check — these 9 names match Claude Code's COMPACTABLE_TOOLS set
+    // (FILE_READ_TOOL_NAME + ...SHELL_TOOL_NAMES + GREP/GLOB/WEB_SEARCH/
+    // WEB_FETCH/FILE_EDIT/FILE_WRITE), with SHELL_TOOL_NAMES expanding to
+    // [Bash, PowerShell].
     expect(DEFAULT_COMPACTABLE_TOOLS).toEqual([
-      'Bash',
       'Read',
+      'Bash',
+      'PowerShell',
+      'Grep',
+      'Glob',
+      'WebSearch',
+      'WebFetch',
       'Edit',
       'Write',
-      'Glob',
-      'Grep',
-      'WebFetch',
-      'WebSearch',
     ])
   })
 
   it('placeholder string matches Claude Code verbatim', () => {
     expect(TOOL_RESULT_CLEARED_MESSAGE).toBe('[Old tool result content cleared]')
+  })
+
+  it('handles assistant with multiple toolCalls where only some have results', () => {
+    // Real provider behavior: assistant emits N tool calls in one turn but
+    // the agent loop may abort or skip some. Lookup must still work for
+    // those that DO have results.
+    const strategy = new MicroCompaction({ keepRecentN: 1 })
+    const messages: Message[] = [
+      {
+        role: 'assistant',
+        content: 'fanning out',
+        toolCalls: [
+          { id: 'tc-1', name: 'Bash', input: {} },
+          { id: 'tc-2', name: 'Bash', input: {} },
+          { id: 'tc-3', name: 'Bash', input: {} },
+        ],
+      },
+      toolMsg('tc-1', 'old result 1'),
+      toolMsg('tc-3', 'recent result 3'),
+      // tc-2 never produced a tool message (e.g. aborted) — should not crash
+    ]
+    const compacted = strategy.compact(messages, 0)
+    // tc-1 (older) cleared, tc-3 (most recent) kept.
+    expect((compacted[1] as { content: string }).content).toBe(TOOL_RESULT_CLEARED_MESSAGE)
+    expect((compacted[2] as { content: string }).content).toBe('recent result 3')
+  })
+
+  it('leaves orphan tool result alone when whitelist is active', () => {
+    // Whitelist filters by name, but orphan results have no resolvable name.
+    // Default behavior: skip them (do not clear). Matches Claude Code.
+    const strategy = new MicroCompaction({ keepRecentN: 0, compactableTools: ['Bash'] })
+    const messages: Message[] = [
+      // No assistant precursor — orphan tool result.
+      toolMsg('tc-orphan', 'mysterious old output'),
+      assistantWithToolCall('a1', 'tc-1', 'Bash'),
+      toolMsg('tc-1', 'recent bash output'),
+    ]
+    const compacted = strategy.compact(messages, 0)
+    // Orphan stays untouched.
+    expect((compacted[0] as { content: string }).content).toBe('mysterious old output')
+  })
+
+  it('returns input unchanged when keepRecentN equals compactable count', () => {
+    // Boundary: nothing should clear if we have exactly keepRecentN results.
+    const strategy = new MicroCompaction({ keepRecentN: 3 })
+    const messages: Message[] = []
+    for (let i = 0; i < 3; i++) {
+      messages.push(assistantWithToolCall(`a${i}`, `tc-${i}`, 'Bash'))
+      messages.push(toolMsg(`tc-${i}`, `output ${i}`))
+    }
+    const compacted = strategy.compact(messages, 0)
+    // Same reference returned (early-return path).
+    expect(compacted).toBe(messages)
+  })
+
+  it('preserves tool result content of type ContentPart[] (does not crash)', () => {
+    const strategy = new MicroCompaction({ keepRecentN: 1 })
+    const messages: Message[] = [
+      assistantWithToolCall('a1', 'tc-old', 'Read'),
+      {
+        role: 'tool',
+        toolCallId: 'tc-old',
+        content: [{ type: 'text', text: 'old structured content' }],
+      },
+      assistantWithToolCall('a2', 'tc-recent', 'Read'),
+      toolMsg('tc-recent', 'recent'),
+    ]
+    const compacted = strategy.compact(messages, 0)
+    // Old structured content should be cleared (we replace whole content
+    // field with the placeholder string).
+    const cleared = compacted[1] as { content: unknown }
+    expect(cleared.content).toBe(TOOL_RESULT_CLEARED_MESSAGE)
   })
 })
 
@@ -337,5 +413,42 @@ describe('LayeredCompaction', () => {
         m.content.includes('Summary of earlier conversation'),
     )
     expect(hasSummary).toBe(true)
+  })
+
+  it('summarization layer does NOT include cleared sentinel in transcript', async () => {
+    // Capture the prompt actually sent to the provider so we can assert that
+    // it does not contain the TOOL_RESULT_CLEARED_MESSAGE sentinel that an
+    // earlier MicroCompaction layer wrote into the conversation.
+    let capturedTranscript = ''
+    const captureProvider = {
+      chat({ messages }: { messages: Message[] }) {
+        const userMsg = messages.find((m) => m.role === 'user')
+        capturedTranscript = (userMsg?.content as string) ?? ''
+        return (async function* () {
+          yield { type: 'text' as const, text: 'Summary.' }
+          yield { type: 'done' as const }
+        })()
+      },
+    }
+
+    const layered = new LayeredCompaction([
+      new MicroCompaction({ keepRecentN: 1 }),
+      new SummarizationCompaction(
+        captureProvider as unknown as ConstructorParameters<typeof SummarizationCompaction>[0],
+        { keepRecentN: 1 },
+      ),
+    ])
+
+    // Build enough messages to force both layers to run.
+    const messages: Message[] = []
+    for (let i = 0; i < 10; i++) {
+      messages.push(userMsg(`u${i}-${'x'.repeat(200)}`))
+      messages.push(assistantWithToolCall(`a${i}`, `tc-${i}`, 'Bash'))
+      messages.push(toolMsg(`tc-${i}`, 'r'.repeat(200)))
+    }
+
+    await layered.compact(messages, 100)
+    // The transcript fed to the summarizer must not echo the sentinel.
+    expect(capturedTranscript).not.toContain(TOOL_RESULT_CLEARED_MESSAGE)
   })
 })

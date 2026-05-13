@@ -6,6 +6,7 @@ import type {
   Message,
   UserMessage,
 } from "../types.js";
+import { TOOL_RESULT_CLEARED_MESSAGE } from "./micro-compact.js";
 
 export interface CompactionResult {
   /** The compacted message array. */
@@ -97,8 +98,13 @@ export class SummarizationCompaction implements CompactionStrategy {
     const toSummarize = conversationMessages.slice(0, -this.keepRecentN);
     const toKeep = conversationMessages.slice(-this.keepRecentN);
 
-    // Build a readable transcript of the messages to summarize
+    // Build a readable transcript of the messages to summarize. Skip tool
+    // results whose content has already been cleared by an earlier layer
+    // (e.g. MicroCompaction inside a LayeredCompaction stack) — feeding the
+    // sentinel into the summarizer would just produce a summary that
+    // literally contains "[Old tool result content cleared]" lines.
     const transcript = toSummarize
+      .filter((m) => !(m.role === "tool" && m.content === TOOL_RESULT_CLEARED_MESSAGE))
       .map((m) => {
         const role = m.role.toUpperCase();
         const text =

@@ -129,10 +129,13 @@ Mirrors Claude Code's microcompact strategy:
   `[Old tool result content cleared]` (exported as `TOOL_RESULT_CLEARED_MESSAGE`).
 - Default `keepRecentN: 5` — the last five compactable tool results survive.
   The constructor floors this at 1, so `keepRecentN: 0` is treated as 1.
-- Defaults to a whitelist of 8 tool names (exported as
-  `DEFAULT_COMPACTABLE_TOOLS`): `Bash`, `Read`, `Edit`, `Write`, `Glob`, `Grep`,
-  `WebFetch`, `WebSearch`. Pass `compactableTools: 'all'` to clear every tool's
-  output, or pass an explicit array to narrow the set.
+- Defaults to a whitelist of 9 tool names (exported as
+  `DEFAULT_COMPACTABLE_TOOLS`), mirroring Claude Code's `COMPACTABLE_TOOLS`
+  set verbatim: `Read`, `Bash`, `PowerShell`, `Grep`, `Glob`, `WebSearch`,
+  `WebFetch`, `Edit`, `Write`. Pass `compactableTools: 'all'` to clear every
+  tool's output, or pass an explicit array to narrow the set. Note: our
+  `tools` package does not currently ship a `PowerShell` tool — the name is
+  carried over for parity, and is harmless if unused.
 - Idempotent: results that have already been cleared are returned by reference.
 
 When using `MicroCompaction`, it is recommended to instruct the model in your

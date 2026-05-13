@@ -69,12 +69,21 @@ export class ContextManager {
   /**
    * Check if compaction is needed and apply it if so.
    * Returns the (possibly compacted) messages array.
+   *
+   * Threshold policy:
+   *   - if the strategy implements `shouldCompact`, delegate to it
+   *     (so options like `MicroCompaction.thresholdFraction` actually take
+   *     effect)
+   *   - otherwise fall back to the manager's built-in 0.85 threshold
    */
   async maybeCompact(messages: Message[]): Promise<Message[]> {
     const tokenCount = await this.countTokens(messages);
-    const threshold = this.contextLimit * this.compactionThreshold;
 
-    if (tokenCount > threshold) {
+    const shouldCompact = this.compactionStrategy.shouldCompact
+      ? this.compactionStrategy.shouldCompact(messages, tokenCount, this.contextLimit)
+      : tokenCount > this.contextLimit * this.compactionThreshold;
+
+    if (shouldCompact) {
       const targetTokens = Math.floor(this.contextLimit * 0.6);
       return await this.compactionStrategy.compact(messages, targetTokens);
     }

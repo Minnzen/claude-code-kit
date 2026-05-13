@@ -26,14 +26,18 @@ jobs:
   # Motivated by 0.3.1 #1 (`Dynamic require of "semver" is not supported`)
   # and the ESM-only ansi-tokenize / marked CJS-require crash discovered
   # alongside it. Runs each built package through ESM, CJS, and tsx loaders
-  # on Node 18 / 20 / 22.
+  # on every supported Node version.
+  #
+  # Node 18 was dropped in 0.3.2: one of our transitive deps
+  # (`supports-hyperlinks@4`) requires Node ≥ 20, and our packages declare
+  # `engines.node: ">=20"`.
   smoke:
     runs-on: ubuntu-latest
     needs: build
     strategy:
       fail-fast: false
       matrix:
-        node: [18, 20, 22]
+        node: [20, 22, 24]
         loader: [esm, cjs, tsx]
     steps:
       - uses: actions/checkout@v4

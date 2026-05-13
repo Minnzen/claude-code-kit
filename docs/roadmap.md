@@ -3,17 +3,21 @@
 ## Current Status
 
 ### Packages
-| Package | Version | Status |
-|---------|---------|--------|
-| `@claude-code-kit/shared` | 0.3.2 | Published |
-| `@claude-code-kit/ink-renderer` | 0.3.2 | Published |
-| `@claude-code-kit/ui` | 0.3.2 | Published |
-| `@claude-code-kit/agent` | 0.3.2 | Published |
-| `@claude-code-kit/tools` | 0.3.2 | Published |
+| Package | Latest published | Status |
+|---------|------------------|--------|
+| `@claude-code-kit/shared` | 0.3.1 | 0.3.2 pending publish |
+| `@claude-code-kit/ink-renderer` | 0.3.1 | 0.3.2 pending publish |
+| `@claude-code-kit/ui` | 0.3.1 | 0.3.2 pending publish |
+| `@claude-code-kit/agent` | 0.3.1 | 0.3.2 pending publish |
+| `@claude-code-kit/tools` | 0.3.1 | 0.3.2 pending publish |
 
-### Stats
-- 518 tests passing across 21 test files
-- 15-cell cross-env import smoke matrix green (3 loaders × 5 packages)
+### Stats (at HEAD)
+- 524 tests passing across 21 test files
+- 9-job cross-env import smoke matrix green (3 Node versions × 3 loaders),
+  asserting 6 named exports per package across 5 packages = 90 import
+  assertions per CI run
+- Supported Node versions: 20, 22, 24 (Node 18 dropped in 0.3.2 — one of our
+  transitive deps requires Node ≥ 20, and `engines.node` is updated to match)
 - 3 examples (hello-world, agent-cli, alt-screen-dashboard)
 - Monorepo baseline green: build, typecheck, test, lint, smoke, npm pack dry-run
 
@@ -91,10 +95,10 @@ The 0.3.1 patch fixed five bugs all clustered in **integration / build / list
 reconciliation**, not in core logic. The stability work below is shaped to
 prevent that class of regression instead of chasing surface-area growth.
 
-- [ ] **Cross-environment import smoke matrix**
-  Deliverable: CI job that imports each published package under
-  `node 18 / 20 / 22` × `tsx` / direct ESM, catches regressions of the
-  `Dynamic require of "semver"` flavor before they ship.
+- [x] **Cross-environment import smoke matrix** (landed in 0.3.2)
+  CI job that imports each published package under `node 20 / 22 / 24` ×
+  `esm` / `cjs` / `tsx`, asserting named exports. Catches regressions of
+  the `Dynamic require of "semver"` flavor before they ship.
 - [ ] **UI behavior tests for high-traffic components**
   Deliverable: focused behavior tests (not snapshots) for `MessageList`,
   `DiffView`, `PermissionRequest`, `StreamingText`, `PromptInput` — the

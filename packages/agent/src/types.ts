@@ -224,6 +224,14 @@ export interface Session {
 
 export interface CompactionStrategy {
   compact(messages: Message[], maxTokens: number): Message[] | Promise<Message[]>;
+  /**
+   * Optional pre-check used by `ContextManager.maybeCompact()`. Strategies
+   * that have their own threshold (e.g. `MicroCompaction.thresholdFraction`)
+   * implement this to override the manager's default 0.85 threshold.
+   *
+   * If omitted, the manager falls back to its built-in policy.
+   */
+  shouldCompact?(messages: Message[], tokenCount: number, contextLimit: number): boolean;
 }
 
 // ---------------------------------------------------------------------------

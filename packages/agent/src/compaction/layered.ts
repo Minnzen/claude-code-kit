@@ -9,9 +9,9 @@ import type { CompactionStrategy, Message } from "../types.js";
  * Recommended layering (cheapest, lowest information loss first):
  *
  *   new LayeredCompaction([
- *     new ToolResultClearingCompaction({ keepRecentN: 20 }),  // free, lossless for decisions
- *     new SummarizationCompaction(provider, { keepRecentN: 10 }), // 1 LLM call, lossy
- *     new SlidingWindowCompaction(),                          // free, very lossy fallback
+ *     new MicroCompaction(),                      // free, lossless for decisions
+ *     new SummarizationCompaction(provider),      // 1 LLM call, lossy
+ *     new SlidingWindowCompaction(),              // free, very lossy fallback
  *   ])
  *
  * After each layer the resulting token count is re-estimated. If it is at or
@@ -25,6 +25,21 @@ export class LayeredCompaction implements CompactionStrategy {
 
   constructor(layers: CompactionStrategy[]) {
     this.layers = layers;
+  }
+
+  /**
+   * Returns true iff *any* layer reports that compaction is needed. This lets
+   * `ContextManager` pick up the most-eager layer's threshold (e.g. the cheap
+   * MicroCompaction's 0.7 instead of waiting for the manager's 0.85).
+   *
+   * If no layer implements `shouldCompact`, returns undefined so the manager
+   * falls back to its built-in policy.
+   */
+  shouldCompact(messages: Message[], tokenCount: number, contextLimit: number): boolean {
+    for (const layer of this.layers) {
+      if (layer.shouldCompact?.(messages, tokenCount, contextLimit)) return true;
+    }
+    return false;
   }
 
   async compact(messages: Message[], maxTokens: number): Promise<Message[]> {
