@@ -32,8 +32,11 @@ export class LayeredCompaction implements CompactionStrategy {
    * `ContextManager` pick up the most-eager layer's threshold (e.g. the cheap
    * MicroCompaction's 0.7 instead of waiting for the manager's 0.85).
    *
-   * If no layer implements `shouldCompact`, returns undefined so the manager
-   * falls back to its built-in policy.
+   * Returns false if no layer wants to trigger (including the case where no
+   * layer implements `shouldCompact` at all). Note: because this method is
+   * defined, `ContextManager` will not fall back to its built-in 0.85 policy
+   * — wrap your strategies in `LayeredCompaction` only when you want the
+   * union-of-eager-thresholds semantics.
    */
   shouldCompact(messages: Message[], tokenCount: number, contextLimit: number): boolean {
     for (const layer of this.layers) {

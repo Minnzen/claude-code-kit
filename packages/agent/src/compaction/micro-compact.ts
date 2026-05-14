@@ -52,7 +52,7 @@ export interface MicroCompactionOptions {
    * Names of tools whose results are eligible for clearing. Tool-call IDs
    * produced by tools NOT in this list are never cleared.
    *
-   * - Omit (default): use `DEFAULT_COMPACTABLE_TOOLS` (the 8 names from
+   * - Omit (default): use `DEFAULT_COMPACTABLE_TOOLS` (the 9 names from
    *   Claude Code).
    * - Pass an explicit array: only those tool names are compactable.
    * - Pass `"all"`: every tool's result is compactable.
@@ -71,7 +71,7 @@ export interface MicroCompactionOptions {
  *   - operates per tool-call id, not per message
  *   - keeps the most-recent N compactable tool results untouched
  *   - replaces older tool-result content with `TOOL_RESULT_CLEARED_MESSAGE`
- *   - filtered by a tool-name whitelist (default: 8 well-known names)
+ *   - filtered by a tool-name whitelist (default: 9 well-known names)
  *   - idempotent: already-cleared messages are not rewritten
  *   - no LLM call, synchronous
  *
