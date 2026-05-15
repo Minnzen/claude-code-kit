@@ -9,5 +9,24 @@ export default defineConfig({
   // Bundle every ESM-only dep into the CJS output so consumers on Node
   // 20.0–20.16 (which lacks stable require-ESM) do not hit ERR_REQUIRE_ESM.
   // See shared/tsup.config for the longer rationale.
-  noExternal: ['@alcalzone/ansi-tokenize', 'get-east-asian-width', 'supports-hyperlinks'],
+  //
+  // The list below is the union of every third-party require()'d at the top
+  // of the built CJS that ships as `"type": "module"` with no `require`
+  // export. Verified by:
+  //   grep -oE 'require\("[a-z@][^"]*"\)' dist/index.js | sort -u
+  // and inspecting each package.json. If you add a new dependency that is
+  // ESM-only, add it here too — otherwise consumers on Node 20.0–20.16
+  // will crash on require().
+  noExternal: [
+    '@alcalzone/ansi-tokenize',
+    'auto-bind',
+    'chalk',
+    'cli-boxes',
+    'code-excerpt',
+    'get-east-asian-width',
+    'indent-string',
+    'strip-ansi',
+    'supports-hyperlinks',
+    'wrap-ansi',
+  ],
 })

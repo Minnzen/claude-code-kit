@@ -31,13 +31,20 @@ jobs:
   # Node 18 was dropped in 0.3.2: one of our transitive deps
   # (`supports-hyperlinks@4`) requires Node ≥ 20, and our packages declare
   # `engines.node: ">=20"`.
+  #
+  # Node 20.16.0 is pinned (instead of just "20") because Node 20.17 added
+  # stable require-of-ESM support. Using the floating "20" tag would resolve
+  # to the latest 20.x patch (currently ≥ 20.17), which would silently mask
+  # any future ESM-only dep that leaks into our CJS bundle as a top-level
+  # require(). 20.16.0 is the last patch where that crash actually happens,
+  # so it is our true worst-case for the floor of `engines.node: ">=20"`.
   smoke:
     runs-on: ubuntu-latest
     needs: build
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22, 24]
+        node: [20.16.0, 22, 24]
         loader: [esm, cjs, tsx]
     steps:
       - uses: actions/checkout@v4

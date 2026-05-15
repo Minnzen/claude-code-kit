@@ -11,14 +11,22 @@
 
 ### Bug Fixes
 - **shared / ink-renderer / ui**: bundle ESM-only dependencies into the CJS
-  output via tsup's `noExternal`. `@alcalzone/ansi-tokenize`,
-  `get-east-asian-width`, `supports-hyperlinks` (in shared / ink-renderer)
-  and `marked@17` (in ui) are pure ESM packages with no `require` export.
+  output via tsup's `noExternal`. The full set is now:
+  - `shared`: `@alcalzone/ansi-tokenize`, `get-east-asian-width`
+  - `ink-renderer`: `@alcalzone/ansi-tokenize`, `auto-bind`, `chalk`,
+    `cli-boxes`, `code-excerpt`, `get-east-asian-width`, `indent-string`,
+    `strip-ansi`, `supports-hyperlinks`, `wrap-ansi`
+  - `ui`: `chalk`, `figures`, `marked`, `strip-ansi`
+
+  All listed packages ship as `"type": "module"` with no `require` export.
   Without bundling, our CJS dist emitted `require("...")` calls that
   crashed on Node 20.0–20.16 with `ERR_REQUIRE_ESM` /
   `ERR_PACKAGE_PATH_NOT_EXPORTED`. Same shape as the 0.3.1 semver fix
   (#1), but those packages are ESM-only so a static import is not enough.
-  Discovered by the new cross-env smoke harness.
+
+  The smoke matrix now pins Node to `20.16.0` (instead of the floating
+  `20` tag, which resolves to ≥20.17 where require-of-ESM is stable and
+  silently masks this class of bug).
 
 ### Features
 - **agent**: `MicroCompaction` — cheap, deterministic compaction that
