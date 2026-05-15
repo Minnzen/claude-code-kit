@@ -27,6 +27,21 @@
   The smoke matrix now pins Node to `20.16.0` (instead of the floating
   `20` tag, which resolves to ≥20.17 where require-of-ESM is stable and
   silently masks this class of bug).
+- **agent**: compaction errors no longer escape `Agent.run()` as raw
+  rejections. Both proactive (`maybeCompact`, before each turn) and
+  reactive (`forceCompact`, after `context-too-long`) compaction calls are
+  now wrapped in try/catch and converted into the documented
+  `error` + `done` event sequence. Previously a `SummarizationCompaction`
+  whose provider call failed would crash the agent's async iterator
+  instead of yielding a structured error.
+- **agent**: `context-too-long` retry now bails when compaction makes no
+  progress. Built-in compaction strategies are best-effort — they do not
+  honor the `maxTokens` argument as a hard guarantee — so the previous
+  `forceCompact` + `continue` loop could wedge the agent forever when the
+  current strategy could not shrink the history below the model's limit.
+  The agent now measures token counts before and after `forceCompact()`
+  and surfaces a `Context too long and compaction made no progress` error
+  if the count did not strictly decrease.
 
 ### Features
 - **agent**: `MicroCompaction` — cheap, deterministic compaction that

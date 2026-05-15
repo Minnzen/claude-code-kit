@@ -512,3 +512,156 @@ describe('Agent malformed tool JSON', () => {
     expect(textEvents.length).toBeGreaterThan(0)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Compaction error handling — added in 0.3.2 to fix two pre-existing bugs:
+//   (a) compaction errors escaped Agent.run() as raw rejections instead of
+//       error/done events
+//   (b) reactive forceCompact() retried unconditionally on context-too-long,
+//       which could wedge the agent forever when compaction made no progress
+// ---------------------------------------------------------------------------
+
+describe('Agent compaction error handling', () => {
+  it('proactive compaction failure yields error/done instead of raw rejection', async () => {
+    // maybeCompact() is called BEFORE the provider try/catch. A throwing
+    // strategy used to escape Agent.run() as a rejected promise.
+    const provider = new MockProvider([
+      [{ type: 'text', text: 'never reached' }, { type: 'done' }],
+    ])
+    const exploding: CompactionStrategy = {
+      // Always say compaction is needed so the manager calls compact().
+      shouldCompact: () => true,
+      compact: () => {
+        throw new Error('boom from compactor')
+      },
+    }
+
+    const agent = new Agent({
+      provider,
+      model: 'mock',
+      compactionStrategy: exploding,
+    })
+
+    // Must NOT reject. Must yield error then done.
+    const events = await collectEvents(agent.run('hello'))
+
+    const errorEvents = events.filter((e) => e.type === 'error')
+    expect(errorEvents).toHaveLength(1)
+    const err = (errorEvents[0] as { type: string; error: Error }).error
+    expect(err.message).toContain('Compaction failed')
+    expect(err.message).toContain('boom from compactor')
+
+    expect(events.at(-1)?.type).toBe('done')
+    // Provider must NOT have been called (we bailed before that).
+    expect(provider.getCalls()).toHaveLength(0)
+  })
+
+  it('reactive compaction failure (after context-too-long) yields error/done', async () => {
+    // Provider always throws context-too-long. forceCompact() throws too.
+    const ctxTooLong = new Error("This model's maximum context length is 100 tokens")
+    const throwingProvider = {
+      // biome-ignore lint/correctness/useYield: intentionally throws before yielding
+      async *chat(): AsyncGenerator<unknown> {
+        throw ctxTooLong
+      },
+    }
+    const exploding: CompactionStrategy = {
+      compact: () => {
+        throw new Error('boom from forced compactor')
+      },
+    }
+
+    const agent = new Agent({
+      provider: throwingProvider as unknown as ConstructorParameters<typeof Agent>[0]['provider'],
+      model: 'mock',
+      compactionStrategy: exploding,
+    })
+
+    const events = await collectEvents(agent.run('hello'))
+
+    const errorEvents = events.filter((e) => e.type === 'error')
+    expect(errorEvents).toHaveLength(1)
+    const err = (errorEvents[0] as { type: string; error: Error }).error
+    expect(err.message).toContain('Forced compaction failed after context-too-long')
+    expect(err.message).toContain('boom from forced compactor')
+    expect(events.at(-1)?.type).toBe('done')
+  })
+
+  it('does not loop forever when compaction makes no progress on context-too-long', async () => {
+    // Worst case: provider always throws context-too-long, strategy returns
+    // the same messages unchanged. Without the no-progress guard, this would
+    // be an infinite while-loop. With it, agent must surface a clear error
+    // and stop.
+    let providerCalls = 0
+    const throwingProvider = {
+      // biome-ignore lint/correctness/useYield: intentionally throws before yielding
+      async *chat(): AsyncGenerator<unknown> {
+        providerCalls++
+        throw new Error('context_length_exceeded')
+      },
+    }
+    const noopStrategy: CompactionStrategy = {
+      compact: (msgs) => msgs, // strict no-op
+    }
+
+    const agent = new Agent({
+      provider: throwingProvider as unknown as ConstructorParameters<typeof Agent>[0]['provider'],
+      model: 'mock',
+      compactionStrategy: noopStrategy,
+      maxTurns: 100, // intentionally generous to expose the loop bug if present
+    })
+
+    const events = await collectEvents(agent.run('hello'))
+
+    // Must have stopped after exactly one provider attempt: the no-progress
+    // check fires immediately because afterTokens === beforeTokens.
+    expect(providerCalls).toBe(1)
+
+    const errorEvents = events.filter((e) => e.type === 'error')
+    expect(errorEvents).toHaveLength(1)
+    const err = (errorEvents[0] as { type: string; error: Error }).error
+    expect(err.message).toContain('compaction made no progress')
+    expect(events.at(-1)?.type).toBe('done')
+  })
+
+  it('still retries successfully when compaction does make progress', async () => {
+    // Same context-too-long pressure, but strategy actually shrinks the
+    // history. After one shrink the second turn succeeds. Feed multiple
+    // messages so slice(-1) is a real reduction (not a no-op).
+    let providerCalls = 0
+    const conditionalProvider = {
+      async *chat(_opts: { messages: Message[] }): AsyncGenerator<unknown> {
+        providerCalls++
+        if (providerCalls === 1) throw new Error('context_length_exceeded')
+        // Second call succeeds.
+        yield { type: 'text', text: 'recovered' }
+        yield { type: 'done' }
+      },
+    }
+    const shrink: CompactionStrategy = {
+      compact: (msgs) => msgs.slice(-1), // drop everything but the last message
+    }
+
+    const agent = new Agent({
+      provider: conditionalProvider as unknown as ConstructorParameters<typeof Agent>[0]['provider'],
+      model: 'mock',
+      compactionStrategy: shrink,
+    })
+
+    const messages: Message[] = [
+      { role: 'user', content: 'old message 1 '.repeat(50) },
+      { role: 'assistant', content: 'old reply 1 '.repeat(50) },
+      { role: 'user', content: 'old message 2 '.repeat(50) },
+      { role: 'assistant', content: 'old reply 2 '.repeat(50) },
+      { role: 'user', content: 'recent question' },
+    ]
+    const events = await collectEvents(agent.run(messages))
+
+    expect(providerCalls).toBe(2)
+    const textEvents = events.filter((e) => e.type === 'text')
+    expect(textEvents).toHaveLength(1)
+    expect((textEvents[0] as { type: string; text: string }).text).toBe('recovered')
+    const errorEvents = events.filter((e) => e.type === 'error')
+    expect(errorEvents).toHaveLength(0)
+  })
+})

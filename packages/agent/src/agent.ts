@@ -106,9 +106,22 @@ export class Agent {
     while (turns < this.maxTurns) {
       turns++;
 
-      // Step 2: Check compaction
-      const currentMessages = await this.contextManager.maybeCompact(this.session.getMessages());
-      this.session.setMessages(currentMessages);
+      // Step 2: Check compaction. Wrap in try/catch so a strategy that
+      // throws (e.g. SummarizationCompaction whose provider call fails) does
+      // NOT escape Agent.run() as a raw rejection — the contract is that
+      // run() always yields error/done events.
+      try {
+        const currentMessages = await this.contextManager.maybeCompact(this.session.getMessages());
+        this.session.setMessages(currentMessages);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        yield {
+          type: "error",
+          error: new Error(`Compaction failed: ${err.message}`),
+        };
+        yield { type: "done", messages: this.session.getMessages() };
+        return;
+      }
 
       // Step 3: Call provider
       const providerTools = this.toolRegistry.toProviderFormat();
@@ -204,11 +217,48 @@ export class Agent {
           }
         }
       } catch (error) {
-        // Handle context too long errors with reactive compaction
+        // Handle context too long errors with reactive compaction.
+        //
+        // Built-in compaction strategies are best-effort: they do NOT honor
+        // the `maxTokens` argument as a hard guarantee (e.g.
+        // SummarizationCompaction always keeps `keepRecentN` messages
+        // verbatim regardless of size). So a naive `forceCompact + continue`
+        // loop can wedge the agent forever if compaction makes no progress.
+        // We guard against that by:
+        //   - catching any error thrown by forceCompact() itself, and
+        //   - measuring before/after token counts and bailing if compaction
+        //     did not strictly reduce the count.
         if (isContextTooLongError(error)) {
-          const compacted = await this.contextManager.forceCompact(this.session.getMessages());
+          const before = this.session.getMessages();
+          const beforeTokens = await this.contextManager.countTokens(before);
+
+          let compacted: Message[];
+          try {
+            compacted = await this.contextManager.forceCompact(before);
+          } catch (compactErr) {
+            const err = compactErr instanceof Error ? compactErr : new Error(String(compactErr));
+            yield {
+              type: "error",
+              error: new Error(`Forced compaction failed after context-too-long: ${err.message}`),
+            };
+            yield { type: "done", messages: this.session.getMessages() };
+            return;
+          }
+
+          const afterTokens = await this.contextManager.countTokens(compacted);
+          if (afterTokens >= beforeTokens) {
+            yield {
+              type: "error",
+              error: new Error(
+                `Context too long and compaction made no progress (${beforeTokens} -> ${afterTokens} tokens). Cannot continue.`,
+              ),
+            };
+            yield { type: "done", messages: this.session.getMessages() };
+            return;
+          }
+
           this.session.setMessages(compacted);
-          continue; // Retry the loop
+          continue; // Retry the loop with compacted messages
         }
 
         const err = error instanceof Error ? error : new Error(String(error));
