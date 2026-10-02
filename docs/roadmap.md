@@ -5,25 +5,25 @@
 ### Packages
 | Package | Latest published | Status |
 |---------|------------------|--------|
-| `@claude-code-kit/shared` | 0.3.1 | 0.4.0 candidate, unpublished |
-| `@claude-code-kit/ink-renderer` | 0.3.1 | 0.4.0 candidate, unpublished |
-| `@claude-code-kit/ui` | 0.3.1 | 0.4.0 candidate, unpublished |
-| `@claude-code-kit/agent` | 0.3.1 | 0.4.0 candidate, unpublished |
-| `@claude-code-kit/tools` | 0.3.1 | 0.4.0 candidate, unpublished |
+| `@claude-code-kit/shared` | 0.4.0 | Published |
+| `@claude-code-kit/ink-renderer` | 0.4.0 | Published |
+| `@claude-code-kit/ui` | 0.4.0 | Published |
+| `@claude-code-kit/agent` | 0.4.0 | Published |
+| `@claude-code-kit/tools` | 0.4.0 | Published |
 
 ### Validation and runtime
-- Candidate `0.4.0` validation on 2026-10-03: 719 tests across 34 files; `pnpm release:check` passed locally on Node 24.13.0; isolated packed-consumer checks passed on Node 22.0 / 24.13.
-- Local checks do not establish remote CI success. The last inspected remote CI run on 2026-05-12 failed; this checkout has not been published to npm.
-- CI is configured to build/check on Node 22.12 / 24 and run all ESM / CJS / tsx smoke loaders, plus isolated tarball consumers at the Node 22.0 runtime floor. Passing locally is distinct from a passing GitHub Actions run.
+- Release `0.4.0` validation on 2026-10-03: 719 tests across 34 files; `pnpm release:check` passed locally on Node 24.13.0; isolated packed-consumer checks passed on Node 22.0 / 24.13.
+- [Remote CI](https://github.com/Minnzen/claude-code-kit/actions/runs/37066911311) passed on the release commit; all five npm packages are published as 0.4.0.
+- CI passed build/check on Node 22.12 / 24 and all ESM / CJS / tsx smoke loaders, plus isolated tarball consumers at the Node 22.0 runtime floor.
 - Runtime baseline: Node.js >=22, React 19.2.x, react-reconciler 0.33.x. Earlier Node and React versions are outside the current declared contract.
 - 3 examples (hello-world, agent-cli, alt-screen-dashboard)
 - Repository development requires Node.js >=22.12.0 for build/test tooling.
-- Local evidence before the candidate version change: Node 22.12 build/typecheck and Node 22.0 / 24.13 isolated full/UI-only tarball imports, headless mock chat, mounted terminal input/Ctrl+C/paste/submission/unmount checks passed. Live provider and real-terminal acceptance are separate.
+- Fresh registry-consumer checks passed on Node 22.0 / 24.13: full/UI-only installs, ESM/CJS/TSX imports, headless mock chat, and mounted terminal input/Ctrl+C/paste/submission/unmount. Live provider and real-terminal acceptance are separate.
 - Validation command: `pnpm release:check` (build, typecheck, tests, lint, workspace import smoke, and isolated packed-consumer smoke).
 
 ### Current Focus: Stability & Optimization
 
-The core surface is broad enough. The `0.4.0` candidate focuses on hardening the
+The core surface is broad enough. Release `0.4.0` focuses on hardening the
 existing surface (regression coverage, cross-env compatibility, perf baselines)
 before adding new capabilities. See `Now` section below.
 
@@ -91,9 +91,9 @@ before adding new capabilities. See `Now` section below.
 
 ## Now — Stability & Optimization
 
-The unpublished `0.4.0` candidate closes integration, lifecycle, and security regressions before expanding the public surface. Completion here means implementation and local regression coverage; publication and remote CI require separate evidence.
+Release `0.4.0` closes integration, lifecycle, and security regressions before expanding the public surface. Local regression coverage, remote CI, npm publication, and registry-consumer checks are verified separately.
 
-- [x] **Cross-environment import smoke matrix** (configured for the 0.4.0 candidate)
+- [x] **Cross-environment import smoke matrix** (verified for 0.4.0)
   Build/check jobs on Node 22.12 / 24 plus a Node 22.0 packed-runtime job;
   each smoke run imports ESM / CJS / tsx and asserts named exports. Catches regressions of
   the `Dynamic require of "semver"` flavor before they ship.

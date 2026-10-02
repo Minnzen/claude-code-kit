@@ -1,11 +1,11 @@
 # claude-code-kit Component Documentation
 
-Composable terminal UI components. This reference describes the unpublished `0.4.0` release candidate. The last verified npm release is `0.3.1`; the installation command below pins that stable version, while candidate-only lifecycle and history APIs require the checkout.
+Composable terminal UI components. This reference describes release `0.4.0`, including its lifecycle and history APIs.
 
 ## Installation
 
 ```bash
-pnpm add @claude-code-kit/ink-renderer@0.3.1 @claude-code-kit/ui@0.3.1 react@19.2.4 react-reconciler@0.33.0
+pnpm add @claude-code-kit/ink-renderer@0.4.0 @claude-code-kit/ui@0.4.0 react@19.2.4 react-reconciler@0.33.0
 ```
 
 The checkout runtime is Node.js 22+, React 19.2.x, and react-reconciler 0.33.x. The command above installs published packages; use the checkout to try the new viewport/cancellation APIs. For TSX examples set `"type": "module"` and install `tsx`, or compile first.

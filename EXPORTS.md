@@ -1,6 +1,6 @@
 # Public API contract
 
-This describes the unpublished `0.4.0` release candidate. The last verified npm version is `0.3.1`; the candidate's added APIs and runtime requirements do not apply to that stable release. Package-root exports and declared subpaths are public; source-file and `dist` deep imports are internal. `0.x` APIs may change, so pin package versions and review migration notes in [RELEASE.md](./RELEASE.md).
+This describes release `0.4.0`. Package-root exports and declared subpaths are public; source-file and `dist` deep imports are internal. `0.x` APIs may change, so pin package versions and review migration notes in [RELEASE.md](./RELEASE.md).
 
 Runtime baseline: Node.js 22+, React 19.2.x and react-reconciler 0.33.x for UI/rendering. Packages expose ESM `import` and CommonJS `require` entry points with TypeScript declarations. React peers do not apply to the headless agent/tools packages.
 
@@ -21,7 +21,7 @@ Repository development requires Node.js 22.12+; that build-tool floor is separat
 | `agent` | `InMemorySession`, `FileSession`, `FileSessionStore`, `NoopCompaction`, `MicroCompaction`, `SummarizationCompaction`, `SlidingWindowCompaction`, `LayeredCompaction`, compaction constants and associated types | Explicit persistence and configurable best-effort context reduction |
 | `tools` | `builtinTools`, `bashTool`, `readTool`, `editTool`, `writeTool`, `globTool`, `grepTool`, `webFetchTool`, `webSearchTool`, `enterWorktreeTool`, `exitWorktreeTool` | Ten local ready-to-use tools; Agent permissions govern execution |
 
-The named core APIs are the supported surface of the candidate. This table groups type exports with their APIs; the exact export lists are the package `src/index.ts` files and `package.json` export maps.
+The named core APIs are the supported surface of release `0.4.0`. This table groups type exports with their APIs; the exact export lists are the package `src/index.ts` files and `package.json` export maps.
 
 `PermissionResult` has `decision: 'allow' | 'deny'`, optional `reason`, and optional `approvalRequired`. The flag allows an interactive host to request approval for a missing-approval denial; it does not permit headless execution or UI override of explicit denial. `REPL.onError` may return `void` or `Promise<void>`.
 

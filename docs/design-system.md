@@ -1,6 +1,6 @@
 # Design System Components
 
-Higher-level UI components for building polished terminal interfaces. This reference describes the unpublished `0.4.0` candidate; npm `0.3.1` remains the published stable version. These components support theming via ThemeProvider. See the [migration notes](../RELEASE.md) before upgrading.
+Higher-level UI components for building polished terminal interfaces. This reference describes release `0.4.0`. These components support theming via ThemeProvider. See the [migration notes](../RELEASE.md) before upgrading.
 
 ---
 
@@ -8,7 +8,7 @@ Higher-level UI components for building polished terminal interfaces. This refer
 
 Wraps your app to provide theme context. All design-system components that accept a `color` prop resolve theme keys through this context.
 
-Import `ThemeProvider` and `useTheme` from `@claude-code-kit/ui`. The renderer's former no-op theme hook is removed in the unpublished `0.4.0` candidate. Wrap the app in this provider for theme changes to update consumers.
+Import `ThemeProvider` and `useTheme` from `@claude-code-kit/ui`. The renderer's former no-op theme hook is removed in `0.4.0`. Wrap the app in this provider for theme changes to update consumers.
 
 ### Props
 

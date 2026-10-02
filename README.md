@@ -35,15 +35,15 @@ This toolkit combines composable React terminal components, a React terminal ren
 
 ## Current status
 
-- The checkout is the `0.4.0` release candidate; the latest verified npm version is `0.3.1`. The candidate has not been published.
-- Local validation and remote CI are separate: the last inspected remote CI run from May 12 failed. Run `pnpm release:check` to validate the current checkout; do not treat the configured smoke matrix as a passing remote run.
-- The `0.4.0` candidate runtime baseline is Node.js 22+, React 19.2.x, and react-reconciler 0.33.x. Both ESM and CommonJS entry points are provided.
-- Repository development requires Node.js 22.12+ for its build/test tooling; packed runtime packages support Node.js 22.0+.
-- Before the candidate version change, local isolated tarball checks passed on Node 22.0 and 24.13 for ESM/CJS/tsx, a headless mock-agent run, and mounted terminal input/output fixtures. These checks do not establish live provider or real user-terminal acceptance.
-- Candidate validation on 2026-10-03: `pnpm release:check` passed for `0.4.0`, including 719 tests across 34 files. Isolated packed-consumer checks passed on Node.js 22.0.0 and 24.13.0.
+- All five npm packages are published as `0.4.0`.
+- Release validation on 2026-10-03: `pnpm release:check` passed, including 719 tests across 34 files.
+- [Remote CI](https://github.com/Minnzen/claude-code-kit/actions/runs/37066911311) passed on Node 22.12 and 24, including the Node 22.0 packed-runtime job.
+- Fresh npm-registry consumer checks passed on Node 22.0.0 and 24.13.0 for ESM/CJS/TSX, a headless mock-agent run, and mounted terminal input/output fixtures, including UI-only installation without Agent.
+- Runtime baseline: Node.js 22+, React 19.2.x, and react-reconciler 0.33.x. Both ESM and CommonJS entry points are provided.
+- Repository development requires Node.js 22.12+ for build/test tooling. Live provider and real user-terminal acceptance remain separate.
 - 3 maintained examples: `hello-world`, `agent-cli`, `alt-screen-dashboard`
 
-See [the API contract](./EXPORTS.md), [roadmap](./docs/roadmap.md), and [migration and release procedure](./RELEASE.md). New security fixes, lifecycle, and history APIs apply to the `0.4.0` candidate; npm `0.3.1` does not include them. The published headless sample below uses read-only tools and the Agent's default permission handler.
+See [the API contract](./EXPORTS.md), [roadmap](./docs/roadmap.md), and [migration and release procedure](./RELEASE.md). Version `0.4.0` includes the security fixes, lifecycle contracts, and history APIs described here. The headless sample below uses read-only tools and the Agent's default permission handler.
 
 ## API status
 
@@ -65,11 +65,11 @@ See [the API contract](./EXPORTS.md), [roadmap](./docs/roadmap.md), and [migrati
 
 ```bash
 pnpm init --init-type module
-pnpm add @claude-code-kit/ui@0.3.1 @claude-code-kit/ink-renderer@0.3.1 react@19.2.4 react-reconciler@0.33.0
+pnpm add @claude-code-kit/ui@0.4.0 @claude-code-kit/ink-renderer@0.4.0 react@19.2.4 react-reconciler@0.33.0
 pnpm add -D tsx@4.21.0
 ```
 
-These commands install the published stable version `0.3.1`. Save this UI-only example as `app.tsx`, then run `pnpm exec tsx app.tsx`. For the unpublished `0.4.0` candidate, use the repository examples after `pnpm install && pnpm build`.
+These commands install version `0.4.0`. Save this UI-only example as `app.tsx`, then run `pnpm exec tsx app.tsx`.
 
 ```tsx
 import { render, Box } from "@claude-code-kit/ink-renderer";
@@ -100,7 +100,7 @@ await render(<App />);
 ### Agent
 
 ```bash
-pnpm add @claude-code-kit/agent@0.3.1 @claude-code-kit/tools@0.3.1 @anthropic-ai/sdk@0.82.0
+pnpm add @claude-code-kit/agent@0.4.0 @claude-code-kit/tools@0.4.0 @anthropic-ai/sdk@0.82.0
 ```
 
 ```typescript
@@ -117,7 +117,7 @@ const result = await agent.chat("What files are in src/?");
 console.log(result);
 ```
 
-Set `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` to a model available to your account. Providers use optional peer SDKs: install `@anthropic-ai/sdk` for Anthropic or `openai` for OpenAI-compatible APIs. In the `0.4.0` candidate, writes require an explicit permission callback or allow list; `autoApproveReadOnly` alone denies them. That factory fallback fix is not part of npm `0.3.1`.
+Set `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` to a model available to your account. Providers use optional peer SDKs: install `@anthropic-ai/sdk` for Anthropic or `openai` for OpenAI-compatible APIs. In `0.4.0`, writes require an explicit permission callback or allow list; `autoApproveReadOnly` alone denies them.
 
 Connect to a terminal UI in one line:
 

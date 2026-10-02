@@ -1,6 +1,6 @@
 # Release procedure
 
-The checkout is the `0.4.0` release candidate; the last verified npm release is `0.3.1`. The candidate is unpublished. A successful local check, a pushed commit, a GitHub release, and an npm release are distinct outcomes.
+The checkout and verified npm release are `0.4.0`. All five packages are published. A successful local check, a pushed commit, a GitHub release, and an npm release are distinct outcomes.
 
 Publishing and pushing release tags require explicit authorization. This document describes the manual procedure; reading or updating it does not authorize publication.
 
@@ -45,9 +45,9 @@ The workflow does **not** run npm publishing. Pushing a tag or creating a GitHub
 
 After release verification, update the current version and evidence in the root READMEs, `docs/roadmap.md`, and `AGENTS.md`. Keep the release date, npm version, local check result, and remote CI result separate.
 
-## Upgrade from 0.3.1 to the 0.4.0 candidate
+## Upgrade from 0.3.1 to 0.4.0
 
-The candidate includes runtime and API changes from npm `0.3.1`. Use the checkout until `0.4.0` is published; the stable installation commands in the READMEs continue to pin `0.3.1`. Review these changes before upgrading:
+Release `0.4.0` includes runtime and API changes from npm `0.3.1`. The installation commands in the READMEs pin `0.4.0`. Review these changes before upgrading:
 
 - Use Node.js 22+, React 19.2.x, and react-reconciler 0.33.x; React 18 and older reconciler lines are outside this runtime contract.
 - Import the stateful `useTheme` from `@claude-code-kit/ui` and wrap the app in `ThemeProvider`. The renderer's former no-op `useTheme` export is removed.
@@ -57,5 +57,5 @@ The candidate includes runtime and API changes from npm `0.3.1`. Use the checkou
 - Denied or failed tools return error results. Explicit allow lists/callbacks are required for write operations; `autoApproveReadOnly` does not approve writes.
 - `PermissionResult.approvalRequired: true` lets an interactive host ask about a denial caused by missing approval. The bridge preserves existing allows and explicit denials; it prompts only for denial with that flag. Custom denials without it and `alwaysDeny` cannot be overridden. The headless Agent still executes only `decision: 'allow'`.
 - The UI's `always_allow` now retains a tool-name grant across runs in the current mount. It remains in memory, resets when switching Agent/unmounting, and remains subordinate to the original policy's explicit denials.
-- Keep UI and Agent versions compatible when using the bridge. The candidate UI package's optional Agent peer is `^0.4.0`; UI-only consumers do not need to install Agent.
+- Keep UI and Agent versions compatible when using the bridge. The 0.4.0 UI package's optional Agent peer is `^0.4.0`; UI-only consumers do not need to install Agent.
 - Optional provider and MCP SDKs must be installed when those integrations are used.

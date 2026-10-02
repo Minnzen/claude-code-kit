@@ -104,12 +104,12 @@ ui              — depends on ink-renderer, shared; optionally agent (for bridg
 
 ## Current Status
 
-- Checkout version: 0.4.0 release candidate; last verified npm version: 0.3.1. The candidate is unpublished.
+- Checkout and verified npm version: 0.4.0. All five packages are published.
 - Runtime baseline: Node.js >=22, React 19.2.x, react-reconciler 0.33.x.
 - Repository development floor: Node.js >=22.12.0; package runtime floor: >=22.0.0.
-- Candidate validation (2026-10-03): 0.4.0 passed 719 tests across 34 files plus release:check on Node 24.13.0; isolated packed-consumer checks passed on Node 22.0 / 24.13.
-- Local validation is tracked separately from remote CI; the last inspected May 12 remote run failed.
-- Before the candidate version change, local packed-consumer checks passed on Node 22.0 / 24.13; build tooling was checked on Node 22.12. These are not live provider or real-terminal acceptance.
+- Release validation (2026-10-03): 0.4.0 passed 719 tests across 34 files plus release:check on Node 24.13.0; isolated packed-consumer checks passed on Node 22.0 / 24.13.
+- Local validation is tracked separately from remote CI; the 0.4.0 release commit passed the Node 22.12 / 24 matrix and Node 22.0 packed-runtime job.
+- Fresh npm-registry consumer checks passed on Node 22.0 / 24.13 for full and UI-only installs. These are not live provider or real-terminal acceptance.
 - Public API contract: EXPORTS.md. Manual npm/GitHub release procedure: RELEASE.md.
 - Linear project: https://linear.app/minnzen/project/claude-code-kit-964b8fbcd194
 

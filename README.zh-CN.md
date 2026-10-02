@@ -40,15 +40,15 @@
 
 ## 当前状态
 
-- 当前 checkout 为 `0.4.0` 发布候选版；最近核验的 npm 版本仍为 `0.3.1`，候选版尚未发布。
-- `0.4.0` 候选版于 2026-10-03 通过本地 `pnpm release:check`，包含 34 个文件、719 项测试；Node.js 22.0.0 与 24.13.0 的独立打包安装检查通过。
-- 本地验证和远端 CI 分开记录：最近检查到的 5 月 12 日远端 CI 失败。当前代码用 `pnpm release:check` 验证，不能把已配置的 smoke matrix 当作远端全绿结果。
-- `0.4.0` 候选版的运行时要求为 Node.js 22+、React 19.2.x、react-reconciler 0.33.x；提供 ESM 与 CommonJS 入口。
-- 仓库开发工具要求 Node.js 22.12+；打包后的运行时包支持 Node.js 22.0+。
-- 候选版版本调整前，本地独立 tarball 安装已在 Node 22.0 和 24.13 验证 ESM/CJS/tsx、无头 mock agent、挂载终端输入输出 fixture。它们不等同于真实 provider 或用户终端验收。
+- 五个 npm 包均已发布为 `0.4.0`。
+- 2026-10-03 的本地 `pnpm release:check` 通过，包含 34 个文件、719 项测试。
+- [远端 CI](https://github.com/Minnzen/claude-code-kit/actions/runs/37066911311) 的 Node 22.12、Node 24 和 Node 22.0 最低运行时检查全部通过。
+- 从 npm 安装的独立消费者检查在 Node 22.0.0 与 24.13.0 通过，覆盖 ESM/CJS/TSX、无头 mock agent、挂载终端输入输出，以及不安装 Agent 的 UI-only 场景。
+- 运行时要求为 Node.js 22+、React 19.2.x、react-reconciler 0.33.x；提供 ESM 与 CommonJS 入口。
+- 仓库开发工具要求 Node.js 22.12+。真实 provider 和用户终端验收仍需单独进行。
 - 维护中的标准示例有 3 个：`hello-world`、`agent-cli`、`alt-screen-dashboard`
 
-详见 [API 契约](./EXPORTS.md)、[路线图](./docs/roadmap.md) 和 [迁移与发布流程](./RELEASE.md)。新增安全修复、生命周期与历史视口 API 对应 `0.4.0` 候选版，npm `0.3.1` 尚未包含这些修复。下面的已发布无头示例只接入只读工具，使用 Agent 默认权限。
+详见 [API 契约](./EXPORTS.md)、[路线图](./docs/roadmap.md) 和 [迁移与发布流程](./RELEASE.md)。`0.4.0` 包含这里描述的安全修复、生命周期契约与历史视口 API。下面的无头示例只接入只读工具，使用 Agent 默认权限。
 
 ## API 状态
 
@@ -68,11 +68,11 @@
 
 | 包名 | npm 状态 | 描述 |
 |------|---------|------|
-| `@claude-code-kit/shared` | 0.3.1 已发布 | Yoga 布局引擎（纯 TS 移植版）、文字测量、ANSI 工具 |
-| `@claude-code-kit/ink-renderer` | 0.3.1 已发布 | 终端渲染引擎 -- React reconciler、布局、差量输出、输入处理 |
-| `@claude-code-kit/ui` | 0.3.1 已发布 | UI 组件、commands、keybindings，以及可选的 agent bridge UI |
-| `@claude-code-kit/agent` | 0.3.1 已发布 | 无头 Agent 框架 -- providers、permissions、sessions、compaction、实验性 MCP |
-| `@claude-code-kit/tools` | 0.3.1 已发布 | 10 个现成工具 + 高级工具工厂 |
+| `@claude-code-kit/shared` | 0.4.0 已发布 | Yoga 布局引擎（纯 TS 移植版）、文字测量、ANSI 工具 |
+| `@claude-code-kit/ink-renderer` | 0.4.0 已发布 | 终端渲染引擎 -- React reconciler、布局、差量输出、输入处理 |
+| `@claude-code-kit/ui` | 0.4.0 已发布 | UI 组件、commands、keybindings，以及可选的 agent bridge UI |
+| `@claude-code-kit/agent` | 0.4.0 已发布 | 无头 Agent 框架 -- providers、permissions、sessions、compaction、实验性 MCP |
+| `@claude-code-kit/tools` | 0.4.0 已发布 | 10 个现成工具 + 高级工具工厂 |
 
 ## 快速开始
 
@@ -82,11 +82,11 @@
 
 ```bash
 pnpm init --init-type module
-pnpm add @claude-code-kit/ui@0.3.1 @claude-code-kit/ink-renderer@0.3.1 react@19.2.4 react-reconciler@0.33.0
+pnpm add @claude-code-kit/ui@0.4.0 @claude-code-kit/ink-renderer@0.4.0 react@19.2.4 react-reconciler@0.33.0
 pnpm add -D tsx@4.21.0
 ```
 
-这些命令安装已发布的稳定版 `0.3.1`。将下面示例保存为 `app.tsx` 后运行 `pnpm exec tsx app.tsx`；尚未发布的 `0.4.0` 候选版用仓库示例验证，先执行 `pnpm install && pnpm build`。
+这些命令安装 `0.4.0`。将下面示例保存为 `app.tsx` 后运行 `pnpm exec tsx app.tsx`。
 
 构建一个调用自己后端的 REPL：
 
@@ -133,7 +133,7 @@ await render(<App />);
 从 npm 安装 agent 和 tools：
 
 ```bash
-pnpm add @claude-code-kit/agent@0.3.1 @claude-code-kit/tools@0.3.1 @anthropic-ai/sdk@0.82.0
+pnpm add @claude-code-kit/agent@0.4.0 @claude-code-kit/tools@0.4.0 @anthropic-ai/sdk@0.82.0
 ```
 
 接入无头 Agent 和工具：
@@ -153,7 +153,7 @@ const result = await agent.chat("src 目录下有哪些文件？");
 console.log(result);
 ```
 
-设置 `ANTHROPIC_API_KEY` 和账号可用的 `ANTHROPIC_MODEL`。Anthropic 需要可选 peer SDK `@anthropic-ai/sdk`；OpenAI 兼容 provider 需要 `openai`。`0.4.0` 候选版的 `autoApproveReadOnly` 仅批准只读工具，写操作需显式回调或 allow list；这条 factory 兜底修复尚未发布到 npm `0.3.1`。
+设置 `ANTHROPIC_API_KEY` 和账号可用的 `ANTHROPIC_MODEL`。Anthropic 需要可选 peer SDK `@anthropic-ai/sdk`；OpenAI 兼容 provider 需要 `openai`。`0.4.0` 的 `autoApproveReadOnly` 仅批准只读工具，写操作需显式回调或 allow list。
 
 用 `AgentREPL` 将 Agent 连接到终端 UI：
 
