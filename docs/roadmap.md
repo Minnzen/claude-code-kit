@@ -5,31 +5,31 @@
 ### Packages
 | Package | Latest published | Status |
 |---------|------------------|--------|
-| `@claude-code-kit/shared` | 0.3.1 | 0.3.2 pending publish |
-| `@claude-code-kit/ink-renderer` | 0.3.1 | 0.3.2 pending publish |
-| `@claude-code-kit/ui` | 0.3.1 | 0.3.2 pending publish |
-| `@claude-code-kit/agent` | 0.3.1 | 0.3.2 pending publish |
-| `@claude-code-kit/tools` | 0.3.1 | 0.3.2 pending publish |
+| `@claude-code-kit/shared` | 0.3.1 | 0.4.0 candidate, unpublished |
+| `@claude-code-kit/ink-renderer` | 0.3.1 | 0.4.0 candidate, unpublished |
+| `@claude-code-kit/ui` | 0.3.1 | 0.4.0 candidate, unpublished |
+| `@claude-code-kit/agent` | 0.3.1 | 0.4.0 candidate, unpublished |
+| `@claude-code-kit/tools` | 0.3.1 | 0.4.0 candidate, unpublished |
 
-### Stats (at HEAD)
-- 524 tests passing across 21 test files
-- 9-job cross-env import smoke matrix green (3 Node versions × 3 loaders),
-  asserting 6 named exports per package across 5 packages = 90 import
-  assertions per CI run
-- Supported Node versions: 20, 22, 24 (Node 18 dropped in 0.3.2 — one of our
-  transitive deps requires Node ≥ 20, and `engines.node` is updated to match)
+### Validation and runtime
+- Candidate `0.4.0` validation on 2026-10-03: 719 tests across 34 files; `pnpm release:check` passed locally on Node 24.13.0; isolated packed-consumer checks passed on Node 22.0 / 24.13.
+- Local checks do not establish remote CI success. The last inspected remote CI run on 2026-05-12 failed; this checkout has not been published to npm.
+- CI is configured to build/check on Node 22.12 / 24 and run all ESM / CJS / tsx smoke loaders, plus isolated tarball consumers at the Node 22.0 runtime floor. Passing locally is distinct from a passing GitHub Actions run.
+- Runtime baseline: Node.js >=22, React 19.2.x, react-reconciler 0.33.x. Earlier Node and React versions are outside the current declared contract.
 - 3 examples (hello-world, agent-cli, alt-screen-dashboard)
-- Monorepo baseline green: build, typecheck, test, lint, smoke, npm pack dry-run
+- Repository development requires Node.js >=22.12.0 for build/test tooling.
+- Local evidence before the candidate version change: Node 22.12 build/typecheck and Node 22.0 / 24.13 isolated full/UI-only tarball imports, headless mock chat, mounted terminal input/Ctrl+C/paste/submission/unmount checks passed. Live provider and real-terminal acceptance are separate.
+- Validation command: `pnpm release:check` (build, typecheck, tests, lint, workspace import smoke, and isolated packed-consumer smoke).
 
 ### Current Focus: Stability & Optimization
 
-`v0.3.x` is feature-complete enough. Next iterations focus on hardening the
+The core surface is broad enough. The `0.4.0` candidate focuses on hardening the
 existing surface (regression coverage, cross-env compatibility, perf baselines)
 before adding new capabilities. See `Now` section below.
 
 ---
 
-## Stable Surface In v0.3.x
+## Supported Core Surface
 
 - Renderer and UI core: `@claude-code-kit/shared`, `@claude-code-kit/ink-renderer`, core `@claude-code-kit/ui`
 - Agent core: loop, providers, permissions, sessions, compaction
@@ -91,36 +91,38 @@ before adding new capabilities. See `Now` section below.
 
 ## Now — Stability & Optimization
 
-The 0.3.1 patch fixed five bugs all clustered in **integration / build / list
-reconciliation**, not in core logic. The stability work below is shaped to
-prevent that class of regression instead of chasing surface-area growth.
+The unpublished `0.4.0` candidate closes integration, lifecycle, and security regressions before expanding the public surface. Completion here means implementation and local regression coverage; publication and remote CI require separate evidence.
 
-- [x] **Cross-environment import smoke matrix** (landed in 0.3.2)
-  CI job that imports each published package under `node 20 / 22 / 24` ×
-  `esm` / `cjs` / `tsx`, asserting named exports. Catches regressions of
+- [x] **Cross-environment import smoke matrix** (configured for the 0.4.0 candidate)
+  Build/check jobs on Node 22.12 / 24 plus a Node 22.0 packed-runtime job;
+  each smoke run imports ESM / CJS / tsx and asserts named exports. Catches regressions of
   the `Dynamic require of "semver"` flavor before they ship.
-- [ ] **UI behavior tests for high-traffic components**
+- [x] **Mounted terminal lifecycle, permission, input, and history regressions**
+  Actual renderer plus xterm fixtures cover Ctrl+C protocols, input/paste/resize, permission-policy inheritance and session grants, callback failures, search isolation, cleanup, and variable-height history at 100 / 1k / 5k items. These are local emulator checks, not physical-terminal acceptance.
+- [ ] **Additional isolated component behavior coverage**
   Deliverable: focused behavior tests (not snapshots) for `MessageList`,
   `DiffView`, `PermissionRequest`, `StreamingText`, `PromptInput` — the
   exact components hit by the 0.3.1 stable-key bugs.
-- [ ] **Provider streaming tests**
-  Deliverable: mocked SSE harness for `AnthropicProvider` and
-  `OpenAIProvider` covering `text` / `tool_use` / `thinking` / `usage` /
-  `done` chunk sequences. Currently zero coverage on the most critical path.
-- [ ] **`FileSession` round-trip test**
-  Deliverable: write JSONL → reload → assert message and tool-call equality;
-  covers the persistence path we ship but do not test.
+- [x] **Provider streaming and agent lifecycle regressions**
+  SDK stream fixtures cover tool-call identity, parallel/interleaved calls, usage, error chunks, and cancellation. Live provider acceptance remains separate.
+- [x] **`FileSession` persistence regressions**
+  Save → append → reload, legacy JSONL line endings, missing/corrupt file distinction, safe IDs, and symlink boundaries.
+- [x] **Complete context-compaction exchanges**
+  Summary/sliding strategies retain user instructions with tool calls/results. Summaries include tool input and task constraints; cancellation and summary errors propagate.
+- [x] **Tool and permission boundaries**
+  Default deny, explicit approval, real-path containment, argv-based worktree execution, tool timeouts, and WebFetch destination checks have focused local coverage.
 - [ ] **Bundle size + render perf baselines**
   Deliverable: recorded baseline numbers for tarball size per package and
   `MessageList` render time at 100 / 1k / 5k items, enforced as CI budgets
   (no optimization yet — measurement first).
-- [ ] **Stable API contract pass**
-  Deliverable: per-export `stable` / `experimental` / `internal` tagging in
-  `EXPORTS.md`, mirrored as `@experimental` JSDoc tags in source. Defines
-  what is committed for `v1.0.0`.
-- [ ] **Release checklist + history**
-  Deliverable: `RELEASE.md` with the repeatable publish flow plus visible
-  git tags for prior releases.
+- [x] **Public API contract documentation**
+  `EXPORTS.md` records the supported import surface and evolving APIs. This is a `0.x` contract, not a `v1.0.0` compatibility guarantee.
+- [x] **Manual release checklist**
+  `RELEASE.md` separates validation, npm publishing, and GitHub tag/release actions.
+- [ ] **Release delivery and history**
+  Publish only with explicit authorization; record verified npm versions and tags after the release succeeds.
+- [ ] **License and distribution review**
+  Verify applicable licenses, redistribution permissions, and bundled dependency notices before release; see `RELEASE.md`.
 
 ## Next — Adoption Surface
 

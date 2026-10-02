@@ -4,14 +4,14 @@
 
 # claude-code-kit
 
-**Build Claude Code-quality terminal apps with React components and a headless agent framework.**
+**Composable React terminal components and a headless agent framework.**
 
 [![npm version](https://img.shields.io/npm/v/@claude-code-kit/ui.svg?style=flat-square&color=DA7756)](https://www.npmjs.com/package/@claude-code-kit/ui)
 [![npm downloads](https://img.shields.io/npm/dm/@claude-code-kit/ui.svg?style=flat-square)](https://www.npmjs.com/package/@claude-code-kit/ui)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-339933.svg?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/React-18+-61DAFB.svg?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-22+-339933.svg?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-19.2.x-61DAFB.svg?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 
 <img src="./demo.gif" alt="claude-code-kit demo" width="600" />
 
@@ -21,27 +21,33 @@
 
 ## Why this exists
 
-[Ink](https://github.com/vadimdemedes/ink) is effectively unmaintained. Claude Code has the best terminal UI in the industry. We extracted its rendering engine, rewrote all the components from scratch, and built an open agent framework on top.
+This toolkit combines composable React terminal components, a React terminal renderer, and a provider-agnostic headless agent.
 
 ## Feature highlights
 
 - **10 ready-to-use built-in tools** for file, shell, web, and worktree workflows
 - **Advanced tool factories** for MCP-backed integrations, LSP, subagents, tasks, and notebooks
-- **MCP client** for dynamic tool discovery from any MCP server (stdio + HTTP)
+- **MCP client** for dynamic tool discovery from compatible MCP servers (stdio + HTTP)
 - **Parallel tool execution** -- read-only tools run concurrently
 - **React component model** with Flexbox layout via a pure-TS Yoga engine
 - **Provider-agnostic** -- Anthropic, OpenAI, Ollama, DeepSeek, Groq, or any OpenAI-compatible `baseURL`
-- **498 tests** across 20 test files
+- **Regression coverage** for rendering, input, providers, tools, permissions, sessions, and compaction
 
 ## Current status
 
-- `v0.3.0` packages are published
-- `build`, `typecheck`, `test`, and `lint` all pass in the monorepo
+- The checkout is the `0.4.0` release candidate; the latest verified npm version is `0.3.1`. The candidate has not been published.
+- Local validation and remote CI are separate: the last inspected remote CI run from May 12 failed. Run `pnpm release:check` to validate the current checkout; do not treat the configured smoke matrix as a passing remote run.
+- The `0.4.0` candidate runtime baseline is Node.js 22+, React 19.2.x, and react-reconciler 0.33.x. Both ESM and CommonJS entry points are provided.
+- Repository development requires Node.js 22.12+ for its build/test tooling; packed runtime packages support Node.js 22.0+.
+- Before the candidate version change, local isolated tarball checks passed on Node 22.0 and 24.13 for ESM/CJS/tsx, a headless mock-agent run, and mounted terminal input/output fixtures. These checks do not establish live provider or real user-terminal acceptance.
+- Candidate validation on 2026-10-03: `pnpm release:check` passed for `0.4.0`, including 719 tests across 34 files. Isolated packed-consumer checks passed on Node.js 22.0.0 and 24.13.0.
 - 3 maintained examples: `hello-world`, `agent-cli`, `alt-screen-dashboard`
+
+See [the API contract](./EXPORTS.md), [roadmap](./docs/roadmap.md), and [migration and release procedure](./RELEASE.md). New security fixes, lifecycle, and history APIs apply to the `0.4.0` candidate; npm `0.3.1` does not include them. The published headless sample below uses read-only tools and the Agent's default permission handler.
 
 ## API status
 
-### Stable in v0.3.x
+### Supported core surface
 
 - `@claude-code-kit/shared`, `@claude-code-kit/ink-renderer`, and the core `@claude-code-kit/ui` component set
 - Agent loop, Anthropic/OpenAI/Mock providers, permissions, sessions, and compaction
@@ -58,19 +64,23 @@
 ### UI only
 
 ```bash
-pnpm add @claude-code-kit/ui react
+pnpm init --init-type module
+pnpm add @claude-code-kit/ui@0.3.1 @claude-code-kit/ink-renderer@0.3.1 react@19.2.4 react-reconciler@0.33.0
+pnpm add -D tsx@4.21.0
 ```
+
+These commands install the published stable version `0.3.1`. Save this UI-only example as `app.tsx`, then run `pnpm exec tsx app.tsx`. For the unpublished `0.4.0` candidate, use the repository examples after `pnpm install && pnpm build`.
 
 ```tsx
 import { render, Box } from "@claude-code-kit/ink-renderer";
 import { REPL, type Message } from "@claude-code-kit/ui";
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const handleSubmit = useCallback(async (text: string) => {
     setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", content: text }]);
-    const response = await callYourApi(text);
+    const response = `You wrote: ${text}`;
     setMessages((prev) => [
       ...prev,
       { id: (Date.now() + 1).toString(), role: "assistant", content: response },
@@ -90,23 +100,24 @@ await render(<App />);
 ### Agent
 
 ```bash
-pnpm add @claude-code-kit/agent @claude-code-kit/tools
+pnpm add @claude-code-kit/agent@0.3.1 @claude-code-kit/tools@0.3.1 @anthropic-ai/sdk@0.82.0
 ```
 
 ```typescript
-import { Agent, AnthropicProvider, createPermissionHandler } from "@claude-code-kit/agent";
-import { bashTool, readTool, editTool, globTool, grepTool } from "@claude-code-kit/tools";
+import { Agent, AnthropicProvider } from "@claude-code-kit/agent";
+import { readTool, globTool, grepTool } from "@claude-code-kit/tools";
 
 const agent = new Agent({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
-  model: "claude-sonnet-4-20250514",
-  tools: [bashTool, readTool, editTool, globTool, grepTool],
-  permissionHandler: createPermissionHandler({ autoApproveReadOnly: true }),
+  model: process.env.ANTHROPIC_MODEL!,
+  tools: [readTool, globTool, grepTool],
 });
 
 const result = await agent.chat("What files are in src/?");
 console.log(result);
 ```
+
+Set `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` to a model available to your account. Providers use optional peer SDKs: install `@anthropic-ai/sdk` for Anthropic or `openai` for OpenAI-compatible APIs. In the `0.4.0` candidate, writes require an explicit permission callback or allow list; `autoApproveReadOnly` alone denies them. That factory fallback fix is not part of npm `0.3.1`.
 
 Connect to a terminal UI in one line:
 
@@ -131,7 +142,7 @@ await render(<AgentREPL agent={agent} placeholder="Ask me about your codebase...
 
 | Tool | Type | Description |
 |------|------|-------------|
-| Bash | write | Shell execution with timeout, background, sandbox |
+| Bash | write | Shell execution with timeout and opt-in background operation |
 | Read | read | File reading with line limits, PDF pages, image base64 |
 | Edit | write | String replacement with `replace_all` for global edits |
 | Write | write | Create or overwrite files |
@@ -142,7 +153,7 @@ await render(<AgentREPL agent={agent} placeholder="Ask me about your codebase...
 | EnterWorktree | write | Create and enter a git worktree |
 | ExitWorktree | write | Clean up and exit a git worktree |
 
-These are the tools included in `builtinTools` and the safest default surface to depend on in `v0.3.x`.
+These are the tools included in `builtinTools` and form the supported default tool surface.
 
 ## Advanced tool factories
 
@@ -152,19 +163,6 @@ These are the tools included in `builtinTools` and the safest default surface to
 | `createSubagentTool` | `Agent` tool | Experimental | Delegates isolated work to a child agent with timeout and abort propagation |
 | `createTaskTool` | `TaskCreate` / `TaskUpdate` / `TaskGet` / `TaskList` | Experimental | In-memory task orchestration toolset for multi-step work |
 | `notebookEditTool` | `NotebookEdit` tool | Experimental | Jupyter notebook cell insert/replace/delete |
-
-## Comparison
-
-| | claude-code-kit | Ink | Aider | Goose |
-|---|---|---|---|---|
-| Terminal UI components | 30+ React components | 10+ (unmaintained) | -- | -- |
-| Flexbox layout | Pure TS Yoga | Native Yoga binding | -- | -- |
-| Headless agent | Yes (provider-agnostic) | -- | Yes (Python) | Yes (Python) |
-| Built-in tools | 10 built-ins + factories | -- | ~10 | ~10 |
-| MCP client | Yes | -- | -- | Yes |
-| Parallel tool execution | Yes | -- | -- | -- |
-| Language | TypeScript | TypeScript | Python | Python |
-| UI + Agent in one package | Yes | -- | -- | -- |
 
 ## Examples
 
@@ -180,18 +178,15 @@ pnpm --filter agent-cli-example start
 
 ## Development
 
+Use Node.js 22.12+ and the pinned pnpm version. Validation includes isolated tarball installation and imports, in addition to source tests.
+
 ```bash
 pnpm install && pnpm release:check
 ```
 
-## Provenance
-
-The rendering engine (`@claude-code-kit/ink-renderer`) is extracted from Claude Code's terminal UI layer and adapted for standalone use. The Yoga layout engine (`@claude-code-kit/shared`) is a pure TypeScript port with no native bindings.
-
-All UI components (`@claude-code-kit/ui`) and the agent framework (`@claude-code-kit/agent`, `@claude-code-kit/tools`) are original implementations written for this toolkit.
-
-This is an independent community project. It is not affiliated with or endorsed by Anthropic.
 
 ## License
 
 MIT
+
+This is an independent community project. It is not affiliated with or endorsed by Anthropic.

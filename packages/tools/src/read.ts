@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
+import { resolveContainedPath } from "./path-safety.js";
 
 const IMAGE_EXTENSIONS: Record<string, string> = {
   ".png": "image/png",
@@ -28,14 +29,11 @@ type Input = z.infer<typeof inputSchema>;
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
 
-  const filePath = path.resolve(ctx.workingDirectory, input.file_path);
-
-  // Prevent path traversal outside the working directory
-  if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
-    return {
-      content: `Error: path traversal denied — ${input.file_path} escapes working directory`,
-      isError: true,
-    };
+  let filePath: string;
+  try {
+    filePath = await resolveContainedPath(ctx.workingDirectory, input.file_path);
+  } catch (error) {
+    return { content: `Error reading file: ${(error as Error).message}`, isError: true };
   }
 
   const isPdf = filePath.toLowerCase().endsWith(".pdf");

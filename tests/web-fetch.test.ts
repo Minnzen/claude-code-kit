@@ -1,4 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { lookup } from 'node:dns/promises'
+import { Socket, type LookupFunction } from 'node:net'
+import tls from 'node:tls'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   webFetchTool,
   htmlToMarkdown,
@@ -6,6 +9,8 @@ import {
   getCacheMap,
 } from '../packages/tools/src/web-fetch.ts'
 import type { ToolContext } from '../packages/agent/src/types.ts'
+
+vi.mock('node:dns/promises', () => ({ lookup: vi.fn() }))
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -44,7 +49,254 @@ function mockFetch(opts: {
 // Clear cache between every test to avoid cross-test pollution
 beforeEach(() => {
   clearCache()
+  vi.mocked(lookup).mockReset()
+  vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as never)
 })
+
+describe("WebFetch network containment", () => {
+  it("returns promptly when aborted during DNS resolution", async () => {
+    vi.mocked(lookup).mockImplementation(() => new Promise(() => {}) as never);
+    const controller = new AbortController();
+    const restore = mockFetch({ body: "unexpected" });
+    try {
+      const pending = webFetchTool.execute(
+        { url: "https://pending-dns.example" },
+        makeCtx({ abortSignal: controller.signal }),
+      );
+      await Promise.resolve();
+      controller.abort();
+      const result = await Promise.race([
+        pending,
+        new Promise<{ content: string; isError: boolean }>((resolve) =>
+          setTimeout(
+            () => resolve({ content: "DNS resolution did not abort", isError: true }),
+            100,
+          ),
+        ),
+      ]);
+      expect(result.content).toBe("Aborted");
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it.each([
+    false,
+    true,
+  ])("pins connection lookup to the public addresses validated before DNS rebinding (all=%s)", async (all) => {
+    vi.mocked(lookup)
+      .mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }] as never)
+      .mockResolvedValue([{ address: "127.0.0.1", family: 4 }] as never);
+    let connectedAddress: string | undefined;
+    let tlsHostname: string | undefined;
+    const connect = vi.spyOn(tls, "connect").mockImplementation(((
+      options: tls.ConnectionOptions & { host?: string; lookup?: LookupFunction },
+    ) => {
+      const socket = new Socket();
+      tlsHostname = options.servername;
+      queueMicrotask(() => {
+        const stopWithoutConnecting = () => {
+          socket.emit("error", new Error("Network disabled in this test"));
+          socket.destroy();
+        };
+        if (options.lookup) {
+          options.lookup(options.host!, { all }, (error, address) => {
+            if (!error)
+              connectedAddress = typeof address === "string" ? address : address[0].address;
+            stopWithoutConnecting();
+          });
+        } else {
+          connectedAddress = "127.0.0.1";
+          stopWithoutConnecting();
+        }
+      });
+      return socket as tls.TLSSocket;
+    }) as typeof tls.connect);
+    try {
+      const result = await webFetchTool.execute({ url: "https://rebinding.example" }, makeCtx());
+      expect(result.isError).toBe(true);
+      expect(connectedAddress).toBe("93.184.216.34");
+      expect(tlsHostname).toBe("rebinding.example");
+      expect(lookup).toHaveBeenCalledTimes(1);
+    } finally {
+      connect.mockRestore();
+    }
+  });
+
+  it.each([
+    "https://localhost./secret",
+    "https://[::ffff:127.0.0.1]/secret",
+    "https://[::ffff:10.0.0.1]/secret",
+    "https://[fc00::1]/secret",
+    "https://[fd12:3456::1]/secret",
+    "https://[fe80::1]/secret",
+    "https://[::]/secret",
+    "https://[ff02::1]/secret",
+    "https://100.64.0.1/secret",
+  ])("denies non-public addresses before making a request: %s", async (url) => {
+    const restore = mockFetch({ body: "private response" });
+    try {
+      const result = await webFetchTool.execute({ url }, makeCtx());
+      expect(result.isError).toBe(true);
+      expect(result.content).toMatch(/private\/internal address denied/);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it.each([
+    "127.0.0.1",
+    "10.1.2.3",
+    "::ffff:7f00:1",
+    "fd00::1",
+    "fe80::1234",
+  ])("denies a hostname resolving to %s", async (address) => {
+    vi.mocked(lookup).mockResolvedValue([
+      { address, family: address.includes(":") ? 6 : 4 },
+    ] as never);
+    const restore = mockFetch({ body: "private response" });
+    try {
+      const result = await webFetchTool.execute(
+        { url: "https://attacker.example/secret" },
+        makeCtx(),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toMatch(/private\/internal address denied/);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("denies DNS results containing both public and private addresses", async () => {
+    vi.mocked(lookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+      { address: "192.168.1.1", family: 4 },
+    ] as never);
+    const restore = mockFetch({ body: "private response" });
+    try {
+      const result = await webFetchTool.execute({ url: "https://mixed.example/secret" }, makeCtx());
+      expect(result.isError).toBe(true);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("denies a redirect to a private address before contacting that address", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://127.0.0.1/secret" },
+        }),
+      )
+      .mockResolvedValue(new Response("private response"));
+    try {
+      const result = await webFetchTool.execute(
+        { url: "https://redirect.example/start" },
+        makeCtx(),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toMatch(/private\/internal address denied/);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "https://redirect.example/start",
+        expect.objectContaining({ redirect: "manual" }),
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("denies a redirect hostname that resolves to a private address", async () => {
+    vi.mocked(lookup).mockImplementation(
+      async (hostname) =>
+        [
+          {
+            address: hostname === "private.example" ? "169.254.169.254" : "93.184.216.34",
+            family: 4,
+          },
+        ] as never,
+    );
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 307,
+          headers: { location: "https://private.example/secret" },
+        }),
+      )
+      .mockResolvedValue(new Response("private response"));
+    try {
+      const result = await webFetchTool.execute(
+        { url: "https://redirect.example/start" },
+        makeCtx(),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toMatch(/private\/internal address denied/);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("follows a relative public redirect after validating its target", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { location: "/finish" },
+        }),
+      )
+      .mockResolvedValueOnce(new Response("public response"));
+    try {
+      const result = await webFetchTool.execute(
+        { url: "https://redirect.example/start" },
+        makeCtx(),
+      );
+      expect(result.isError).toBeFalsy();
+      expect(result.content).toContain("public response");
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(
+        2,
+        "https://redirect.example/finish",
+        expect.objectContaining({ redirect: "manual" }),
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("denies unsupported URL schemes before making a request", async () => {
+    const restore = mockFetch({ body: "unexpected" });
+    try {
+      const result = await webFetchTool.execute({ url: "file:///etc/passwd" }, makeCtx());
+      expect(result.isError).toBe(true);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("denies a failed DNS lookup before making a request", async () => {
+    vi.mocked(lookup).mockRejectedValue(new Error("DNS failed"));
+    const restore = mockFetch({ body: "unexpected" });
+    try {
+      const result = await webFetchTool.execute({ url: "https://unresolved.example" }, makeCtx());
+      expect(result.isError).toBe(true);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // 1. HTML to Markdown conversion
@@ -278,6 +530,25 @@ describe('WebFetch HTTP to HTTPS upgrade', () => {
 // ---------------------------------------------------------------------------
 
 describe('WebFetch caching', () => {
+  it('does not share cached responses across requests with custom credentials', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(new Response('alice private response'))
+      .mockResolvedValueOnce(new Response('bob private response'))
+      .mockResolvedValueOnce(new Response('public response'))
+    try {
+      const alice = await webFetchTool.execute({ url: 'https://credential-cache.example', headers: { authorization: 'Bearer alice' } }, makeCtx())
+      const bob = await webFetchTool.execute({ url: 'https://credential-cache.example', headers: { authorization: 'Bearer bob' } }, makeCtx())
+      const publicResult = await webFetchTool.execute({ url: 'https://credential-cache.example' }, makeCtx())
+      expect(alice.content).toContain('alice private response')
+      expect(bob.content).toContain('bob private response')
+      expect(publicResult.content).toContain('public response')
+      expect(publicResult.content).not.toContain('private response')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it('returns cached response on second call', async () => {
     const restore = mockFetch({ body: 'Hello World' })
     try {

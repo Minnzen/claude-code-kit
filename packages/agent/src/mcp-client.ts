@@ -25,6 +25,13 @@ export class MCPClient {
   private transport: MCPTransport | null = null;
   private _tools: ToolDefinition[] = [];
   private _connected = false;
+  private connectPromise?: Promise<void>;
+  private discoveryPromise?: Promise<ToolDefinition[]>;
+  private connectionController?: AbortController;
+  private refreshPromise?: Promise<void>;
+  private refreshPending = false;
+  private toolsListeners = new Set<(tools: ToolDefinition[]) => void>();
+  private errorListeners = new Set<(error: Error) => void>();
 
   constructor(config: MCPServerConfig) {
     if (!VALID_SERVER_NAME.test(config.name)) {
@@ -44,24 +51,51 @@ export class MCPClient {
   }
 
   get tools(): ToolDefinition[] {
-    return this._tools;
+    return [...this._tools];
+  }
+
+  onToolsChanged(listener: (tools: ToolDefinition[]) => void): () => void {
+    this.toolsListeners.add(listener);
+    return () => this.toolsListeners.delete(listener);
+  }
+
+  onError(listener: (error: Error) => void): () => void {
+    this.errorListeners.add(listener);
+    return () => this.errorListeners.delete(listener);
   }
 
   /**
    * Connect to the MCP server and discover available tools.
    * Throws if the SDK is not installed or the server fails to connect.
    */
-  async connect(): Promise<void> {
-    if (this._connected) return;
+  connect(abortSignal?: AbortSignal): Promise<void> {
+    if (abortSignal?.aborted) return Promise.reject(abortSignal.reason);
+    if (this._connected) return Promise.resolve();
+    this.connectPromise ??= this.connectInternal(abortSignal).finally(() => {
+      this.connectPromise = undefined;
+    });
+    return this.connectPromise;
+  }
 
+  private async connectInternal(abortSignal?: AbortSignal): Promise<void> {
     const sdk = await loadMCPSdk();
+    abortSignal?.throwIfAborted();
 
-    this.client = new sdk.Client(
+    const client = new sdk.Client(
       { name: "claude-code-kit", version: "0.3.0" },
-      { capabilities: {} },
+      {
+        capabilities: {},
+        listChanged: {
+          tools: {
+            autoRefresh: false,
+            debounceMs: 0,
+            onChanged: () => this.refreshFromNotification(),
+          },
+        },
+      },
     );
 
-    this.transport = isStdioConfig(this.config)
+    const transport = isStdioConfig(this.config)
       ? new sdk.StdioClientTransport({
           command: this.config.command,
           args: this.config.args,
@@ -73,56 +107,173 @@ export class MCPClient {
           requestInit: this.config.headers ? { headers: this.config.headers } : undefined,
         });
 
-    const timeout = this.config.connectTimeout ?? DEFAULT_CONNECT_TIMEOUT;
-    const connectPromise = this.client.connect(this.transport);
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(
-        () =>
-          reject(
-            new Error(`MCP server "${this.config.name}" connection timed out after ${timeout}ms`),
-          ),
-        timeout,
-      );
-    });
-    await Promise.race([connectPromise, timeoutPromise]);
-    this._connected = true;
+    this.client = client;
+    this.transport = transport;
+    client.onclose = () => {
+      if (this.client !== client || !this._connected) return;
+      this.clearConnection();
+      this.emitToolsChanged();
+      this.emitError(new Error(`MCP server "${this.name}" disconnected`));
+    };
+    client.onerror = (error) => this.emitError(error);
 
-    await this.discoverTools();
+    const controller = new AbortController();
+    this.connectionController = controller;
+    const forwardAbort = () => controller.abort(abortSignal?.reason);
+    abortSignal?.addEventListener("abort", forwardAbort, { once: true });
+    const timeout = this.config.connectTimeout ?? DEFAULT_CONNECT_TIMEOUT;
+    let rejectOnAbort: () => void;
+    const aborted = new Promise<never>((_, reject) => {
+      rejectOnAbort = () => reject(controller.signal.reason);
+      controller.signal.addEventListener("abort", rejectOnAbort, { once: true });
+    });
+    const timer = setTimeout(() => {
+      controller.abort(
+        new Error(`MCP server "${this.name}" connection timed out after ${timeout}ms`),
+      );
+    }, timeout);
+
+    try {
+      await Promise.race([
+        (async () => {
+          await client.connect(transport, { signal: controller.signal });
+          controller.signal.throwIfAborted();
+          await this.discoverTools(controller.signal);
+        })(),
+        aborted,
+      ]);
+      controller.signal.throwIfAborted();
+      this._connected = true;
+    } catch (error) {
+      if (this.client === client) this.clearConnection();
+      // Cancellation must not wait for an SDK or subprocess that ignores close.
+      void closeResources(client, transport);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      controller.signal.removeEventListener("abort", rejectOnAbort!);
+      abortSignal?.removeEventListener("abort", forwardAbort);
+      if (this.connectionController === controller) this.connectionController = undefined;
+    }
   }
 
   /**
    * Refresh the tool list from the server.
    */
-  async discoverTools(): Promise<ToolDefinition[]> {
-    if (!this.client) {
-      throw new Error(`MCP client "${this.config.name}" is not connected`);
+  discoverTools(signal?: AbortSignal): Promise<ToolDefinition[]> {
+    const client = this.client;
+    if (!client) {
+      return Promise.reject(new Error(`MCP client "${this.name}" is not connected`));
     }
+    if (this.discoveryPromise) return this.discoveryPromise;
 
-    const result = await this.client.listTools();
-    const serverName = this.config.name;
+    const discovery = (async () => {
+      const tools: MCPToolInfo[] = [];
+      const names = new Set<string>();
+      const cursors = new Set<string>();
+      let cursor: string | undefined;
+      do {
+        signal?.throwIfAborted();
+        const result = await client.listTools(cursor ? { cursor } : undefined, { signal });
+        for (const tool of result.tools) {
+          if (names.has(tool.name)) {
+            throw new Error(`MCP server "${this.name}" returned duplicate tool "${tool.name}"`);
+          }
+          names.add(tool.name);
+          tools.push(tool);
+        }
+        cursor = result.nextCursor;
+        if (cursor && cursors.has(cursor)) {
+          throw new Error(`MCP server "${this.name}" returned a repeated tools/list cursor`);
+        }
+        if (cursor) cursors.add(cursor);
+      } while (cursor);
 
-    this._tools = result.tools.map((mcpTool) => convertMCPTool(mcpTool, serverName, this.client!));
-
-    return this._tools;
+      signal?.throwIfAborted();
+      if (this.client !== client)
+        throw new Error(`MCP client "${this.name}" disconnected during discovery`);
+      this._tools = tools.map((tool) =>
+        convertMCPTool(tool, this.name, client, this.config.trustToolAnnotations === true),
+      );
+      this.emitToolsChanged();
+      return this.tools;
+    })();
+    this.discoveryPromise = discovery;
+    void discovery
+      .finally(() => {
+        if (this.discoveryPromise === discovery) this.discoveryPromise = undefined;
+      })
+      .catch(() => {});
+    return discovery;
   }
 
   /**
    * Disconnect from the MCP server and clean up resources.
    */
   async disconnect(): Promise<void> {
-    if (!this._connected) return;
+    const client = this.client;
+    const transport = this.transport;
+    this.connectionController?.abort(new Error(`MCP client "${this.name}" connection aborted`));
+    this.clearConnection();
+    this.emitToolsChanged();
+    await closeResources(client, transport);
+  }
 
-    try {
-      await this.transport?.close();
-    } catch {
-      // Best-effort cleanup — the subprocess may have already exited
-    }
-
+  private clearConnection(): void {
     this.client = null;
     this.transport = null;
     this._tools = [];
     this._connected = false;
+    this.discoveryPromise = undefined;
+    this.refreshPending = false;
+    this.refreshPromise = undefined;
   }
+
+  private refreshFromNotification(): Promise<void> {
+    this.refreshPending = true;
+    if (this.refreshPromise) return this.refreshPromise;
+    const client = this.client;
+    const refresh = (async () => {
+      // A notification during discovery needs another request after that snapshot.
+      await this.discoveryPromise?.catch(() => {});
+      while (this.refreshPending && client && this.client === client) {
+        this.refreshPending = false;
+        try {
+          await this.discoverTools();
+        } catch (error) {
+          if (this.client === client) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.emitError(
+              new Error(`MCP server "${this.name}" tool discovery failed: ${message}`),
+            );
+          }
+        }
+      }
+    })();
+    this.refreshPromise = refresh;
+    void refresh
+      .finally(() => {
+        if (this.refreshPromise === refresh) this.refreshPromise = undefined;
+      })
+      .catch(() => {});
+    return refresh;
+  }
+
+  private emitToolsChanged(): void {
+    for (const listener of this.toolsListeners) listener(this.tools);
+  }
+
+  private emitError(error: Error): void {
+    for (const listener of this.errorListeners) listener(error);
+  }
+}
+
+async function closeResources(
+  client: MCPClientInstance | null,
+  transport: MCPTransport | null,
+): Promise<void> {
+  // A failed handshake may leave a transport that the SDK has not attached yet.
+  await Promise.allSettled([client, transport].map(async (resource) => resource?.close()));
 }
 
 // ---------------------------------------------------------------------------
@@ -157,6 +308,7 @@ function convertMCPTool(
   mcpTool: MCPToolInfo,
   serverName: string,
   client: MCPClientInstance,
+  trustAnnotations: boolean,
 ): ToolDefinition {
   const qualifiedName = `mcp__${serverName}__${mcpTool.name}`;
 
@@ -168,8 +320,9 @@ function convertMCPTool(
   // Store the original JSON Schema so toolToProviderFormat() can use it
   const originalJsonSchema = mcpTool.inputSchema;
 
-  const isReadOnly = mcpTool.annotations?.readOnlyHint === true;
   const isDestructive = mcpTool.annotations?.destructiveHint === true;
+  const isReadOnly =
+    trustAnnotations && !isDestructive && mcpTool.annotations?.readOnlyHint === true;
 
   const tool: ToolDefinition = {
     name: qualifiedName,
@@ -179,11 +332,11 @@ function convertMCPTool(
     isDestructive,
     rawInputSchema: originalJsonSchema,
 
-    async execute(input: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> {
+    async execute(input: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
       try {
-        const result = await client.callTool({
-          name: mcpTool.name,
-          arguments: input,
+        context.abortSignal.throwIfAborted();
+        const result = await client.callTool({ name: mcpTool.name, arguments: input }, undefined, {
+          signal: context.abortSignal,
         });
 
         // MCP returns content as an array of typed parts
@@ -237,13 +390,22 @@ function extractTextContent(result: Record<string, unknown>): string {
 // ---------------------------------------------------------------------------
 
 interface MCPClientInstance {
-  connect(transport: MCPTransport): Promise<void>;
-  listTools(): Promise<{ tools: MCPToolInfo[] }>;
-  callTool(params: {
-    name: string;
-    arguments?: Record<string, unknown>;
-  }): Promise<Record<string, unknown>>;
+  connect(transport: MCPTransport, options?: { signal?: AbortSignal }): Promise<void>;
+  listTools(
+    params?: { cursor: string },
+    options?: { signal?: AbortSignal },
+  ): Promise<{ tools: MCPToolInfo[]; nextCursor?: string }>;
+  callTool(
+    params: {
+      name: string;
+      arguments?: Record<string, unknown>;
+    },
+    resultSchema?: undefined,
+    options?: { signal?: AbortSignal },
+  ): Promise<Record<string, unknown>>;
   close(): Promise<void>;
+  onclose?: () => void;
+  onerror?: (error: Error) => void;
 }
 
 interface MCPTransport {
@@ -266,7 +428,12 @@ type StreamableHTTPTransportConstructor = new (
 interface MCPSdk {
   Client: new (
     info: { name: string; version: string },
-    options: { capabilities: Record<string, unknown> },
+    options: {
+      capabilities: Record<string, unknown>;
+      listChanged: {
+        tools: { autoRefresh: boolean; debounceMs: number; onChanged: () => Promise<void> };
+      };
+    },
   ) => MCPClientInstance;
   StdioClientTransport: StdioTransportConstructor;
   StreamableHTTPClientTransport: StreamableHTTPTransportConstructor;

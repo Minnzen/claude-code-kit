@@ -45,7 +45,12 @@ export class LayeredCompaction implements CompactionStrategy {
     return false;
   }
 
-  async compact(messages: Message[], maxTokens: number): Promise<Message[]> {
+  async compact(
+    messages: Message[],
+    maxTokens: number,
+    abortSignal?: AbortSignal,
+  ): Promise<Message[]> {
+    abortSignal?.throwIfAborted();
     if (messages.length === 0 || this.layers.length === 0) return messages;
 
     let current = messages;
@@ -56,7 +61,9 @@ export class LayeredCompaction implements CompactionStrategy {
 
     for (const layer of this.layers) {
       // Each layer may be sync or async; await handles both.
-      current = await layer.compact(current, maxTokens);
+      abortSignal?.throwIfAborted();
+      current = await layer.compact(current, maxTokens, abortSignal);
+      abortSignal?.throwIfAborted();
       currentTokens = estimateTotalTokens(current);
       if (currentTokens <= maxTokens) break;
     }

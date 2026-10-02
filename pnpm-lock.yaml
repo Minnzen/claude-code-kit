@@ -17,20 +17,23 @@ importers:
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
+      '@xterm/headless':
+        specifier: 6.0.0
+        version: 6.0.0
       tsup:
-        specifier: ^8.0.0
+        specifier: 8.5.1
         version: 8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
       turbo:
-        specifier: ^2.0.0
+        specifier: 2.9.1
         version: 2.9.1
       typescript:
-        specifier: ^5.0.0
+        specifier: 5.9.3
         version: 5.9.3
       vitest:
         specifier: ^4.1.2
         version: 4.1.2(@types/node@25.5.0)(vite@8.0.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.4)(tsx@4.21.0))
       zod:
-        specifier: '>=3.20.0'
+        specifier: 4.3.6
         version: 4.3.6
 
   examples/agent-cli:
@@ -48,14 +51,14 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       react:
-        specifier: '*'
+        specifier: ~19.2.4
         version: 19.2.4
       zod:
-        specifier: '*'
+        specifier: 4.3.6
         version: 4.3.6
     devDependencies:
       tsx:
-        specifier: ^4.0.0
+        specifier: 4.21.0
         version: 4.21.0
 
   examples/alt-screen-dashboard:
@@ -67,11 +70,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       react:
-        specifier: '*'
+        specifier: ~19.2.4
         version: 19.2.4
     devDependencies:
       tsx:
-        specifier: ^4.0.0
+        specifier: 4.21.0
         version: 4.21.0
 
   examples/hello-world:
@@ -83,140 +86,140 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       react:
-        specifier: '*'
+        specifier: ~19.2.4
         version: 19.2.4
     devDependencies:
       tsx:
-        specifier: ^4.0.0
+        specifier: 4.21.0
         version: 4.21.0
 
   packages/agent:
     dependencies:
       zod:
-        specifier: '>=3.20.0'
+        specifier: 4.3.6
         version: 4.3.6
       zod-to-json-schema:
-        specifier: '>=3.20.0'
+        specifier: ^3.25.2
         version: 3.25.2(zod@4.3.6)
     devDependencies:
       '@anthropic-ai/sdk':
-        specifier: '*'
+        specifier: 0.82.0
         version: 0.82.0(zod@4.3.6)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.3.6)
       openai:
-        specifier: '*'
+        specifier: 6.33.0
         version: 6.33.0(zod@4.3.6)
       tsup:
-        specifier: '*'
+        specifier: 8.5.1
         version: 8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
       typescript:
-        specifier: '*'
+        specifier: 5.9.3
         version: 5.9.3
 
   packages/ink-renderer:
     dependencies:
       '@alcalzone/ansi-tokenize':
-        specifier: '*'
+        specifier: 0.3.0
         version: 0.3.0
       '@claude-code-kit/shared':
         specifier: workspace:*
         version: link:../shared
       auto-bind:
-        specifier: '*'
+        specifier: 5.0.1
         version: 5.0.1
       bidi-js:
-        specifier: '*'
+        specifier: 1.0.3
         version: 1.0.3
       chalk:
-        specifier: '*'
+        specifier: 5.6.2
         version: 5.6.2
       cli-boxes:
-        specifier: '*'
+        specifier: 4.0.1
         version: 4.0.1
       code-excerpt:
-        specifier: '*'
+        specifier: 4.0.0
         version: 4.0.0
       emoji-regex:
-        specifier: '*'
+        specifier: 10.6.0
         version: 10.6.0
       get-east-asian-width:
-        specifier: '*'
+        specifier: 1.5.0
         version: 1.5.0
       indent-string:
-        specifier: '*'
+        specifier: 5.0.0
         version: 5.0.0
       semver:
-        specifier: '*'
+        specifier: 7.7.4
         version: 7.7.4
       signal-exit:
-        specifier: '*'
+        specifier: 4.1.0
         version: 4.1.0
       stack-utils:
-        specifier: '*'
+        specifier: 2.0.6
         version: 2.0.6
       strip-ansi:
-        specifier: '*'
+        specifier: 7.2.0
         version: 7.2.0
       supports-hyperlinks:
-        specifier: '*'
+        specifier: 4.4.0
         version: 4.4.0
       type-fest:
-        specifier: '*'
+        specifier: 5.5.0
         version: 5.5.0
       usehooks-ts:
-        specifier: '*'
+        specifier: 3.1.1
         version: 3.1.1(react@19.2.4)
       wrap-ansi:
-        specifier: '*'
+        specifier: 10.0.0
         version: 10.0.0
     devDependencies:
       '@types/react-reconciler':
         specifier: 0.33.0
         version: 0.33.0(@types/react@19.2.14)
       react:
-        specifier: '*'
+        specifier: ~19.2.4
         version: 19.2.4
       react-reconciler:
-        specifier: '*'
+        specifier: ~0.33.0
         version: 0.33.0(react@19.2.4)
       tsup:
-        specifier: '*'
+        specifier: 8.5.1
         version: 8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
       typescript:
-        specifier: '*'
+        specifier: 5.9.3
         version: 5.9.3
 
   packages/shared:
     dependencies:
       '@alcalzone/ansi-tokenize':
-        specifier: '*'
+        specifier: 0.3.0
         version: 0.3.0
       emoji-regex:
-        specifier: '*'
+        specifier: 10.6.0
         version: 10.6.0
       get-east-asian-width:
-        specifier: '*'
+        specifier: 1.5.0
         version: 1.5.0
       semver:
-        specifier: '*'
+        specifier: 7.7.4
         version: 7.7.4
       strip-ansi:
-        specifier: '*'
+        specifier: 7.2.0
         version: 7.2.0
     devDependencies:
       '@types/node':
-        specifier: '*'
+        specifier: 25.5.0
         version: 25.5.0
       '@types/semver':
-        specifier: '*'
+        specifier: 7.7.1
         version: 7.7.1
       tsup:
-        specifier: '*'
+        specifier: 8.5.1
         version: 8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
       typescript:
-        specifier: '*'
+        specifier: 5.9.3
         version: 5.9.3
 
   packages/tools:
@@ -227,18 +230,21 @@ importers:
       fast-glob:
         specifier: ^3.3.0
         version: 3.3.3
+      undici:
+        specifier: ^6.29.0
+        version: 6.29.0
       zod:
-        specifier: '>=3.20.0'
+        specifier: 4.3.6
         version: 4.3.6
     devDependencies:
       '@types/node':
-        specifier: '*'
+        specifier: 25.5.0
         version: 25.5.0
       tsup:
-        specifier: '*'
+        specifier: 8.5.1
         version: 8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
       typescript:
-        specifier: '*'
+        specifier: 5.9.3
         version: 5.9.3
 
   packages/ui:
@@ -250,41 +256,41 @@ importers:
         specifier: workspace:*
         version: link:../shared
       chalk:
-        specifier: '*'
+        specifier: 5.6.2
         version: 5.6.2
       chokidar:
-        specifier: '*'
+        specifier: 4.0.3
         version: 4.0.3
       figures:
-        specifier: '*'
+        specifier: 6.1.0
         version: 6.1.0
       marked:
-        specifier: '*'
+        specifier: 17.0.5
         version: 17.0.5
       strip-ansi:
-        specifier: '*'
+        specifier: 7.2.0
         version: 7.2.0
       usehooks-ts:
         specifier: ^3.1.1
         version: 3.1.1(react@19.2.4)
       zod:
-        specifier: '>=3.20.0'
+        specifier: 4.3.6
         version: 4.3.6
     devDependencies:
       '@claude-code-kit/agent':
         specifier: workspace:*
         version: link:../agent
       '@types/marked':
-        specifier: '*'
+        specifier: 6.0.0
         version: 6.0.0
       react:
-        specifier: '*'
+        specifier: ~19.2.4
         version: 19.2.4
       tsup:
-        specifier: '*'
+        specifier: 8.5.1
         version: 8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
       typescript:
-        specifier: '*'
+        specifier: 5.9.3
         version: 5.9.3
 
   tests/smoke:
@@ -305,17 +311,17 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       react:
-        specifier: '*'
+        specifier: ~19.2.4
         version: 19.2.4
       react-reconciler:
-        specifier: '*'
+        specifier: ~0.33.0
         version: 0.33.0(react@19.2.4)
       zod:
-        specifier: '*'
+        specifier: 4.3.6
         version: 4.3.6
     devDependencies:
       tsx:
-        specifier: ^4.0.0
+        specifier: 4.21.0
         version: 4.21.0
 
 packages:
@@ -936,6 +942,9 @@ packages:
 
   '@vitest/utils@4.1.2':
     resolution: {integrity: sha512-xw2/TiX82lQHA06cgbqRKFb5lCAy3axQ4H4SoUFhUsg+wztiet+co86IAMDtF6Vm1hc7J6j09oh/rgDn+JdKIQ==}
+
+  '@xterm/headless@6.0.0':
+    resolution: {integrity: sha512-5Yj1QINYCyzrZtf8OFIHi47iQtI+0qYFPHmouEfG8dHNxbZ9Tb9YGSuLcsEwj9Z+OL75GJqPyJbyoFer80a2Hw==}
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -1807,6 +1816,10 @@ packages:
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
+  undici@6.29.0:
+    resolution: {integrity: sha512-R+RODBqp6i2pPflGdq+xIOUkl+RNfGgHwoinecKu/JCuf2uO06cOKoDbI2P7Dn6KcswdKwrczbU6IYJ6K8X+wg==}
+    engines: {node: '>=18.17'}
+
   unpipe@1.0.0:
     resolution: {integrity: sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ==}
     engines: {node: '>= 0.8'}
@@ -2348,6 +2361,8 @@ snapshots:
       '@vitest/pretty-format': 4.1.2
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
+
+  '@xterm/headless@6.0.0': {}
 
   accepts@2.0.0:
     dependencies:
@@ -3193,6 +3208,8 @@ snapshots:
   ufo@1.6.3: {}
 
   undici-types@7.18.2: {}
+
+  undici@6.29.0: {}
 
   unpipe@1.0.0: {}
 

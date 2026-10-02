@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { bashTool } from '../packages/tools/src/bash.ts'
 import { editTool } from '../packages/tools/src/edit.ts'
 import { globTool } from '../packages/tools/src/glob.ts'
@@ -10,6 +10,10 @@ import { readTool } from '../packages/tools/src/read.ts'
 import { webFetchTool, clearCache } from '../packages/tools/src/web-fetch.ts'
 import { writeTool } from '../packages/tools/src/write.ts'
 import type { ToolContext } from '../packages/agent/src/types.ts'
+
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn().mockResolvedValue([{ address: '93.184.216.34', family: 4 }]),
+}))
 
 // ---------------------------------------------------------------------------
 // Helpers

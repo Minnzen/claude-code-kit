@@ -1,8 +1,12 @@
 // Render API (async — preserves microtask boundary from original)
 
 export { Ansi } from "./Ansi";
+export type { ColorType } from "./colorize";
+// Color utilities
+export { applyColor, applyTextStyles, colorize } from "./colorize";
 export { AlternateScreen } from "./components/AlternateScreen";
-
+// Contexts
+export { default as AppContext } from "./components/AppContext";
 // Core components
 export { default as Box } from "./components/Box";
 export { default as Button } from "./components/Button";
@@ -14,23 +18,10 @@ export { RawAnsi } from "./components/RawAnsi";
 export type { ScrollBoxHandle } from "./components/ScrollBox";
 export { default as ScrollBox } from "./components/ScrollBox";
 export { default as Spacer } from "./components/Spacer";
-export type { Props as TextProps } from "./components/Text";
-export { default as Text } from "./components/Text";
-export type { Instance, RenderOptions, Root } from "./root";
-export { createRoot, default as render, renderSync } from "./root";
-
-// Theme hook stub (returns [themeName, setThemeName])
-export function useTheme(): [string, (name: string) => void] {
-  return ["default", () => {}];
-}
-
-export type { ColorType } from "./colorize";
-// Color utilities
-export { applyColor, applyTextStyles, colorize } from "./colorize";
-// Contexts
-export { default as AppContext } from "./components/AppContext";
 export { default as StdinContext } from "./components/StdinContext";
 export { TerminalSizeContext } from "./components/TerminalSizeContext";
+export type { Props as TextProps } from "./components/Text";
+export { default as Text } from "./components/Text";
 // DOM & layout
 export type { DOMElement, DOMNode } from "./dom";
 export type { ClickEvent } from "./events/click-event";
@@ -59,6 +50,8 @@ export { default as measureElement } from "./measure-element";
 export type { ParsedKey } from "./parse-keypress";
 export type { BorderTextOptions } from "./render-border";
 export type { MatchPosition } from "./render-to-screen";
+export type { Instance, RenderOptions, Root } from "./root";
+export { createRoot, default as render, renderSync } from "./root";
 export { stringWidth } from "./stringWidth";
 // Types
 export type { Color, Styles, TextStyles } from "./styles";

@@ -32,8 +32,20 @@ export function startCallbackServer(
   timeoutMs: number,
 ): { promise: Promise<OAuthCallbackResult>; abort: () => void } {
   let server: http.Server | undefined;
+  let abort = () => {};
 
   const promise = new Promise<OAuthCallbackResult>((resolve, reject) => {
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const finish = (error?: Error, result?: OAuthCallbackResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      server?.close();
+      if (error) reject(error);
+      else if (result) resolve(result);
+    };
+    abort = () => finish(new Error("OAuth flow aborted."));
     server = http.createServer((req, res) => {
       const url = new URL(req.url!, `http://localhost:${port}`);
       const code = url.searchParams.get("code");
@@ -45,8 +57,7 @@ export function startCallbackServer(
         res.end(
           "<html><body><h1>Authentication failed</h1><p>You can close this window.</p></body></html>",
         );
-        server?.close();
-        reject(new Error(`OAuth error: ${error}${errorDesc ? ` — ${errorDesc}` : ""}`));
+        finish(new Error(`OAuth error: ${error}${errorDesc ? ` — ${errorDesc}` : ""}`));
         return;
       }
 
@@ -55,8 +66,7 @@ export function startCallbackServer(
         res.end(
           "<html><body><h1>Authentication successful!</h1><p>You can close this window and return to the terminal.</p></body></html>",
         );
-        server?.close();
-        resolve({
+        finish(undefined, {
           code,
           state: url.searchParams.get("state") ?? undefined,
         });
@@ -67,23 +77,26 @@ export function startCallbackServer(
       res.end("Missing code parameter");
     });
 
-    server.listen(port, "127.0.0.1");
     server.on("error", (err) => {
-      reject(new Error(`Failed to start OAuth callback server on port ${port}: ${err.message}`));
+      finish(new Error(`Failed to start OAuth callback server on port ${port}: ${err.message}`));
     });
 
-    const timer = setTimeout(() => {
-      server?.close();
-      reject(new Error("OAuth flow timed out — no callback received."));
+    timer = setTimeout(() => {
+      finish(new Error("OAuth flow timed out — no callback received."));
     }, timeoutMs);
 
     // Prevent timer from keeping the process alive
     timer.unref();
+    try {
+      server.listen(port, "127.0.0.1");
+    } catch (error) {
+      finish(error instanceof Error ? error : new Error(String(error)));
+    }
   });
 
   return {
     promise,
-    abort: () => server?.close(),
+    abort: () => abort(),
   };
 }
 
@@ -106,6 +119,7 @@ export async function exchangeToken(
     codeVerifier: string;
     redirectUri: string;
   },
+  signal?: AbortSignal,
 ): Promise<OAuthTokenResponse> {
   const body = new URLSearchParams({
     grant_type: "authorization_code",
@@ -115,10 +129,33 @@ export async function exchangeToken(
     redirect_uri: params.redirectUri,
   });
 
+  return requestToken(tokenURL, body, signal);
+}
+
+export async function refreshOAuthToken(
+  tokenURL: string,
+  params: { clientId: string; refreshToken: string },
+): Promise<OAuthTokenResponse> {
+  return requestToken(
+    tokenURL,
+    new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: params.clientId,
+      refresh_token: params.refreshToken,
+    }),
+  );
+}
+
+async function requestToken(
+  tokenURL: string,
+  body: URLSearchParams,
+  signal?: AbortSignal,
+): Promise<OAuthTokenResponse> {
   const res = await fetch(tokenURL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
+    signal,
   });
 
   if (!res.ok) {
@@ -126,7 +163,16 @@ export async function exchangeToken(
     throw new Error(`Token exchange failed (${res.status}): ${text}`);
   }
 
-  return (await res.json()) as OAuthTokenResponse;
+  const data = (await res.json()) as OAuthTokenResponse;
+  if (
+    !data ||
+    typeof data.access_token !== "string" ||
+    !data.access_token ||
+    (data.expires_in !== undefined && (!Number.isFinite(data.expires_in) || data.expires_in < 0))
+  ) {
+    throw new Error("Token endpoint returned an invalid token response.");
+  }
+  return data;
 }
 
 // ---------------------------------------------------------------------------
@@ -197,25 +243,35 @@ export function startOAuthFlow(method: AuthMethodOAuth): {
 
   const authorizationURL = `${method.authorizationURL}?${params.toString()}`;
 
-  const { promise: callbackPromise, abort } = startCallbackServer(port, timeoutMs);
+  const { promise: callbackPromise, abort: abortCallback } = startCallbackServer(port, timeoutMs);
+  const controller = new AbortController();
+  const abort = () => {
+    controller.abort(new Error("OAuth flow aborted."));
+    abortCallback();
+  };
 
   const promise = (async () => {
     openBrowser(authorizationURL);
 
     const result = await callbackPromise;
+    controller.signal.throwIfAborted();
 
     // Validate state
-    if (result.state && result.state !== state) {
+    if (result.state !== state) {
       throw new Error("OAuth state mismatch — possible CSRF attack.");
     }
 
     // Exchange code for token
-    const tokenResponse = await exchangeToken(method.tokenURL, {
-      code: result.code,
-      clientId: method.clientId,
-      codeVerifier,
-      redirectUri,
-    });
+    const tokenResponse = await exchangeToken(
+      method.tokenURL,
+      {
+        code: result.code,
+        clientId: method.clientId,
+        codeVerifier,
+        redirectUri,
+      },
+      controller.signal,
+    );
 
     return {
       accessToken: tokenResponse.access_token,

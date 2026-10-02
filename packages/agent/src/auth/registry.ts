@@ -1,6 +1,7 @@
 import type { LLMProvider } from "../types.js";
+import { decodeSavedAuth, encodeSavedAuth } from "./credentials.js";
 import type { OAuthFlowResult } from "./oauth.js";
-import { startOAuthFlow } from "./oauth.js";
+import { refreshOAuthToken, startOAuthFlow } from "./oauth.js";
 import { FileAuthStorage } from "./storage.js";
 import type {
   AuthFlowState,
@@ -86,6 +87,63 @@ export class AuthRegistry {
     return null;
   }
 
+  private async saveOAuthCredential(providerName: string, result: OAuthFlowResult): Promise<void> {
+    await this.storage.set(
+      providerName,
+      encodeSavedAuth({
+        method: "oauth",
+        token: result.accessToken,
+        refreshToken: result.refreshToken,
+        expiresAt:
+          result.expiresIn === undefined ? undefined : Date.now() + result.expiresIn * 1_000,
+      }),
+    );
+  }
+
+  private async resolveStoredCredential(
+    providerName: string,
+    method: AuthMethod,
+  ): Promise<{ apiKey?: string; baseURL?: string; token?: string } | null> {
+    const stored = await this.storage.get(providerName);
+    if (!stored || method.type === "none") return null;
+    const saved = decodeSavedAuth(stored);
+    if (saved && saved.method !== method.type) return null;
+
+    if (method.type === "oauth") {
+      if (!saved) return { token: stored, apiKey: stored };
+      if (!saved.token) return null;
+      if (saved.expiresAt !== undefined && saved.expiresAt <= Date.now()) {
+        if (!saved.refreshToken) {
+          throw new Error(`OAuth token for "${providerName}" expired; authenticate again.`);
+        }
+        try {
+          const refreshed = await refreshOAuthToken(method.tokenURL, {
+            clientId: method.clientId,
+            refreshToken: saved.refreshToken,
+          });
+          await this.saveOAuthCredential(providerName, {
+            accessToken: refreshed.access_token,
+            refreshToken: refreshed.refresh_token ?? saved.refreshToken,
+            expiresIn: refreshed.expires_in,
+          });
+          return { token: refreshed.access_token, apiKey: refreshed.access_token };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `OAuth token refresh failed for "${providerName}": ${message}; authenticate again.`,
+          );
+        }
+      }
+      return { token: saved.token, apiKey: saved.token };
+    }
+
+    const apiKey = saved?.apiKey ?? (saved ? undefined : stored);
+    if (!apiKey) return null;
+    return method.type === "base-url-key"
+      ? { apiKey, baseURL: saved?.baseURL || method.defaultBaseURL || undefined }
+      : { apiKey, ...(saved?.baseURL ? { baseURL: saved.baseURL } : {}) };
+  }
+
   /**
    * Authenticate and get a configured LLMProvider.
    *
@@ -113,15 +171,6 @@ export class AuthRegistry {
         return reg.createProvider({});
       }
 
-      // 'oauth' — try stored token only (no env var for OAuth)
-      if (method.type === "oauth") {
-        const stored = await this.storage.get(name);
-        if (stored) {
-          return reg.createProvider({ token: stored, apiKey: stored });
-        }
-        continue;
-      }
-
       // Try env var
       const envCred = this.resolveEnvCredential(method);
       if (envCred) {
@@ -129,15 +178,9 @@ export class AuthRegistry {
       }
 
       // Try stored credential
-      const stored = await this.storage.get(name);
+      const stored = await this.resolveStoredCredential(name, method);
       if (stored) {
-        if (method.type === "base-url-key") {
-          return reg.createProvider({
-            apiKey: stored,
-            baseURL: method.defaultBaseURL || undefined,
-          });
-        }
-        return reg.createProvider({ apiKey: stored });
+        return reg.createProvider(stored);
       }
     }
 
@@ -200,9 +243,6 @@ export class AuthRegistry {
   }
 
   async listProviders(): Promise<ProviderInfo[]> {
-    const stored = await this.storage.list();
-    const storedSet = new Set(stored);
-
     const result: ProviderInfo[] = [];
     for (const [name, registration] of this.providers) {
       let hasCredential = registration.authMethods.some((m) => m.type === "none");
@@ -217,8 +257,20 @@ export class AuthRegistry {
         }
       }
 
-      if (!hasCredential && storedSet.has(name)) {
-        hasCredential = true;
+      if (!hasCredential) {
+        const stored = await this.storage.get(name);
+        if (stored) {
+          const saved = decodeSavedAuth(stored);
+          hasCredential = saved
+            ? registration.authMethods.some((method) => method.type === saved.method) &&
+              (saved.method === "oauth"
+                ? Boolean(saved.token) &&
+                  (saved.expiresAt === undefined ||
+                    saved.expiresAt > Date.now() ||
+                    Boolean(saved.refreshToken))
+                : Boolean(saved.apiKey))
+            : true;
+        }
       }
 
       result.push({ name, registration, hasCredential });
@@ -298,7 +350,7 @@ export class AuthRegistry {
       throw new Error(`Provider "${providerName}" is not registered.`);
     }
 
-    await this.storage.set(providerName, oauthResult.accessToken);
+    await this.saveOAuthCredential(providerName, oauthResult);
 
     const credentials = { token: oauthResult.accessToken, apiKey: oauthResult.accessToken };
 
@@ -481,15 +533,23 @@ export class AuthRegistry {
       throw new Error(`Provider "${providerName}" is not registered.`);
     }
 
-    // Store the api key for future sessions
-    if (credentials.apiKey) {
-      await this.storage.set(providerName, credentials.apiKey);
-    }
-
     // Merge defaultBaseURL if not explicitly provided
     const resolvedCredentials = { ...credentials };
     if (method.type === "base-url-key" && !resolvedCredentials.baseURL && method.defaultBaseURL) {
       resolvedCredentials.baseURL = method.defaultBaseURL;
+    }
+
+    if (method.type !== "none" && (resolvedCredentials.apiKey || resolvedCredentials.token)) {
+      await this.storage.set(
+        providerName,
+        encodeSavedAuth({
+          method: method.type,
+          ...resolvedCredentials,
+          ...(method.type === "oauth"
+            ? { token: resolvedCredentials.token ?? resolvedCredentials.apiKey }
+            : {}),
+        }),
+      );
     }
 
     if (reg.models && reg.models.length > 0) {
@@ -543,13 +603,7 @@ export class AuthRegistry {
           resolvedCreds = envCred;
         } else {
           // Try stored
-          const stored = await this.storage.get(providerName);
-          if (stored) {
-            resolvedCreds = { apiKey: stored };
-            if (method.type === "base-url-key" && method.defaultBaseURL) {
-              resolvedCreds.baseURL = method.defaultBaseURL;
-            }
-          }
+          resolvedCreds = (await this.resolveStoredCredential(providerName, method)) ?? undefined;
         }
       }
     }

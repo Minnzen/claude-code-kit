@@ -665,3 +665,123 @@ describe('Agent compaction error handling', () => {
     expect(errorEvents).toHaveLength(0)
   })
 })
+
+
+describe('Agent stream and lifecycle regressions', () => {
+  it('preserves interleaved calls of the same tool by ID', async () => {
+    const execute = vi.fn(async ({ value }: { value: string }) => ({ content: value }))
+    const provider = new MockProvider([
+      [
+        { type: 'tool_use_start', toolCall: { id: 'a', name: 'echo' } },
+        { type: 'tool_use_start', toolCall: { id: 'b', name: 'echo' } },
+        { type: 'tool_use_delta', id: 'a', text: '{"value":"A' },
+        { type: 'tool_use_delta', id: 'b', text: '{"value":"B"}' },
+        { type: 'tool_use_delta', id: 'a', text: '"}' },
+        { type: 'tool_use_end', id: 'b' },
+        { type: 'tool_use_end', id: 'a' },
+        { type: 'done' },
+      ],
+      [{ type: 'text', text: 'finished' }, { type: 'done' }],
+    ])
+    const agent = new Agent({ provider, model: 'mock', tools: [{
+      name: 'echo', description: 'Echo', inputSchema: z.object({ value: z.string() }),
+      isReadOnly: true, execute,
+    }] })
+    const events = await collectEvents(agent.run('echo both'))
+    expect(events.filter(e => e.type === 'tool_call').map(e => e.toolCall)).toEqual([
+      { id: 'a', name: 'echo', input: { value: 'A' } },
+      { id: 'b', name: 'echo', input: { value: 'B' } },
+    ])
+    expect(execute).toHaveBeenCalledTimes(2)
+  })
+
+  it('surfaces provider error chunks without adding an empty assistant', async () => {
+    const failure = new Error('upstream failed')
+    const agent = new Agent({ model: 'mock', provider: new MockProvider([
+      [{ type: 'error', error: failure }, { type: 'done' }],
+    ]) })
+    const events = await collectEvents(agent.run('hello'))
+    expect(events.filter(e => e.type === 'error')).toEqual([{ type: 'error', error: failure }])
+    expect(events.filter(e => e.type === 'done')).toHaveLength(1)
+    expect(agent.getMessages()).toEqual([{ role: 'user', content: 'hello' }])
+  })
+
+  it('rejects partial tool streams before executing a tool', async () => {
+    const execute = vi.fn(async () => ({ content: 'should not run' }))
+    const agent = new Agent({ model: 'mock', tools: [{
+      name: 'echo', description: 'Echo', inputSchema: z.object({}), isReadOnly: true, execute,
+    }], provider: new MockProvider([[
+      { type: 'tool_use_start', toolCall: { id: 'partial', name: 'echo' } },
+      { type: 'tool_use_delta', text: '{}' },
+      { type: 'done' },
+    ]]) })
+    const events = await collectEvents(agent.run('hello'))
+    expect(events.some(e => e.type === 'error' && /incomplete/i.test(e.error.message))).toBe(true)
+    expect(execute).not.toHaveBeenCalled()
+    expect(agent.getMessages()).toHaveLength(1)
+  })
+
+  it('guards concurrent runs and waits for abort-ignoring provider settlement', async () => {
+    let entered!: () => void
+    const started = new Promise<void>(resolve => { entered = resolve })
+    const provider = {
+      async *chat() {
+        entered()
+        await new Promise(() => {})
+        yield { type: 'text' as const, text: 'never' }
+      },
+    }
+    const agent = new Agent({ model: 'mock', provider })
+    const running = collectEvents(agent.run('first'))
+    await started
+    const concurrent = await collectEvents(agent.run('second'))
+    expect(concurrent.some(e => e.type === 'error' && /already running/i.test(e.error.message))).toBe(true)
+    expect(agent.getMessages()).toEqual([{ role: 'user', content: 'first' }])
+    expect(() => agent.clearMessages()).toThrow(/running/i)
+    await agent.cancel()
+    await agent.waitForIdle()
+    expect((await running).some(e => e.type === 'error' && e.error.name === 'AbortError')).toBe(true)
+    agent.clearMessages()
+    agent.setProvider(new MockProvider([[{ type: 'text', text: 'next' }, { type: 'done' }]]))
+    expect(await agent.chat('third')).toBe('next')
+  })
+})
+
+
+describe('Agent state isolation', () => {
+  it('returns independent history snapshots', async () => {
+    const agent = new Agent({ model: 'mock', provider: new MockProvider([[{ type: 'text', text: 'reply' }, { type: 'done' }]]) })
+    await agent.chat('original')
+    const snapshot = agent.getMessages()
+    snapshot[0].content = 'changed'
+    expect(agent.getMessages()[0].content).toBe('original')
+  })
+
+  it('settles cancellation during reactive token counting', async () => {
+    let calls = 0
+    let entered!: () => void
+    const started = new Promise<void>(resolve => { entered = resolve })
+    const provider = {
+      async *chat() { throw new Error('context_length_exceeded'); yield { type: 'done' as const } },
+      async countTokens() { if (++calls === 1) return 1; entered(); return new Promise<number>(() => {}) },
+    }
+    const agent = new Agent({ model: 'mock', provider })
+    const running = collectEvents(agent.run('task'))
+    await started
+    await agent.cancel()
+    expect((await running).some(event => event.type === 'error' && event.error.name === 'AbortError')).toBe(true)
+  })
+})
+
+
+it('preserves AbortError when cancelling a blocked compaction', async () => {
+  let entered!: () => void
+  const started = new Promise<void>(resolve => { entered = resolve })
+  const agent = new Agent({ model: 'mock', contextLimit: 1, provider: new MockProvider([]),
+    compactionStrategy: { compact: async () => { entered(); return new Promise(() => {}) } },
+  })
+  const pending = collectEvents(agent.run('long task'))
+  await started
+  await agent.cancel()
+  expect((await pending).some(event => event.type === 'error' && event.error.name === 'AbortError')).toBe(true)
+})

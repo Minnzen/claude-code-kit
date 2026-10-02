@@ -1,6 +1,6 @@
 {
   "name": "@claude-code-kit/tools",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Built-in tool collection for claude-code-kit agent framework",
   "license": "MIT",
   "main": "./dist/index.js",
@@ -8,7 +8,8 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "exports": {
     ".": {
@@ -25,12 +26,13 @@
   "dependencies": {
     "@claude-code-kit/agent": "workspace:*",
     "fast-glob": "^3.3.0",
-    "zod": ">=3.20.0"
+    "undici": "^6.29.0",
+    "zod": "4.3.6"
   },
   "devDependencies": {
-    "@types/node": "*",
-    "tsup": "*",
-    "typescript": "*"
+    "@types/node": "25.5.0",
+    "tsup": "8.5.1",
+    "typescript": "5.9.3"
   },
   "repository": {
     "type": "git",
@@ -49,7 +51,7 @@
     "grep"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.0.0"
   },
   "publishConfig": {
     "access": "public"

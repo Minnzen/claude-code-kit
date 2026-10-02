@@ -10,7 +10,7 @@ export type PermissionUIRequest = {
   toolName: string;
   description: string;
   details?: string;
-  resolve: (decision: "allow" | "deny") => void;
+  resolve: (decision: "allow" | "always_allow" | "deny") => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -27,9 +27,9 @@ export type UseAgentResult = {
   isLoading: boolean;
   streamingContent: string | null;
   permissionRequest: PermissionUIRequest | null;
-  submit: (input: string) => void;
-  cancel: () => void;
-  clearMessages: () => void;
+  submit: (input: string) => Promise<void>;
+  cancel: () => Promise<void>;
+  clearMessages: () => Promise<void>;
 };
 
 // ---------------------------------------------------------------------------
@@ -54,155 +54,279 @@ function toolCallToContent(tc: ToolCall): MessageContent {
 // useAgent
 // ---------------------------------------------------------------------------
 
+type BridgeHandler = ReturnType<Agent["getPermissionHandler"]>;
+const permissionBridges = new WeakMap<
+  BridgeHandler,
+  { active: boolean; previous: BridgeHandler }
+>();
+function livePermissionHandler(handler: BridgeHandler): BridgeHandler {
+  let current = handler;
+  let bridge = permissionBridges.get(current);
+  while (bridge && !bridge.active) {
+    current = bridge.previous;
+    bridge = permissionBridges.get(current);
+  }
+  return current;
+}
+
 export function useAgent({ agent, onError }: UseAgentOptions): UseAgentResult {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [permissionRequest, setPermissionRequest] = useState<PermissionUIRequest | null>(null);
+  const mounted = useRef(false);
+  const generation = useRef(0);
+  const ready = useRef<Promise<void>>(Promise.resolve());
+  const running = useRef<Promise<void> | null>(null);
+  const cancelled = useRef(false);
+  const permissionEpoch = useRef(0);
+  const pending = useRef<PermissionUIRequest[]>([]);
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
 
-  // Guard against concurrent runs (Bug 3 fix)
-  const isRunningRef = useRef(false);
+  const denyPending = useCallback(() => {
+    for (const request of [...pending.current]) request.resolve("deny");
+  }, []);
 
-  // Map tool-call id -> message id so we can update on tool_result
-  const toolMsgMap = useRef<Map<string, string>>(new Map());
-
-  // Wire the permission handler on the agent (Bug 1 fix)
   useEffect(() => {
-    agent.setPermissionHandler(async (request) => {
-      return new Promise<{ decision: "allow" | "deny"; reason?: string }>((resolve) => {
-        setPermissionRequest({
-          toolName: request.tool,
-          description: `Tool "${request.tool}" wants to execute`,
-          details: JSON.stringify(request.input, null, 2),
-          resolve: (decision) => {
-            setPermissionRequest(null);
-            resolve({ decision });
-          },
-        });
-      });
-    });
-  }, [agent]);
-
-  const cancel = useCallback(() => {
-    agent.abort();
-    isRunningRef.current = false;
+    mounted.current = true;
+    const currentGeneration = ++generation.current;
+    setMessages([]);
     setIsLoading(false);
     setStreamingContent(null);
     setPermissionRequest(null);
-  }, [agent]);
+    const sessionApproved = new Set<string>();
+    let installed = false;
+    const bridge = { active: true, previous: livePermissionHandler(agent.getPermissionHandler()) };
+    const handler: ReturnType<Agent["getPermissionHandler"]> = async (request) => {
+      const requestEpoch = permissionEpoch.current;
+      const policy = await livePermissionHandler(bridge.previous)(request);
+      if (
+        !mounted.current ||
+        generation.current !== currentGeneration ||
+        permissionEpoch.current !== requestEpoch
+      ) {
+        return { decision: "deny", reason: "Permission request is no longer active" };
+      }
+      if (policy?.decision === "allow") return policy;
+      if (policy?.decision !== "deny" || policy.approvalRequired !== true) {
+        return policy?.decision === "deny"
+          ? policy
+          : { decision: "deny", reason: "Invalid permission policy decision" };
+      }
+      if (sessionApproved.has(request.tool)) return { decision: "allow" };
+      return new Promise((resolve) => {
+        if (!mounted.current || generation.current !== currentGeneration) {
+          resolve({ decision: "deny", reason: "Permission UI is unavailable" });
+          return;
+        }
+        let settled = false;
+        const uiRequest: PermissionUIRequest = {
+          toolName: request.tool,
+          description: `Tool "${request.tool}" wants to execute`,
+          details: JSON.stringify(request.input, null, 2),
+          resolve(decision) {
+            if (settled) return;
+            settled = true;
+            pending.current = pending.current.filter((item) => item !== uiRequest);
+            const active =
+              mounted.current &&
+              generation.current === currentGeneration &&
+              permissionEpoch.current === requestEpoch;
+            if (mounted.current && generation.current === currentGeneration) {
+              setPermissionRequest(pending.current[0] ?? null);
+            }
+            if (active && decision === "always_allow") sessionApproved.add(request.tool);
+            resolve({
+              decision:
+                active && (decision === "allow" || decision === "always_allow") ? "allow" : "deny",
+            });
+          },
+        };
+        pending.current.push(uiRequest);
+        setPermissionRequest(pending.current[0]!);
+      });
+    };
+    permissionBridges.set(handler, bridge);
+    ready.current = agent.waitForIdle().then(() => {
+      if (mounted.current && generation.current === currentGeneration) {
+        bridge.previous = livePermissionHandler(agent.getPermissionHandler());
+        agent.setPermissionHandler(handler);
+        installed = true;
+      }
+    });
+    return () => {
+      bridge.active = false;
+      mounted.current = false;
+      ++generation.current;
+      ++permissionEpoch.current;
+      denyPending();
+      if (installed && agent.getPermissionHandler() === handler) {
+        agent.abort();
+        void agent.cancel().then(() => {
+          // A later mount may already have installed its own bridge.
+          if (agent.getPermissionHandler() === handler)
+            agent.setPermissionHandler(livePermissionHandler(bridge.previous));
+        });
+      }
+    };
+  }, [agent, denyPending]);
 
-  const clearMessages = useCallback(() => {
+  const cancel = useCallback(async () => {
+    cancelled.current = true;
+    ++permissionEpoch.current;
+    denyPending();
+    agent.abort();
+    await agent.cancel();
+    await running.current;
+  }, [agent, denyPending]);
+
+  const clearMessages = useCallback(async () => {
+    await cancel();
     agent.clearMessages();
-    setMessages([]);
-    setStreamingContent(null);
-    setPermissionRequest(null);
-  }, [agent]);
+    if (mounted.current) {
+      setMessages([]);
+      setStreamingContent(null);
+      setPermissionRequest(null);
+    }
+  }, [agent, cancel]);
 
   const submit = useCallback(
-    (input: string) => {
-      // Bug 3 fix: prevent concurrent runs
-      if (isRunningRef.current) return;
+    (input: string): Promise<void> => {
       const trimmed = input.trim();
-      if (!trimmed) return;
-
-      // Add user message to UI state immediately
-      const userMsg: Message = {
-        id: nextId(),
-        role: "user",
-        content: trimmed,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-      isRunningRef.current = true;
+      if (!trimmed || running.current) return Promise.resolve();
+      const currentGeneration = generation.current;
+      const isCurrent = () => mounted.current && generation.current === currentGeneration;
+      cancelled.current = false;
+      ++permissionEpoch.current;
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId(), role: "user", content: trimmed, timestamp: Date.now() },
+      ]);
       setIsLoading(true);
       setStreamingContent(null);
-
-      // Drive the agent loop
-      (async () => {
+      const task = (async () => {
         let accumulated = "";
-
+        const toolMessages = new Map<string, string>();
+        const flush = () => {
+          if (accumulated && isCurrent()) {
+            const content = accumulated;
+            setMessages((prev) => [
+              ...prev,
+              { id: nextId(), role: "assistant", content, timestamp: Date.now() },
+            ]);
+          }
+          accumulated = "";
+          if (isCurrent()) setStreamingContent(null);
+        };
+        const reportError = (error: Error) => {
+          if (!isCurrent() || cancelled.current) return;
+          try {
+            void Promise.resolve(onErrorRef.current?.(error)).catch(() => {});
+          } catch {
+            /* Keep an observer failure from leaking the run or its permission bridge. */
+          }
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: "system", content: [{ type: "error", message: error.message }] },
+          ]);
+        };
         try {
+          await ready.current;
+          if (!isCurrent() || cancelled.current) return;
           for await (const event of agent.run(trimmed)) {
+            if (!isCurrent()) continue;
             switch (event.type) {
-              case "text": {
+              case "text":
                 accumulated += event.text;
                 setStreamingContent(accumulated);
                 break;
-              }
-
               case "tool_call": {
-                const msgId = nextId();
-                toolMsgMap.current.set(event.toolCall.id, msgId);
-                const toolMsg: Message = {
-                  id: msgId,
-                  role: "assistant",
-                  content: [toolCallToContent(event.toolCall)],
-                  timestamp: Date.now(),
-                };
-                setMessages((prev) => [...prev, toolMsg]);
-                break;
-              }
-
-              case "tool_result": {
-                const targetId = toolMsgMap.current.get(event.toolCallId);
-                if (targetId) {
-                  setMessages((prev) =>
-                    prev.map((m) => {
-                      if (m.id !== targetId) return m;
-                      const contents = Array.isArray(m.content) ? m.content : [];
-                      return {
-                        ...m,
-                        content: contents.map((c) => {
-                          if (c.type !== "tool_use") return c;
-                          return {
-                            ...c,
-                            result: event.result.content,
-                            status: event.result.isError
-                              ? ("error" as const)
-                              : ("success" as const),
-                          };
-                        }),
-                      };
-                    }),
-                  );
-                  toolMsgMap.current.delete(event.toolCallId);
-                }
-                break;
-              }
-
-              case "error": {
-                onError?.(event.error);
-                break;
-              }
-
-              case "done": {
-                // Flush any accumulated text as a final assistant message
-                if (accumulated.length > 0) {
-                  const assistantMsg: Message = {
-                    id: nextId(),
+                flush();
+                const id = nextId();
+                toolMessages.set(event.toolCall.id, id);
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id,
                     role: "assistant",
-                    content: accumulated,
+                    content: [toolCallToContent(event.toolCall)],
                     timestamp: Date.now(),
-                  };
-                  setMessages((prev) => [...prev, assistantMsg]);
-                }
-                accumulated = "";
-                setStreamingContent(null);
+                  },
+                ]);
                 break;
               }
+              case "tool_result": {
+                const id = toolMessages.get(event.toolCallId);
+                if (id) {
+                  setMessages((prev) =>
+                    prev.map((message) =>
+                      message.id !== id
+                        ? message
+                        : {
+                            ...message,
+                            content: (Array.isArray(message.content) ? message.content : []).map(
+                              (content) =>
+                                content.type !== "tool_use"
+                                  ? content
+                                  : {
+                                      ...content,
+                                      result: event.result.content,
+                                      status: event.result.isError ? "error" : "success",
+                                    },
+                            ),
+                          },
+                    ),
+                  );
+                  toolMessages.delete(event.toolCallId);
+                }
+                break;
+              }
+              case "error":
+                reportError(event.error);
+                break;
+              case "done":
+                flush();
+                break;
             }
           }
-        } catch (err) {
-          const error = err instanceof Error ? err : new Error(String(err));
-          onError?.(error);
+        } catch (error) {
+          reportError(error instanceof Error ? error : new Error(String(error)));
         } finally {
-          isRunningRef.current = false;
-          setIsLoading(false);
-          setStreamingContent(null);
+          flush();
+          denyPending();
+          if (isCurrent()) {
+            if (toolMessages.size)
+              setMessages((prev) =>
+                prev.map((message) =>
+                  ![...toolMessages.values()].includes(message.id)
+                    ? message
+                    : {
+                        ...message,
+                        content: (Array.isArray(message.content) ? message.content : []).map(
+                          (content) =>
+                            content.type !== "tool_use"
+                              ? content
+                              : {
+                                  ...content,
+                                  status: "error",
+                                  result: "Run ended before a tool result was received",
+                                },
+                        ),
+                      },
+                ),
+              );
+            setIsLoading(false);
+          }
         }
       })();
+      running.current = task;
+      void task.finally(() => {
+        if (running.current === task) running.current = null;
+      });
+      return task;
     },
-    [agent, onError],
+    [agent, denyPending],
   );
 
   return {

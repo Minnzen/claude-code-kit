@@ -76,8 +76,10 @@ export class ContextManager {
    *     effect)
    *   - otherwise fall back to the manager's built-in 0.85 threshold
    */
-  async maybeCompact(messages: Message[]): Promise<Message[]> {
+  async maybeCompact(messages: Message[], abortSignal?: AbortSignal): Promise<Message[]> {
+    abortSignal?.throwIfAborted();
     const tokenCount = await this.countTokens(messages);
+    abortSignal?.throwIfAborted();
 
     const shouldCompact = this.compactionStrategy.shouldCompact
       ? this.compactionStrategy.shouldCompact(messages, tokenCount, this.contextLimit)
@@ -85,7 +87,7 @@ export class ContextManager {
 
     if (shouldCompact) {
       const targetTokens = Math.floor(this.contextLimit * 0.6);
-      return await this.compactionStrategy.compact(messages, targetTokens);
+      return await this.compactionStrategy.compact(messages, targetTokens, abortSignal);
     }
 
     return messages;
@@ -94,13 +96,18 @@ export class ContextManager {
   /**
    * Force compaction (e.g. after receiving a "context too long" error from the API).
    */
-  async forceCompact(messages: Message[]): Promise<Message[]> {
+  async forceCompact(messages: Message[], abortSignal?: AbortSignal): Promise<Message[]> {
+    abortSignal?.throwIfAborted();
     const targetTokens = Math.floor(this.contextLimit * 0.5);
-    return await this.compactionStrategy.compact(messages, targetTokens);
+    return await this.compactionStrategy.compact(messages, targetTokens, abortSignal);
   }
 
   setContextLimit(limit: number): void {
     this.contextLimit = limit;
+  }
+
+  setProvider(provider: LLMProvider): void {
+    this.provider = provider;
   }
 
   setCompactionStrategy(strategy: CompactionStrategy): void {

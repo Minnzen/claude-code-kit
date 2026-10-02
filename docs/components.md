@@ -1,20 +1,21 @@
 # claude-code-kit Component Documentation
 
-Production-grade terminal UI components. Every component works independently with zero configuration.
+Composable terminal UI components. This reference describes the unpublished `0.4.0` release candidate. The last verified npm release is `0.3.1`; the installation command below pins that stable version, while candidate-only lifecycle and history APIs require the checkout.
 
 ## Installation
 
 ```bash
-pnpm add @claude-code-kit/ink-renderer @claude-code-kit/ui react
+pnpm add @claude-code-kit/ink-renderer@0.3.1 @claude-code-kit/ui@0.3.1 react@19.2.4 react-reconciler@0.33.0
 ```
+
+The checkout runtime is Node.js 22+, React 19.2.x, and react-reconciler 0.33.x. The command above installs published packages; use the checkout to try the new viewport/cancellation APIs. For TSX examples set `"type": "module"` and install `tsx`, or compile first.
 
 ## Quick Start
 
 ```tsx
 import { render } from '@claude-code-kit/ink-renderer'
 import { REPL, type Message } from '@claude-code-kit/ui'
-
-const messages: Message[] = []
+import React, { useState } from 'react'
 
 function App() {
   const [msgs, setMsgs] = useState<Message[]>([])
@@ -27,7 +28,7 @@ function App() {
   return <REPL messages={msgs} onSubmit={handleSubmit} model="opus-4.6" />
 }
 
-render(<App />)
+await render(<App />)
 ```
 
 ---
@@ -42,13 +43,16 @@ The main component. Composes MessageList, PromptInput, Spinner, Divider, and Sta
 |------|------|---------|-------------|
 | `onSubmit` | `(message: string) => Promise<void> \| void` | *required* | Called when the user submits a message |
 | `onExit` | `() => void` | `undefined` | Called on Ctrl+D. Falls back to `exit()` if not provided |
+| `onCancel` | `() => void \| Promise<void>` | `undefined` | Called on Ctrl+C while loading or awaiting permission |
+| `onError` | `(error: Error) => void \| Promise<void>` | `undefined` | Observes failed submit, command, or cancel callbacks; the original error is shown in red |
+| `historyHeight` | `number` | Based on terminal rows | Visible history rows; reserves room for input/status/overlays |
 | `messages` | `Message[]` | *required* | Array of messages to display |
 | `isLoading` | `boolean` | `false` | Shows spinner and disables input when true |
 | `streamingContent` | `string \| null` | `undefined` | Streaming assistant text shown with a block cursor |
 | `commands` | `REPLCommand[]` | `[]` | Slash commands (`{ name, description, onExecute }`) |
 | `model` | `string` | `undefined` | Model name shown in the status line |
 | `statusSegments` | `StatusLineSegment[]` | `undefined` | Custom status line segments. Overrides the default model display |
-| `prefix` | `string` | `'>'` | Prompt prefix character |
+| `prefix` | `string` | `'\u276F'` | Prompt prefix character |
 | `placeholder` | `string` | `undefined` | Placeholder text shown when input is empty |
 | `history` | `string[]` | `undefined` | Externally managed input history. If not provided, REPL tracks history internally |
 | `renderMessage` | `(message: Message) => React.ReactNode` | `undefined` | Custom message renderer |
@@ -84,7 +88,31 @@ type REPLCommand = {
 | Key | Action |
 |-----|--------|
 | `Ctrl+D` | Exit |
-| `Ctrl+C` | Cancel (during loading) |
+| `Ctrl+C` | Call `onCancel` during loading or a permission request when supplied |
+| `PageUp` / `PageDown` | Scroll history by a viewport |
+| Mouse wheel | Scroll history by rows |
+| `Ctrl+End` | Return to the history tail |
+| `Ctrl+F` | Search text, tool input/results, code, diffs, and errors; move the viewport to the selected match |
+
+Input history (`history`) and visible conversation history (`historyHeight`) are separate. The REPL remains responsible for input/status layout; a custom `renderMessage` remains responsible for its content. Callback failures settle the submission guard so input can be submitted again. A failing `onError` observer does not replace the original displayed error or produce another unhandled callback failure.
+
+## AgentREPL and useAgent
+
+`AgentREPL` wraps `REPL` with `AgentProvider`, streamed event display, permission decisions, cancellation, and a `/clear` command. It requires the optional `@claude-code-kit/agent` peer. Props are `agent` (required), `model`, `commands`, `welcome`, `placeholder`, `onError`, and `onExit`.
+
+`useAgent({ agent, onError? })` returns `messages`, `isLoading`, `streamingContent`, `permissionRequest`, and these lifecycle methods:
+
+| Method | Returns | Behavior |
+|---|---|---|
+| `submit(input)` | `Promise<void>` | Drives one run and resolves after its event loop finishes |
+| `cancel()` | `Promise<void>` | Requests cancellation, settles pending permission, and waits for the UI run to finish |
+| `clearMessages()` | `Promise<void>` | Cancels active work before clearing Agent and UI history |
+
+Await cancellation or clear when later work depends on completion. The headless Agent's `clearMessages()` is synchronous and requires idle; use `await agent.cancel()` first when handling it directly. The bridge installs a UI permission handler while mounted and restores it on cleanup.
+
+The bridge first evaluates the existing permission policy. An `allow` result is honored automatically; an explicit `deny` remains denied. It opens a dialog only for `{ decision: 'deny', approvalRequired: true }`, which means approval is missing and an interactive host may ask. The default read-only policy and factory fallback use that flag; `alwaysDeny` and custom denials without it cannot be overridden by the UI. Late policy results after cancellation, replacement submission, or unmount cannot open a prompt for another run.
+
+`PermissionUIRequest.resolve()` accepts `'allow'`, `'always_allow'`, or `'deny'`. In `AgentREPL`, the dialog's plain `a` shortcut / `always_allow` approves that tool name for the current mounted session, so later runs on the same Agent do not repeat a missing-approval dialog. This UI approval lives only in memory and resets when the Agent changes or the bridge unmounts. Every request still evaluates the original policy first; explicit denials take precedence over session approval.
 
 ---
 
@@ -248,6 +276,8 @@ Renders a list of chat messages with role-based styling. Supports custom rendere
 | `messages` | `Message[]` | *required* | Array of messages to render |
 | `streamingContent` | `string \| null` | `undefined` | Streaming text appended as an assistant message with a block cursor |
 | `renderMessage` | `(message: Message) => React.ReactNode` | `undefined` | Custom message renderer |
+| `viewportHeight` | `number` | `undefined` | Enables a bounded measured viewport; omission renders the full list |
+| `ref` | `React.Ref<VirtualListHandle>` | `undefined` | Scroll to a message index, the tail, or by rows when using a viewport |
 
 ### Message
 
@@ -278,6 +308,44 @@ Default role styling:
   streamingContent="I'm still typing..."
 />
 ```
+
+---
+
+## VirtualList and useVirtualScroll
+
+`VirtualList` renders a window of items inside `ScrollBox`, measures mounted row heights, and invalidates measurements when terminal width changes. Stable item identity avoids reusing a measurement for a different item.
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `items` | `T[]` | Required | Items in display order |
+| `renderItem` | `(item: T, index: number) => ReactNode` | Required | Render one item |
+| `viewportHeight` | `number` | Required | Visible terminal rows |
+| `estimatedItemHeight` | `number` | `3` | Initial height estimate before measurement |
+| `overscan` | `number` | `20` | Extra mounted items around the visible range |
+| `itemKey` | `(item: T, index: number) => string \| number` | Index | Stable key for rendering and height measurement |
+| `followOutput` | `boolean` | `false` | Begin at the tail and follow appended content until scrolling away |
+| `ref` | `React.Ref<VirtualListHandle>` | Undefined | Imperative scrolling handle |
+
+```tsx
+import React, { useRef } from 'react'
+import { Text, VirtualList, type VirtualListHandle } from '@claude-code-kit/ui'
+
+function History({ lines }: { lines: { id: string; text: string }[] }) {
+  const ref = useRef<VirtualListHandle>(null)
+  return <VirtualList
+    ref={ref}
+    items={lines}
+    itemKey={line => line.id}
+    viewportHeight={12}
+    followOutput
+    renderItem={line => <Text>{line.text}</Text>}
+  />
+}
+```
+
+`VirtualListHandle.scrollTo(index)` moves to an item, `scrollToEnd()` returns to the tail, and `scrollBy(rows)` moves by terminal rows. `useVirtualScroll` exposes range/token-independent height bookkeeping (`startIndex`, `endIndex`, `totalHeight`, `scrollOffset`, `offsets`) and `scrollTo`, `scrollToEnd`, and `onScroll`. It accepts optional `itemHeights` for callers managing measurements themselves; its `onScroll(delta)` moves by estimated-item units, while the list handle moves by rows.
+
+Renderer-backed mounted tests exercise the viewport and input wiring. These are separate from acceptance in a real user's terminal, OS, or terminal emulator.
 
 ---
 

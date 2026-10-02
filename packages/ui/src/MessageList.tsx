@@ -2,6 +2,7 @@ import { Box, Text } from "@claude-code-kit/ink-renderer";
 import type React from "react";
 import { useState } from "react";
 import { Spinner } from "./Spinner";
+import { VirtualList, type VirtualListHandle } from "./useVirtualScroll";
 import { getStableKeys, getStableLineEntries } from "./utils/stableKeys";
 
 export type MessageContent =
@@ -38,6 +39,8 @@ export type MessageListProps = {
   messages: Message[];
   streamingContent?: string | null;
   renderMessage?: (message: Message) => React.ReactNode;
+  viewportHeight?: number;
+  ref?: React.Ref<VirtualListHandle>;
 };
 
 const ROLE_CONFIG = {
@@ -291,39 +294,63 @@ export function MessageList({
   messages,
   streamingContent,
   renderMessage,
+  viewportHeight,
+  ref,
 }: MessageListProps): React.ReactNode {
   const streamingLines =
     streamingContent != null && streamingContent.length > 0
       ? getStableLineEntries(streamingContent, "streaming")
       : [];
 
-  return (
-    <Box flexDirection="column">
-      {messages.map((message, i) => (
-        <Box key={message.id} flexDirection="column" marginTop={i > 0 ? 1 : 0}>
-          <MessageItem message={message} renderMessage={renderMessage} />
+  const renderStream = () => (
+    <Box flexDirection="column" paddingTop={messages.length > 0 ? 1 : 0}>
+      <Box>
+        <Text color="#DA7756">{"\u25CF"}</Text>
+        <Text color="#DA7756" bold>
+          {" "}
+          Claude
+        </Text>
+      </Box>
+      {streamingLines.map(({ key, line }, i) => (
+        <Box key={key} marginLeft={2}>
+          <Text>
+            {line}
+            {i === streamingLines.length - 1 && <Text color="#DA7756">{"\u2588"}</Text>}
+          </Text>
         </Box>
       ))}
-
-      {streamingContent != null && streamingContent.length > 0 && (
-        <Box flexDirection="column" marginTop={messages.length > 0 ? 1 : 0}>
-          <Box>
-            <Text color="#DA7756">{"\u25CF"}</Text>
-            <Text color="#DA7756" bold>
-              {" "}
-              Claude
-            </Text>
-          </Box>
-          {streamingLines.map(({ key, line }, i) => (
-            <Box key={key} marginLeft={2}>
-              <Text>
-                {line}
-                {i === streamingLines.length - 1 && <Text color="#DA7756">{"\u2588"}</Text>}
-              </Text>
-            </Box>
-          ))}
+    </Box>
+  );
+  const items = streamingLines.length
+    ? [...messages, { id: "__streaming", role: "assistant" as const, content: "" }]
+    : messages;
+  const renderItem = (message: Message, index: number) =>
+    message.id === "__streaming" ? (
+      renderStream()
+    ) : (
+      <Box flexDirection="column" paddingTop={index > 0 ? 1 : 0}>
+        <MessageItem message={message} renderMessage={renderMessage} />
+      </Box>
+    );
+  if (viewportHeight !== undefined)
+    return (
+      <VirtualList
+        ref={ref}
+        items={items}
+        itemKey={(message) => message.id}
+        renderItem={renderItem}
+        viewportHeight={viewportHeight}
+        followOutput
+        overscan={3}
+      />
+    );
+  return (
+    <Box flexDirection="column">
+      {items.map((message, index) => (
+        <Box key={message.id} flexDirection="column">
+          {renderItem(message, index)}
         </Box>
-      )}
+      ))}
     </Box>
   );
 }

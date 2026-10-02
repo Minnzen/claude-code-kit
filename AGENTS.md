@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-claude-code-kit is a modular terminal UI toolkit + agent framework. 5 packages, 498 tests, 3 examples. Inspired by Claude Code's architecture but all UI components are clean rewrites.
+claude-code-kit is a modular terminal UI toolkit + agent framework. 5 packages and 3 examples. Inspired by Claude Code's architecture but all UI components are clean rewrites.
 
 ## Repository Structure
 
@@ -25,7 +25,7 @@ docs/
 
 ## Critical Lessons (DO NOT repeat these mistakes)
 
-1. **Do NOT extract Claude Code's compiled output** — React Compiler output (`_c(81)`, `t0`, `$[0]`) is unreadable. We tried 278 files, 70% were dead code. All UI components were rewritten from scratch.
+1. **Do NOT extract compiled output** — UI components must be independently implemented and maintainable.
 
 2. **Do NOT use stubs** — `_stubs/` directories with no-op functions made code compile but do nothing. Every component must work without any stub.
 
@@ -35,9 +35,9 @@ docs/
 
 5. **Security: default permission is allowReadOnly** — Non-read-only tools are denied by default. Never use allowAll as default.
 
-6. **Security: file tools check path containment** — All file tools verify resolved path stays inside workingDirectory.
+6. **Security: file tools check path containment** — Check lexical and real paths, including symlink ancestors; paths must stay inside workingDirectory.
 
-7. **Security: web-fetch blocks private IPs** — SSRF protection against localhost, private ranges, cloud metadata.
+7. **Security: web-fetch blocks private IPs** — Validate addresses resolved by DNS and every redirect against localhost, private ranges, and cloud metadata.
 
 ## Architecture Principles
 
@@ -50,10 +50,11 @@ docs/
 ## Key Design Decisions
 
 ### UI Layer
-- ink-renderer extracted from Claude Code source (React reconciler + custom Yoga TS port)
+- ink-renderer uses React reconciler and the shared pure TypeScript Yoga layout engine
 - All UI components rewritten from scratch
 - Components use `useInput` directly (keybindings optional)
 - ThemeProvider with 4 themes, 33 color tokens
+- `useTheme` is provided by `ui`; the renderer's former no-op theme export is removed
 - AuthFlowUI for interactive provider selection + credential input
 
 ### Agent Layer
@@ -62,8 +63,9 @@ docs/
 - Auth: open registry with 8 preset providers, multi-method auth (api-key, base-url-key, none)
 - Tools: Zod schema + execute function, no UI rendering
 - Permission: tiered (allowReadOnly default, alwaysAllow list, sessionApprove, callback)
-- Context: SlidingWindow + SummarizationCompactor (async, uses LLM)
-- Session: InMemorySession + FileSession (JSONL)
+- Context: Noop default; Micro, Summarization, SlidingWindow, and Layered strategies are explicit opt-ins
+- Session: InMemorySession + FileSession (JSONL); setMessages/clear update memory, save persists explicitly
+- Lifecycle: one active Agent run; abort requests cancellation, cancel/waitForIdle await cleanup; clearMessages and configuration setters require idle
 - Security: path containment, SSRF protection, safe defaults
 
 ### Types
@@ -78,7 +80,7 @@ docs/
 pnpm build          # Build all packages
 pnpm typecheck      # Type check all packages
 pnpm lint           # Lint all packages (Biome)
-pnpm test           # Run tests (vitest, 498 tests)
+pnpm test           # Run current Vitest regression suite
 pnpm release:check  # Full pre-release validation
 ```
 
@@ -102,21 +104,25 @@ ui              — depends on ink-renderer, shared; optionally agent (for bridg
 
 ## Current Status
 
-- 5 packages, all build + typecheck clean
-- 498 tests passing
-- All 5 packages published on npm v0.2.0
+- Checkout version: 0.4.0 release candidate; last verified npm version: 0.3.1. The candidate is unpublished.
+- Runtime baseline: Node.js >=22, React 19.2.x, react-reconciler 0.33.x.
+- Repository development floor: Node.js >=22.12.0; package runtime floor: >=22.0.0.
+- Candidate validation (2026-10-03): 0.4.0 passed 719 tests across 34 files plus release:check on Node 24.13.0; isolated packed-consumer checks passed on Node 22.0 / 24.13.
+- Local validation is tracked separately from remote CI; the last inspected May 12 remote run failed.
+- Before the candidate version change, local packed-consumer checks passed on Node 22.0 / 24.13; build tooling was checked on Node 22.12. These are not live provider or real-terminal acceptance.
+- Public API contract: EXPORTS.md. Manual npm/GitHub release procedure: RELEASE.md.
 - Linear project: https://linear.app/minnzen/project/claude-code-kit-964b8fbcd194
 
 ## Feature Parity Principle
 
-When adding new features, prioritize capabilities that Claude Code already has. Use Claude Code as the reference implementation for agent features (MCP, multi-agent, context management, hooks, etc.) and UI patterns. Adapt to our framework architecture — don't copy code, copy concepts.
+Use Claude Code as a conceptual reference for agent and UI patterns, adapted to the decoupled architecture. Prioritize contracts, lifecycle safety, and adoption of the existing surface before expanding capabilities. Product positioning is a composable terminal toolkit with an optional headless agent, rather than full Claude Code feature parity.
 
 ## Next Steps (see docs/roadmap.md + Linear)
 
-1. MCP client integration (dynamic tool discovery)
-2. Tool parallel execution
-3. Documentation site (Bolt/Lovable)
-4. More provider presets, structured output, retry logic
+1. Verify licenses, redistribution permissions, and bundled dependency notices before a release
+2. Keep public API docs and release evidence synchronized with the checkout
+3. Documentation site and runnable starters after the stability gate
+4. Performance baselines; structured output/retry/coordinator only when required
 
 ## Agent Usage Pattern
 
@@ -149,7 +155,7 @@ await render(<AgentREPL agent={agent} />)
 
 Scope: `@claude-code-kit/*`
 Publish order: shared → ink-renderer → agent → tools → ui (dependency order)
-Use `pnpm publish --access public --no-git-checks` per package
+Use `pnpm publish --access public --no-git-checks` per package after explicit release authorization. A GitHub tag creates a GitHub release after checks; it does not publish npm packages. See RELEASE.md for remaining release work.
 
 ## Git Conventions
 

@@ -71,77 +71,77 @@ export class AnthropicProvider implements LLMProvider {
     // biome-ignore lint/suspicious/noExplicitAny: Anthropic SDK .stream() expects specific param types that cannot be expressed with our generic translation layer
     const stream = client.messages.stream(params as any, { signal });
 
-    // Accumulate tool call input JSON across deltas
-    let currentToolId: string | undefined;
+    const toolBlocks = new Map<
+      number,
+      { id: string; input: Record<string, unknown>; hasDelta: boolean }
+    >();
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let stopped = false;
+    let stopReason: string | undefined;
 
     for await (const event of stream) {
+      signal?.throwIfAborted();
       switch (event.type) {
         case "content_block_start": {
           const block = event.content_block;
-          if (block.type === "text") {
-            // Text block started — nothing to yield yet
-          } else if (block.type === "tool_use") {
-            currentToolId = block.id;
-            yield {
-              type: "tool_use_start",
-              toolCall: { id: block.id, name: block.name },
-            };
-          } else if (block.type === "thinking") {
-            // Thinking block started
+          if (block.type === "text" && block.text) yield { type: "text", text: block.text };
+          if (block.type === "tool_use") {
+            toolBlocks.set(event.index, {
+              id: block.id,
+              input: block.input as Record<string, unknown>,
+              hasDelta: false,
+            });
+            yield { type: "tool_use_start", toolCall: { id: block.id, name: block.name } };
           }
           break;
         }
-
         case "content_block_delta": {
           const delta = event.delta;
-          if (delta.type === "text_delta") {
-            yield { type: "text", text: delta.text };
-          } else if (delta.type === "input_json_delta") {
-            yield { type: "tool_use_delta", text: delta.partial_json };
+          if (delta.type === "text_delta") yield { type: "text", text: delta.text };
+          else if (delta.type === "input_json_delta") {
+            const tool = toolBlocks.get(event.index);
+            if (!tool) throw new Error("Tool delta references an unknown content block");
+            tool.hasDelta = true;
+            yield { type: "tool_use_delta", id: tool.id, text: delta.partial_json };
           } else if (delta.type === "thinking_delta") {
             yield { type: "thinking", text: delta.thinking };
           }
           break;
         }
-
         case "content_block_stop": {
-          if (currentToolId) {
-            yield { type: "tool_use_end" };
-            currentToolId = undefined;
+          const tool = toolBlocks.get(event.index);
+          if (tool) {
+            if (!tool.hasDelta && Object.keys(tool.input ?? {}).length > 0) {
+              yield { type: "tool_use_delta", id: tool.id, text: JSON.stringify(tool.input) };
+            }
+            yield { type: "tool_use_end", id: tool.id };
+            toolBlocks.delete(event.index);
           }
           break;
         }
-
         case "message_delta": {
-          // message_delta contains usage updates
+          stopReason = event.delta.stop_reason ?? undefined;
           if (event.usage) {
-            yield {
-              type: "usage",
-              usage: {
-                inputTokens: 0,
-                outputTokens: event.usage.output_tokens,
-              },
-            };
+            outputTokens = event.usage.output_tokens;
+            yield { type: "usage", usage: { inputTokens, outputTokens } };
           }
           break;
         }
-
         case "message_start": {
-          if (event.message.usage) {
-            yield {
-              type: "usage",
-              usage: {
-                inputTokens: event.message.usage.input_tokens,
-                outputTokens: event.message.usage.output_tokens,
-              },
-            };
-          }
+          inputTokens = event.message.usage.input_tokens;
+          outputTokens = event.message.usage.output_tokens;
+          yield { type: "usage", usage: { inputTokens, outputTokens } };
           break;
         }
+        case "message_stop":
+          stopped = true;
+          break;
       }
     }
-
-    yield { type: "done" };
+    signal?.throwIfAborted();
+    if (!stopped || toolBlocks.size > 0) throw new Error("Incomplete Anthropic response");
+    yield { type: "done", stopReason };
   }
 
   async countTokens(messages: Message[]): Promise<number> {

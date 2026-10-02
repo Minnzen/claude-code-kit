@@ -109,6 +109,7 @@ export { StreamingText, type StreamingTextProps } from "./StreamingText";
 export {
   useVirtualScroll,
   VirtualList,
+  type VirtualListHandle,
   type VirtualListProps,
   type VirtualScrollOptions,
   type VirtualScrollResult,

@@ -1,4 +1,8 @@
+import type { LookupAddress } from "node:dns";
+import { lookup } from "node:dns/promises";
+import { isIP, type LookupFunction } from "node:net";
 import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
+import { Agent } from "undici";
 import { z } from "zod";
 
 const MAX_RESULT_SIZE = 50_000;
@@ -8,23 +12,110 @@ const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
  * Check if a URL points to a private/internal network address.
  * Blocks SSRF attacks targeting localhost, private IPs, link-local, and cloud metadata endpoints.
  */
-function isPrivateUrl(urlStr: string): boolean {
+function isPrivateAddress(address: string): boolean {
+  if (isIP(address) === 4) {
+    const [a, b, c] = address.split(".").map(Number);
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      a >= 224 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && (b === 168 || (b === 0 && (c === 0 || c === 2)))) ||
+      (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+      (a === 203 && b === 0 && c === 113)
+    );
+  }
+  if (isIP(address) !== 6) return true;
+  const normalized = address
+    .toLowerCase()
+    .replace(
+      /(\d+)\.(\d+)\.(\d+)\.(\d+)$/,
+      (_, a, b, c, d) =>
+        `${((Number(a) << 8) | Number(b)).toString(16)}:${((Number(c) << 8) | Number(d)).toString(16)}`,
+    );
+  const [left, right] = normalized.split("::");
+  const first = left ? left.split(":") : [];
+  const last = right ? right.split(":") : [];
+  const words =
+    right === undefined
+      ? first
+      : [...first, ...Array(8 - first.length - last.length).fill("0"), ...last];
+  const values = words.map((word) => parseInt(word, 16));
+  if (values.slice(0, 5).every((value) => value === 0) && values[5] === 0xffff) {
+    return isPrivateAddress(
+      `${values[6] >> 8}.${values[6] & 255}.${values[7] >> 8}.${values[7] & 255}`,
+    );
+  }
+  // Only global unicast addresses are eligible, excluding documentation ranges.
+  return (values[0] & 0xe000) !== 0x2000 || (values[0] === 0x2001 && values[1] === 0xdb8);
+}
+
+interface PublicTarget {
+  hostname: string;
+  addresses: LookupAddress[];
+}
+
+function normalizeHostname(hostname: string): string {
+  return hostname
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.+$/, "")
+    .toLowerCase();
+}
+
+async function validatePublicUrl(urlStr: string, signal: AbortSignal): Promise<PublicTarget> {
   const url = new URL(urlStr);
-  const hostname = url.hostname;
-  const blocked = [
-    /^127\./,
-    /^10\./,
-    /^172\.(1[6-9]|2\d|3[01])\./,
-    /^192\.168\./,
-    /^169\.254\./,
-    /^0\./,
-    /^localhost$/i,
-    /^::1$/,
-    /^\[::1\]$/,
-    /^metadata\.google/,
-    /^169\.254\.169\.254$/,
-  ];
-  return blocked.some((re) => re.test(hostname));
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error(`unsupported URL protocol — ${url.protocol}`);
+  }
+  const hostname = normalizeHostname(url.hostname);
+  const denied = () => new Error(`request to private/internal address denied — ${urlStr}`);
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    /^metadata\.google(?:\.|$)/.test(hostname)
+  )
+    throw denied();
+  if (isIP(hostname)) {
+    if (isPrivateAddress(hostname)) throw denied();
+    return { hostname, addresses: [{ address: hostname, family: isIP(hostname) }] };
+  }
+  signal.throwIfAborted();
+  const addresses = await new Promise<LookupAddress[]>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason ?? new Error("Aborted"));
+    signal.addEventListener("abort", onAbort, { once: true });
+    lookup(hostname, { all: true, verbatim: true })
+      .then(resolve, reject)
+      .finally(() => {
+        signal.removeEventListener("abort", onAbort);
+      });
+  });
+  if (addresses.length === 0 || addresses.some(({ address }) => isPrivateAddress(address)))
+    throw denied();
+  return { hostname, addresses: addresses.map(({ address, family }) => ({ address, family })) };
+}
+
+function createPinnedDispatcher(target: PublicTarget): Agent {
+  const pinnedLookup: LookupFunction = (hostname, options, callback) => {
+    const family = options.family === "IPv4" ? 4 : options.family === "IPv6" ? 6 : options.family;
+    const addresses = target.addresses.filter((entry) => !family || entry.family === family);
+    queueMicrotask(() => {
+      if (normalizeHostname(hostname) !== target.hostname || addresses.length === 0) {
+        callback(new Error("Connection hostname or address family was not validated"), "", 0);
+      } else if (options.all) {
+        callback(
+          null,
+          addresses.map((entry) => ({ ...entry })),
+        );
+      } else {
+        callback(null, addresses[0].address, addresses[0].family);
+      }
+    });
+  };
+  // Pin DNS without replacing the URL hostname used for TLS and certificate checks.
+  return new Agent({ connect: { lookup: pinnedLookup } });
 }
 
 // ---------------------------------------------------------------------------
@@ -222,19 +313,20 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   const url = upgradeToHttps(input.url);
 
   // Block requests to private/internal network addresses (SSRF prevention)
+  let target: PublicTarget;
   try {
-    if (isPrivateUrl(url)) {
-      return {
-        content: `Error: request to private/internal address denied — ${url}`,
-        isError: true,
-      };
-    }
-  } catch {
-    return { content: `Error: invalid URL — ${url}`, isError: true };
+    target = await validatePublicUrl(url, ctx.abortSignal);
+  } catch (error) {
+    if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
+    return { content: `Error: ${(error as Error).message}`, isError: true };
   }
 
-  // Check cache (only for GET requests with no custom body)
-  if ((!input.method || input.method === "GET") && !input.body) {
+  const cacheable =
+    (!input.method || input.method === "GET") &&
+    !input.body &&
+    Object.keys(input.headers ?? {}).length === 0;
+  // Custom headers can identify a different user or select a different response.
+  if (cacheable) {
     const cached = getCached(url);
     if (cached) {
       const promptPrefix = input.prompt ? `[Prompt: ${input.prompt}]\n\n` : "";
@@ -246,13 +338,51 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     }
   }
 
+  const dispatchers: Agent[] = [];
   try {
-    const res = await fetch(url, {
-      method: input.method,
-      headers: input.headers,
-      body: input.body,
-      signal: ctx.abortSignal,
-    });
+    let currentUrl = url;
+    let method = input.method ?? "GET";
+    const headers = new Headers(input.headers);
+    let body = input.body;
+    let res: Response;
+    for (let redirects = 0; ; redirects++) {
+      if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
+      if (redirects > 0) target = await validatePublicUrl(currentUrl, ctx.abortSignal);
+      if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
+      const dispatcher = createPinnedDispatcher(target);
+      dispatchers.push(dispatcher);
+      const requestOptions: RequestInit = {
+        method,
+        headers,
+        body,
+        signal: ctx.abortSignal,
+        redirect: "manual",
+        // Node's bundled dispatcher types vary independently of this compatible API.
+        dispatcher: dispatcher as unknown as RequestInit["dispatcher"],
+      };
+      res = await fetch(currentUrl, requestOptions);
+      if (![301, 302, 303, 307, 308].includes(res.status)) break;
+      const location = res.headers.get("location");
+      if (!location) break;
+      await res.body?.cancel();
+      if (redirects >= 10) throw new Error("Too many redirects");
+      const nextUrl = upgradeToHttps(new URL(location, currentUrl).href);
+      if (new URL(nextUrl).origin !== new URL(currentUrl).origin) {
+        headers.delete("authorization");
+        headers.delete("cookie");
+        headers.delete("proxy-authorization");
+      }
+      if (
+        (res.status === 303 && method !== "HEAD") ||
+        ([301, 302].includes(res.status) && method === "POST")
+      ) {
+        method = "GET";
+        body = undefined;
+        headers.delete("content-type");
+        headers.delete("content-length");
+      }
+      currentUrl = nextUrl;
+    }
 
     let text = await res.text();
 
@@ -274,7 +404,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
       metadata: { status: res.status, headers: Object.fromEntries(res.headers.entries()) },
     };
 
-    if ((!input.method || input.method === "GET") && !input.body) {
+    if (cacheable) {
       setCache(url, result);
     }
 
@@ -284,8 +414,11 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
       content: `${promptPrefix}${rawContent}`,
     };
   } catch (err: unknown) {
+    if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
     const msg = err instanceof Error ? err.message : String(err);
     return { content: `Fetch error: ${msg}`, isError: true };
+  } finally {
+    await Promise.allSettled(dispatchers.map((dispatcher) => dispatcher.destroy()));
   }
 }
 

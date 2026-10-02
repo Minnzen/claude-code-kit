@@ -480,3 +480,76 @@ describe('Agent parallel tool execution', () => {
     expect(toolResults).toHaveLength(1)
   })
 })
+
+
+describe('executeToolCalls cancellation and metadata', () => {
+  it('settles a permission callback that ignores abort and does not start tools', async () => {
+    const registry = new ToolRegistry()
+    const tool = createTimedTool('write', { isReadOnly: false })
+    registry.register(tool)
+    let entered!: () => void
+    const started = new Promise<void>(resolve => { entered = resolve })
+    const controller = new AbortController()
+    const pending = executeToolCalls({
+      toolCalls: [{ id: 'a', name: 'write', input: {} }, { id: 'b', name: 'write', input: {} }],
+      toolRegistry: registry, context: { workingDirectory: '/tmp', abortSignal: controller.signal },
+      permissionHandler: async () => { entered(); return new Promise(() => {}) },
+    })
+    await started
+    controller.abort()
+    expect((await pending).every(result => result.isError)).toBe(true)
+    expect(tool.execute).not.toHaveBeenCalled()
+  })
+
+  it('forwards destructive and confirmation metadata to permission policy', async () => {
+    const registry = new ToolRegistry()
+    const tool = createTimedTool('risky', { isReadOnly: true, isDestructive: true })
+    tool.requiresConfirmation = true
+    registry.register(tool)
+    const permissionHandler = vi.fn(async () => ({ decision: 'deny' as const }))
+    await executeToolCalls({ toolCalls: [{ id: 'a', name: 'risky', input: {} }], toolRegistry: registry,
+      context: { workingDirectory: '/tmp', abortSignal: new AbortController().signal }, permissionHandler })
+    expect(permissionHandler).toHaveBeenCalledWith({ tool: 'risky', input: {}, isReadOnly: true,
+      isDestructive: true, requiresConfirmation: true })
+    expect(tool.execute).not.toHaveBeenCalled()
+  })
+
+  it.each([0, -1, 1.5, Number.NaN])('rejects invalid concurrency %s instead of wedging', async maxConcurrent => {
+    await expect(executeToolCalls({ toolCalls: [], toolRegistry: new ToolRegistry(),
+      context: { workingDirectory: '/tmp', abortSignal: new AbortController().signal },
+      permissionHandler: allowAllHandler, maxConcurrent })).rejects.toThrow(/positive integer/)
+  })
+})
+
+it('does not execute a definition changed while permission approval is pending', async () => {
+  const registry = new ToolRegistry()
+  const oldTool = createTimedTool('changing', { isReadOnly: true })
+  const newTool = createTimedTool('changing', { isReadOnly: false })
+  registry.register(oldTool)
+  const results = await executeToolCalls({ toolCalls: [{ id: 'a', name: 'changing', input: {} }], toolRegistry: registry,
+    context: { workingDirectory: '/tmp', abortSignal: new AbortController().signal },
+    permissionHandler: async request => {
+      expect(request.isReadOnly).toBe(true)
+      registry.unregister('changing')
+      registry.register(newTool)
+      return { decision: 'allow' }
+    },
+  })
+  expect(results[0].isError).toBe(true)
+  expect(results[0].content).toMatch(/changed/i)
+  expect(oldTool.execute).not.toHaveBeenCalled()
+  expect(newTool.execute).not.toHaveBeenCalled()
+})
+
+
+it.each(['ask', undefined])('fails closed on malformed permission decisions: %s', async decision => {
+  const registry = new ToolRegistry()
+  const tool = createTimedTool('invalid-approval', { isReadOnly: false })
+  registry.register(tool)
+  const result = await executeToolCalls({ toolCalls: [{ id: 'a', name: tool.name, input: {} }], toolRegistry: registry,
+    context: { workingDirectory: '/tmp', abortSignal: new AbortController().signal },
+    permissionHandler: async () => ({ decision } as never),
+  })
+  expect(result[0].isError).toBe(true)
+  expect(tool.execute).not.toHaveBeenCalled()
+})

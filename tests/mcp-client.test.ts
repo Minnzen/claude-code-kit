@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { z } from 'zod'
 import { MCPClient, _resetSdkCache } from '../packages/agent/src/mcp-client.ts'
 import { Agent } from '../packages/agent/src/agent.ts'
@@ -12,6 +12,31 @@ import type {
   MCPHttpServerConfig,
   ToolDefinition,
 } from '../packages/agent/src/types.ts'
+
+const sdkHarness = vi.hoisted(() => ({
+  client: null as any,
+  transport: null as any,
+  options: null as any,
+}))
+
+vi.mock('../packages/agent/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js', () => ({
+  Client: class {
+    constructor(_info: unknown, options: unknown) {
+      sdkHarness.options = options
+      Object.assign(this, sdkHarness.client)
+    }
+  },
+}))
+vi.mock('../packages/agent/node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js', () => ({
+  StdioClientTransport: class {
+    constructor() { Object.assign(this, sdkHarness.transport) }
+  },
+}))
+vi.mock('../packages/agent/node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js', () => ({
+  StreamableHTTPClientTransport: class {
+    constructor() { Object.assign(this, sdkHarness.transport) }
+  },
+}))
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -132,12 +157,190 @@ describe('MCPClient', () => {
   })
 })
 
+describe('MCPClient lifecycle and discovery', () => {
+  beforeEach(() => {
+    _resetSdkCache()
+    sdkHarness.client = createMockMCPClientSdk()
+    sdkHarness.transport = createMockTransport()
+    sdkHarness.options = null
+  })
+
+  afterEach(() => { vi.useRealTimers() })
+
+  it('discovers every tools/list page before exposing a catalog', async () => {
+    const client = new MCPClient({ name: 'pages', command: 'unused' })
+    sdkHarness.client.listTools
+      .mockResolvedValueOnce({ tools: [{ name: 'first', inputSchema: { type: 'object' } }], nextCursor: 'page-2' })
+      .mockResolvedValueOnce({ tools: [{ name: 'last', inputSchema: { type: 'object' } }] })
+    await client.connect()
+    expect(client.tools.map(tool => tool.name)).toEqual(['mcp__pages__first', 'mcp__pages__last'])
+    expect(sdkHarness.client.listTools.mock.calls[1][0]).toEqual({ cursor: 'page-2' })
+    await client.disconnect()
+  })
+
+  it('clears the connection timeout after successful discovery', async () => {
+    vi.useFakeTimers()
+    const client = new MCPClient({ name: 'timer', command: 'unused', connectTimeout: 100 })
+    await client.connect()
+    expect(vi.getTimerCount()).toBe(0)
+    await client.disconnect()
+  })
+
+  it('cleans a failed connection and permits a later reconnect', async () => {
+    const client = new MCPClient({ name: 'retry', command: 'unused' })
+    sdkHarness.client.connect.mockRejectedValueOnce(new Error('handshake failed'))
+    await expect(client.connect()).rejects.toThrow('handshake failed')
+    expect(client.connected).toBe(false)
+    expect(sdkHarness.transport.close).toHaveBeenCalledTimes(1)
+    expect(sdkHarness.client.close).toHaveBeenCalledTimes(1)
+    await client.connect()
+    expect(client.connected).toBe(true)
+    await client.disconnect()
+  })
+
+  it('bounds stalled discovery by the connection timeout and closes the transport', async () => {
+    vi.useFakeTimers()
+    const client = new MCPClient({ name: 'timeout', command: 'unused', connectTimeout: 10 })
+    sdkHarness.client.listTools.mockImplementation(() => new Promise(() => {}))
+    const result = expect(client.connect()).rejects.toThrow(/timed out/)
+    await vi.advanceTimersByTimeAsync(10)
+    await result
+    expect(client.connected).toBe(false)
+    expect(client.tools).toEqual([])
+    expect(sdkHarness.transport.close).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('rejects an incomplete discovery and preserves no connected state', async () => {
+    const client = new MCPClient({ name: 'broken-list', command: 'unused' })
+    sdkHarness.client.listTools
+      .mockResolvedValueOnce({ tools: [{ name: 'partial', inputSchema: { type: 'object' } }], nextCursor: 'next' })
+      .mockRejectedValueOnce(new Error('page failed'))
+    await expect(client.connect()).rejects.toThrow('page failed')
+    expect(client.connected).toBe(false)
+    expect(client.tools).toEqual([])
+    expect(sdkHarness.transport.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('cancels stalled initial discovery even if SDK close never resolves', async () => {
+    const client = new MCPClient({ name: 'abort-init', command: 'unused' })
+    let resolveDiscovery: (value: unknown) => void = () => {}
+    const started = new Promise<void>(resolve => {
+      sdkHarness.client.listTools.mockImplementationOnce(() => {
+        resolve()
+        return new Promise(done => { resolveDiscovery = done })
+      })
+    })
+    sdkHarness.client.close.mockImplementationOnce(() => new Promise(() => {}))
+    const controller = new AbortController()
+    const result = expect(client.connect(controller.signal)).rejects.toThrow(/cancelled/)
+    await started
+    controller.abort(new Error('initialization cancelled'))
+    await result
+    expect(sdkHarness.transport.close).toHaveBeenCalledTimes(1)
+    resolveDiscovery({ tools: [{ name: 'late', inputSchema: { type: 'object' } }] })
+    await Promise.resolve()
+    expect(client.tools).toEqual([])
+    await client.connect()
+    expect(client.connected).toBe(true)
+    await client.disconnect()
+  })
+
+  it('closes the transport even when SDK client cleanup throws synchronously', async () => {
+    sdkHarness.client.connect.mockRejectedValueOnce(new Error('handshake failed'))
+    sdkHarness.client.close.mockImplementationOnce(() => { throw new Error('close failed') })
+    const client = new MCPClient({ name: 'cleanup', command: 'unused' })
+    await expect(client.connect()).rejects.toThrow('handshake failed')
+    expect(sdkHarness.transport.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows list_changed refresh after reconnect when an old refresh never resolves', async () => {
+    const client = new MCPClient({ name: 'refresh-retry', command: 'unused' })
+    await client.connect()
+    const started = new Promise<void>(resolve => {
+      sdkHarness.client.listTools.mockImplementationOnce(() => {
+        resolve()
+        return new Promise(() => {})
+      })
+    })
+    void sdkHarness.options.listChanged.tools.onChanged(null, null)
+    await started
+    await client.disconnect()
+    await client.connect()
+    sdkHarness.client.listTools.mockResolvedValueOnce({ tools: [{ name: 'new', inputSchema: { type: 'object' } }] })
+    await sdkHarness.options.listChanged.tools.onChanged(null, null)
+    expect(client.tools.map(tool => tool.name)).toEqual(['mcp__refresh-retry__new'])
+    await client.disconnect()
+  })
+
+  it('refreshes additions and removals when the server sends tools/list_changed', async () => {
+    const client = new MCPClient({ name: 'dynamic', command: 'unused' })
+    sdkHarness.client.listTools.mockResolvedValueOnce({ tools: [{ name: 'old', inputSchema: { type: 'object' } }] })
+    await client.connect()
+    const catalogs: string[][] = []
+    client.onToolsChanged(tools => catalogs.push(tools.map(tool => tool.name)))
+    sdkHarness.client.listTools.mockResolvedValueOnce({ tools: [{ name: 'new', inputSchema: { type: 'object' } }] })
+    await sdkHarness.options.listChanged.tools.onChanged(null, null)
+    expect(client.tools.map(tool => tool.name)).toEqual(['mcp__dynamic__new'])
+    expect(catalogs).toEqual([['mcp__dynamic__new']])
+    await client.disconnect()
+  })
+
+  it('reports failed notification refresh while retaining the last complete catalog', async () => {
+    const client = new MCPClient({ name: 'dynamic-error', command: 'unused' })
+    sdkHarness.client.listTools.mockResolvedValueOnce({ tools: [{ name: 'known', inputSchema: { type: 'object' } }] })
+    await client.connect()
+    const errors: Error[] = []
+    client.onError(error => errors.push(error))
+    sdkHarness.client.listTools.mockRejectedValueOnce(new Error('refresh denied'))
+    await sdkHarness.options.listChanged.tools.onChanged(null, null)
+    expect(errors[0]?.message).toContain('refresh denied')
+    expect(client.tools.map(tool => tool.name)).toEqual(['mcp__dynamic-error__known'])
+    await client.disconnect()
+  })
+
+  it('does not grant read-only permission from untrusted remote annotations', async () => {
+    sdkHarness.client.listTools.mockResolvedValueOnce({ tools: [
+      { name: 'claimed-safe', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } },
+    ] })
+    const client = new MCPClient({ name: 'untrusted', command: 'unused' })
+    await client.connect()
+    expect(client.tools[0]?.isReadOnly).toBe(false)
+    await client.disconnect()
+  })
+
+  it('never grants read-only permission to a destructive tool even with trusted annotations', async () => {
+    sdkHarness.client.listTools.mockResolvedValueOnce({ tools: [
+      { name: 'conflicting', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true, destructiveHint: true } },
+    ] })
+    const client = new MCPClient({ name: 'trusted', command: 'unused', trustToolAnnotations: true })
+    await client.connect()
+    expect(client.tools[0]?.isReadOnly).toBe(false)
+    expect(client.tools[0]?.isDestructive).toBe(true)
+    await client.disconnect()
+  })
+
+  it('propagates tool cancellation to the SDK request', async () => {
+    sdkHarness.client.listTools.mockResolvedValueOnce({ tools: [{ name: 'slow', inputSchema: { type: 'object' } }] })
+    sdkHarness.client.callTool.mockImplementation((_params: unknown, _schema: unknown, options: { signal: AbortSignal }) => new Promise((_, reject) => {
+      options?.signal?.addEventListener('abort', () => reject(new Error('request cancelled')), { once: true })
+    }))
+    const client = new MCPClient({ name: 'cancel', command: 'unused' })
+    await client.connect()
+    const controller = new AbortController()
+    const result = client.tools[0]!.execute({}, { workingDirectory: '/tmp', abortSignal: controller.signal })
+    controller.abort()
+    expect(await result).toMatchObject({ isError: true, content: expect.stringContaining('cancelled') })
+    await client.disconnect()
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Tests: MCP tool conversion
 // ---------------------------------------------------------------------------
 
 describe('MCP tool conversion', () => {
-  it('converts MCP tools to ToolDefinition with namespaced names', () => {
+  it('converts MCP tools to ToolDefinition with namespaced names', async () => {
     const mockClient = createMockMCPClientSdk([
       { name: 'search', description: 'Search files' },
       { name: 'read', description: 'Read a file' },
@@ -147,7 +350,7 @@ describe('MCP tool conversion', () => {
     const tools = mockClient.listTools()
 
     // Verify the mock returns expected tools
-    expect(tools).resolves.toEqual(
+    await expect(tools).resolves.toEqual(
       expect.objectContaining({
         tools: expect.arrayContaining([
           expect.objectContaining({ name: 'search' }),
@@ -157,7 +360,7 @@ describe('MCP tool conversion', () => {
     )
   })
 
-  it('preserves readOnlyHint from annotations', async () => {
+  it('preserves readOnlyHint only when server annotations are explicitly trusted', async () => {
     // Simulate the full flow by testing what MCPClient.connect() would produce
     // We test the conversion logic directly by examining the ToolDefinition output
 
@@ -183,7 +386,7 @@ describe('MCP tool conversion', () => {
     const mockTransport = createMockTransport()
 
     // Patch the internal state to simulate a connected client
-    const client = new MCPClient({ name: 'test', command: 'echo' })
+    const client = new MCPClient({ name: 'test', command: 'echo', trustToolAnnotations: true })
 
     // Use private access to inject mock (testing the conversion logic)
     ;(client as any).client = mockSdkClient
@@ -248,10 +451,10 @@ describe('MCP tool execution', () => {
 
     expect(result.content).toBe('Hello from MCP!')
     expect(result.isError).toBeFalsy()
-    expect(mockSdkClient.callTool).toHaveBeenCalledWith({
-      name: 'greet',
-      arguments: {},
-    })
+    expect(mockSdkClient.callTool).toHaveBeenCalledWith(
+      { name: 'greet', arguments: {} }, undefined,
+      { signal: expect.any(AbortSignal) },
+    )
   })
 
   it('handles MCP server errors gracefully', async () => {

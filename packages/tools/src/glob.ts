@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import fg from "fast-glob";
 import { z } from "zod";
+import { resolveContainedPath, validateGlobScope } from "./path-safety.js";
 
 const MAX_RESULT_SIZE = 100_000;
 
@@ -16,30 +17,33 @@ type Input = z.infer<typeof inputSchema>;
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
 
-  const cwd = input.path ?? ctx.workingDirectory;
-
   try {
+    const cwd = await resolveContainedPath(ctx.workingDirectory, input.path ?? ".");
+    await validateGlobScope(input.pattern, cwd, ctx.workingDirectory);
     const files = await fg(input.pattern, {
       cwd,
       dot: false,
       ignore: ["**/node_modules/**", "**/.git/**"],
       onlyFiles: true,
       absolute: false,
+      followSymbolicLinks: false,
     });
 
     // Sort by modification time (most recently modified first)
     const withStats = await Promise.all(
       files.map(async (f) => {
         try {
-          const stat = await fs.stat(path.resolve(cwd, f));
+          const filePath = await resolveContainedPath(ctx.workingDirectory, path.resolve(cwd, f));
+          const stat = await fs.stat(filePath);
           return { file: f, mtime: stat.mtimeMs };
         } catch {
-          return { file: f, mtime: 0 };
+          return undefined;
         }
       }),
     );
-    withStats.sort((a, b) => b.mtime - a.mtime);
-    const sorted = withStats.map((s) => s.file);
+    const containedFiles = withStats.filter((entry) => entry !== undefined);
+    containedFiles.sort((a, b) => b.mtime - a.mtime);
+    const sorted = containedFiles.map((s) => s.file);
 
     if (sorted.length === 0) {
       return { content: "No files matched the pattern" };

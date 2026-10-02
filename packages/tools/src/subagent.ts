@@ -35,7 +35,7 @@ type Input = z.infer<typeof inputSchema>;
  * and returns its final text response to the caller.
  */
 export function createSubagentTool(config: SubagentConfig): ToolDefinition<Input> {
-  const timeout = config.timeout ?? DEFAULT_TIMEOUT;
+  const timeout = Math.max(0, config.timeout ?? DEFAULT_TIMEOUT);
 
   async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     if (ctx.abortSignal.aborted) {
@@ -89,8 +89,8 @@ export function createSubagentTool(config: SubagentConfig): ToolDefinition<Input
   - Benefit from parallel or isolated execution
 
   Timeout and abort behavior:
-  - The subagent is subject to a configurable timeout (default: ${DEFAULT_TIMEOUT / 1000}s); it will be forcibly stopped and return an error if it exceeds this limit
-  - If the parent agent's AbortSignal fires (e.g. user cancels), the cancellation is propagated to the subagent via its own AbortController, stopping in-flight work immediately
+  - The subagent is subject to a configurable timeout (default: ${DEFAULT_TIMEOUT / 1000}s); the caller receives an error if it exceeds this limit
+  - If the parent agent's AbortSignal fires (e.g. user cancels), the cancellation is propagated to the subagent via its own AbortController; physical work stops only if the child honors the signal
   - The signal passed to agentFactory can be used to wire the AbortSignal into the subagent's underlying provider calls
 `,
     inputSchema,

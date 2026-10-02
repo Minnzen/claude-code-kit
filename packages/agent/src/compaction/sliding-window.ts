@@ -1,61 +1,27 @@
-import { estimateTokens } from "../context-manager.js";
+import { estimateTotalTokens } from "../context-manager.js";
 import type { CompactionStrategy, Message } from "../types.js";
+import { partitionExchanges } from "./exchanges.js";
 
 /**
- * Sliding window compaction: keeps the system message (if any) plus
- * the most recent messages that fit within the token budget.
- *
- * When compacting, older messages are dropped from the middle, preserving
- * the system message at the start and the most recent messages at the end.
+ * Keeps system messages and a suffix of complete user turns within the token budget.
+ * The newest turn is always retained, even when it exceeds the budget, so compaction
+ * cannot discard the task currently being performed. Token targets are best effort.
  */
 export class SlidingWindowCompaction implements CompactionStrategy {
-  compact(messages: Message[], maxTokens: number): Message[] {
-    if (messages.length === 0) return messages;
+  compact(messages: Message[], maxTokens: number, abortSignal?: AbortSignal): Message[] {
+    abortSignal?.throwIfAborted();
+    const { systemMessages, exchanges } = partitionExchanges(messages);
+    let totalTokens = estimateTotalTokens(systemMessages);
+    const kept: Message[][] = [];
 
-    // Separate system messages from conversation messages
-    const systemMessages: Message[] = [];
-    const conversationMessages: Message[] = [];
-
-    for (const msg of messages) {
-      if (msg.role === "system") {
-        systemMessages.push(msg);
-      } else {
-        conversationMessages.push(msg);
-      }
+    for (let i = exchanges.length - 1; i >= 0; i--) {
+      const exchange = exchanges[i]!;
+      const exchangeTokens = estimateTotalTokens(exchange);
+      if (kept.length > 0 && totalTokens + exchangeTokens > maxTokens) break;
+      kept.unshift(exchange);
+      totalTokens += exchangeTokens;
     }
 
-    // Start with system messages (always keep)
-    let totalTokens = 0;
-    for (const msg of systemMessages) {
-      totalTokens += estimateTokens(msg);
-    }
-
-    // If system messages alone exceed the budget, return just them
-    if (totalTokens >= maxTokens) {
-      return systemMessages;
-    }
-
-    const remainingBudget = maxTokens - totalTokens;
-
-    // Walk backwards from most recent, keeping messages that fit
-    const kept: Message[] = [];
-    let usedTokens = 0;
-
-    for (let i = conversationMessages.length - 1; i >= 0; i--) {
-      const msg = conversationMessages[i]!;
-      const msgTokens = estimateTokens(msg);
-      if (usedTokens + msgTokens > remainingBudget) {
-        break;
-      }
-      kept.unshift(msg);
-      usedTokens += msgTokens;
-    }
-
-    // Ensure we don't start with a tool result message (orphaned from its assistant)
-    while (kept.length > 0 && kept[0]!.role === "tool") {
-      kept.shift();
-    }
-
-    return [...systemMessages, ...kept];
+    return [...systemMessages, ...kept.flat()];
   }
 }

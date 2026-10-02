@@ -100,7 +100,8 @@ export class MicroCompaction implements CompactionStrategy {
    * Synchronous: walks the message array twice — once to learn each
    * `toolCallId -> toolName`, once to rewrite eligible tool results.
    */
-  compact(messages: Message[], _maxTokens: number): Message[] {
+  compact(messages: Message[], _maxTokens: number, abortSignal?: AbortSignal): Message[] {
+    abortSignal?.throwIfAborted();
     if (messages.length === 0) return messages;
 
     // 1. Build the toolCallId -> toolName lookup so we can apply the

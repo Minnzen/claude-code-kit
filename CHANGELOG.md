@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0] - 2026-10-03
+
+### Changed
+- Require Node.js 22+ at runtime and Node.js 22.12+ for development; use React 19.2.x and react-reconciler 0.33.x.
+- Add explicit Agent cancellation and idle lifecycle contracts, complete-exchange compaction, and persistent session recovery.
+- Preserve explicit permission denials across the UI bridge and separate one-time approval from in-memory session grants.
+- Harden file containment, shell cancellation, Git argument handling, and WebFetch DNS/redirect validation.
+- Reconcile dynamic MCP tools, provider tool streams, custom endpoint credentials, and OAuth state/expiry handling.
+- Fix terminal cancellation, pasted input, callback cleanup, and variable-height history navigation.
+- Add isolated ESM/CommonJS/TSX package-consumer checks, a Node 22/24 CI matrix, public API and migration documentation, and bundled dependency license notices.
+
 ## 0.3.2 (2026-05-12)
 
 ### Breaking Changes

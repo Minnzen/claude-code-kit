@@ -105,8 +105,8 @@ export interface ToolDefinition<TInput = unknown> {
 export type StreamChunk =
   | { type: "text"; text: string }
   | { type: "tool_use_start"; toolCall: { id: string; name: string } }
-  | { type: "tool_use_delta"; text: string }
-  | { type: "tool_use_end" }
+  | { type: "tool_use_delta"; text: string; id?: string }
+  | { type: "tool_use_end"; id?: string }
   | { type: "thinking"; text: string }
   | { type: "usage"; usage: { inputTokens: number; outputTokens: number } }
   | { type: "done"; stopReason?: string }
@@ -191,11 +191,15 @@ export interface PermissionRequest {
   tool: string;
   input: Record<string, unknown>;
   isReadOnly?: boolean;
+  isDestructive?: boolean;
+  requiresConfirmation?: boolean;
 }
 
 export interface PermissionResult {
   decision: "allow" | "deny";
   reason?: string;
+  /** A denial caused by missing approval may be delegated to an interactive host. */
+  approvalRequired?: boolean;
 }
 
 export type PermissionHandler = (request: PermissionRequest) => Promise<PermissionResult>;
@@ -223,7 +227,11 @@ export interface Session {
 // ---------------------------------------------------------------------------
 
 export interface CompactionStrategy {
-  compact(messages: Message[], maxTokens: number): Message[] | Promise<Message[]>;
+  compact(
+    messages: Message[],
+    maxTokens: number,
+    abortSignal?: AbortSignal,
+  ): Message[] | Promise<Message[]>;
   /**
    * Optional pre-check used by `ContextManager.maybeCompact()`. Strategies
    * that have their own threshold (e.g. `MicroCompaction.thresholdFraction`)
@@ -247,6 +255,8 @@ export interface MCPStdioServerConfig {
   cwd?: string;
   /** Timeout in ms for the initial connection (default: 30000). */
   connectTimeout?: number;
+  /** Opt in to server tool safety annotations. Untrusted tools require approval by default. */
+  trustToolAnnotations?: boolean;
 }
 
 /** HTTP-based MCP server: connects via Streamable HTTP transport. */
@@ -256,6 +266,8 @@ export interface MCPHttpServerConfig {
   headers?: Record<string, string>;
   /** Timeout in ms for the initial connection (default: 30000). */
   connectTimeout?: number;
+  /** Opt in to server tool safety annotations. Untrusted tools require approval by default. */
+  trustToolAnnotations?: boolean;
 }
 
 export type MCPServerConfig = MCPStdioServerConfig | MCPHttpServerConfig;

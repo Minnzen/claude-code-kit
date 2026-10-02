@@ -1,14 +1,16 @@
 {
   "name": "@claude-code-kit/shared",
-  "version": "0.3.2",
-  "description": "Shared utilities for claude-code-kit — Yoga layout TS port, logger, env helpers",
+  "version": "0.4.0",
+  "description": "Shared utilities for claude-code-kit \u2014 Yoga layout TS port, logger, env helpers",
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "exports": {
     ".": {
@@ -28,17 +30,17 @@
     "lint": "biome check src/"
   },
   "dependencies": {
-    "@alcalzone/ansi-tokenize": "*",
-    "emoji-regex": "*",
-    "get-east-asian-width": "*",
-    "semver": "*",
-    "strip-ansi": "*"
+    "@alcalzone/ansi-tokenize": "0.3.0",
+    "emoji-regex": "10.6.0",
+    "get-east-asian-width": "1.5.0",
+    "semver": "7.7.4",
+    "strip-ansi": "7.2.0"
   },
   "devDependencies": {
-    "@types/node": "*",
-    "@types/semver": "*",
-    "tsup": "*",
-    "typescript": "*"
+    "@types/node": "25.5.0",
+    "@types/semver": "7.7.1",
+    "tsup": "8.5.1",
+    "typescript": "5.9.3"
   },
   "repository": {
     "type": "git",
@@ -56,7 +58,7 @@
     "claude-code"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.0.0"
   },
   "publishConfig": {
     "access": "public"

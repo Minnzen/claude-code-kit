@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import fg from "fast-glob";
 import { z } from "zod";
+import { resolveContainedPath, validateGlobScope } from "./path-safety.js";
 
 const MAX_FILES = 5_000;
 const DEFAULT_HEAD_LIMIT = 250;
@@ -239,9 +240,6 @@ function matchesType(filePath: string, fileType: string): boolean {
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
 
-  const searchPath = input.path
-    ? path.resolve(ctx.workingDirectory, input.path)
-    : ctx.workingDirectory;
   const outputMode = input.output_mode ?? "files_with_matches";
   const headLimit = input.head_limit ?? DEFAULT_HEAD_LIMIT;
   const offsetSkip = input.offset ?? 0;
@@ -255,6 +253,9 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   const afterCtx = input["-A"] ?? contextVal;
 
   try {
+    const workingRoot = await resolveContainedPath(ctx.workingDirectory, ".");
+    const searchPath = await resolveContainedPath(ctx.workingDirectory, input.path ?? ".");
+    if (input.glob) await validateGlobScope(input.glob, searchPath, ctx.workingDirectory);
     // Build regex flags
     let flags = "";
     if (isMultiline) flags += "s"; // dotAll
@@ -289,6 +290,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
         cwd: searchPath,
         absolute: true,
         onlyFiles: true,
+        followSymbolicLinks: false,
         ignore: ["**/node_modules/**", "**/.git/**", "**/*.min.*"],
       });
 
@@ -298,6 +300,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
           cwd: searchPath,
           absolute: true,
           onlyFiles: true,
+          followSymbolicLinks: false,
           ignore: ["**/node_modules/**", "**/.git/**", "**/*.min.*"],
         });
         const globSet = new Set(globFilter);
@@ -323,9 +326,10 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
       }
 
       try {
-        const content = await fs.readFile(file, "utf-8");
+        const filePath = await resolveContainedPath(ctx.workingDirectory, file);
+        const content = await fs.readFile(filePath, "utf-8");
         const lines = content.split("\n");
-        const relPath = path.relative(ctx.workingDirectory, file);
+        const relPath = path.relative(workingRoot, file);
 
         const matchRanges = findMatchRanges(lines, content, regex, isMultiline);
         if (matchRanges.length === 0) continue;

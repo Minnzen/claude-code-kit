@@ -60,6 +60,52 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("enterWorktreeTool", () => {
+  it("treats shell metacharacters in branch names literally", async () => {
+    const result = await enterWorktreeTool.execute!(
+      { branch: "audit$(touch enter-proof)", path: path.join(tmpDir, "literal-branch") },
+      makeCtx(),
+    );
+    expect(fs.existsSync(path.join(repoDir, "enter-proof"))).toBe(false);
+    if (!result.isError) {
+      expect(execSync("git branch", { cwd: repoDir, encoding: "utf8" })).toContain(
+        "audit$(touch enter-proof)",
+      );
+    }
+  });
+
+  it("treats shell metacharacters in explicit paths literally", async () => {
+    const wtPath = path.join(tmpDir, "literal$(touch path-proof)");
+    const result = await enterWorktreeTool.execute!(
+      { branch: "literal-path", path: wtPath },
+      makeCtx(),
+    );
+    expect(fs.existsSync(path.join(repoDir, "path-proof"))).toBe(false);
+    expect(result.isError).toBeFalsy();
+    expect(fs.existsSync(path.join(wtPath, ".git"))).toBe(true);
+  });
+
+  it("rejects traversal in a branch before creating default parent directories", async () => {
+    const result = await enterWorktreeTool.execute!(
+      { branch: "../../escaped-parent/deep/branch" },
+      makeCtx(),
+    );
+    expect(result.isError).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "escaped-parent"))).toBe(false);
+  });
+
+  it("does not create a worktree when already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const wtPath = path.join(tmpDir, "aborted-worktree");
+    const result = await enterWorktreeTool.execute!(
+      { branch: "aborted", path: wtPath },
+      makeCtx({ abortSignal: controller.signal }),
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content).toMatch(/aborted/i);
+    expect(fs.existsSync(wtPath)).toBe(false);
+  });
+
   it("creates a worktree with an explicit branch and path", async () => {
     const wtPath = path.join(tmpDir, "my-wt");
     const result = await enterWorktreeTool.execute!(
@@ -145,6 +191,29 @@ describe("enterWorktreeTool", () => {
 // ---------------------------------------------------------------------------
 
 describe("exitWorktreeTool", () => {
+  it("does not execute shell substitutions in a worktree path", async () => {
+    const result = await exitWorktreeTool.execute!(
+      { path: "missing$(touch exit-proof)", keep: false },
+      makeCtx(),
+    );
+    expect(result.isError).toBe(true);
+    expect(fs.existsSync(path.join(repoDir, "exit-proof"))).toBe(false);
+  });
+
+  it("does not remove a worktree when already aborted", async () => {
+    const wtPath = path.join(tmpDir, "preserve-on-abort");
+    await enterWorktreeTool.execute!({ branch: "preserve-abort", path: wtPath }, makeCtx());
+    const controller = new AbortController();
+    controller.abort();
+    const result = await exitWorktreeTool.execute!(
+      { path: wtPath, keep: false },
+      makeCtx({ abortSignal: controller.signal }),
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content).toMatch(/aborted/i);
+    expect(fs.existsSync(path.join(wtPath, ".git"))).toBe(true);
+  });
+
   it("removes a worktree when keep=false", async () => {
     const wtPath = path.join(tmpDir, "to-remove");
     await enterWorktreeTool.execute!(

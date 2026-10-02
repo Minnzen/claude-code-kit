@@ -153,6 +153,7 @@ export default class Ink {
   private charPool: CharPool;
   private hyperlinkPool: HyperlinkPool;
   private exitPromise?: Promise<void>;
+  private exitError?: Error;
   private restoreConsole?: () => void;
   private restoreStderr?: () => void;
   private readonly unsubscribeTTYHandlers?: () => void;
@@ -1670,36 +1671,41 @@ export default class Ink {
     // Clean up terminal modes synchronously before process exit.
     // React's componentWillUnmount won't run in time when process.exit() is called,
     // so we must reset terminal modes here to prevent escape sequence leakage.
-    // Use writeSync to stdout (fd 1) to ensure writes complete before exit.
+    // Flush real output descriptors synchronously; injected streams own their cleanup.
     // We unconditionally send all disable sequences because terminal detection
     // may not work correctly (e.g., in tmux, screen) and these are no-ops on
     // terminals that don't support them.
     /* eslint-disable custom-rules/no-sync-fs -- process exiting; async writes would be dropped */
+    const writeCleanup = (sequence: string) => {
+      const fd = (this.options.stdout as NodeJS.WriteStream & { fd?: number }).fd;
+      if (typeof fd === "number") writeSync(fd, sequence);
+      else this.options.stdout.write(sequence);
+    };
     if (this.options.stdout.isTTY) {
       if (this.altScreenActive) {
         // <AlternateScreen>'s unmount effect won't run during signal-exit.
         // Exit alt screen FIRST so other cleanup sequences go to the main screen.
-        writeSync(1, EXIT_ALT_SCREEN);
+        writeCleanup(EXIT_ALT_SCREEN);
       }
       // Disable mouse tracking — unconditional because altScreenActive can be
       // stale if AlternateScreen's unmount (which flips the flag) raced a
       // blocked event loop + SIGINT. No-op if tracking was never enabled.
-      writeSync(1, DISABLE_MOUSE_TRACKING);
+      writeCleanup(DISABLE_MOUSE_TRACKING);
       // Drain stdin so in-flight mouse events don't leak to the shell
       this.drainStdin();
       // Disable extended key reporting (both kitty and modifyOtherKeys)
-      writeSync(1, DISABLE_MODIFY_OTHER_KEYS);
-      writeSync(1, DISABLE_KITTY_KEYBOARD);
+      writeCleanup(DISABLE_MODIFY_OTHER_KEYS);
+      writeCleanup(DISABLE_KITTY_KEYBOARD);
       // Disable focus events (DECSET 1004)
-      writeSync(1, DFE);
+      writeCleanup(DFE);
       // Disable bracketed paste mode
-      writeSync(1, DBP);
+      writeCleanup(DBP);
       // Show cursor
-      writeSync(1, SHOW_CURSOR);
+      writeCleanup(SHOW_CURSOR);
       // Clear iTerm2 progress bar
-      writeSync(1, CLEAR_ITERM2_PROGRESS);
+      writeCleanup(CLEAR_ITERM2_PROGRESS);
       // Clear tab status (OSC 21337) so a stale dot doesn't linger
-      if (supportsTabStatus()) writeSync(1, wrapForMultiplexer(CLEAR_TAB_STATUS));
+      if (supportsTabStatus()) writeCleanup(wrapForMultiplexer(CLEAR_TAB_STATUS));
     }
     /* eslint-enable custom-rules/no-sync-fs */
 
@@ -1724,12 +1730,17 @@ export default class Ink {
     this.rootNode.yogaNode?.free();
     this.rootNode.yogaNode = undefined;
     if (error instanceof Error) {
+      this.exitError = error;
       this.rejectExitPromise(error);
     } else {
       this.resolveExitPromise();
     }
   }
   async waitUntilExit(): Promise<void> {
+    if (this.isUnmounted) {
+      if (this.exitError) throw this.exitError;
+      return;
+    }
     this.exitPromise ||= new Promise((resolve, reject) => {
       this.resolveExitPromise = resolve;
       this.rejectExitPromise = reject;
@@ -1887,7 +1898,8 @@ export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
   }
   // No /dev/tty on Windows; CONIN$ doesn't support O_NONBLOCK semantics.
   // Windows Terminal also doesn't buffer mouse reports the same way.
-  if (process.platform === "win32") return;
+  // An injected stream does not own the process controlling terminal.
+  if (process.platform === "win32" || stdin !== process.stdin) return;
   // termios is per-device: flip stdin to raw so canonical-mode line
   // buffering doesn't hide partial input from the non-blocking read.
   // Restored in the finally block.

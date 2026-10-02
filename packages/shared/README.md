@@ -7,8 +7,10 @@ Part of [claude-code-kit](https://github.com/Minnzen/claude-code-kit).
 ## Installation
 
 ```bash
-pnpm add @claude-code-kit/shared
+pnpm add @claude-code-kit/shared@0.4.0
 ```
+
+Version `0.4.0` requires Node.js 22+. Root imports support ESM and CommonJS.
 
 ## Included
 
@@ -22,7 +24,7 @@ pnpm add @claude-code-kit/shared
 ```ts
 import { gte, execFileNoThrow } from '@claude-code-kit/shared'
 
-if (gte(process.version, '18.0.0')) {
+if (gte(process.version, '22.0.0')) {
   const result = await execFileNoThrow('node', ['--version'])
   console.log(result.stdout.trim())
 }

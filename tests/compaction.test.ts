@@ -8,6 +8,7 @@ import {
 import { SlidingWindowCompaction } from '../packages/agent/src/compaction/sliding-window.ts'
 import { SummarizationCompaction } from '../packages/agent/src/compaction/summarization.ts'
 import { MockProvider } from '../packages/agent/src/providers/mock.ts'
+import { ContextManager } from '../packages/agent/src/context-manager.ts'
 import type { CompactionStrategy, Message } from '../packages/agent/src/types.ts'
 
 // ---------------------------------------------------------------------------
@@ -450,5 +451,154 @@ describe('LayeredCompaction', () => {
     await layered.compact(messages, 100)
     // The transcript fed to the summarizer must not echo the sentinel.
     expect(capturedTranscript).not.toContain(TOOL_RESULT_CLEARED_MESSAGE)
+  })
+})
+
+describe('Compaction exchange integrity', () => {
+  const parallelTurn: Message[] = [
+    userMsg('Inspect both files before editing'),
+    { role: 'assistant', content: '', toolCalls: [
+      { id: 'read-a', name: 'Read', input: { path: 'a.ts' } },
+      { id: 'read-b', name: 'Read', input: { path: 'b.ts' } },
+    ] },
+    toolMsg('read-a', 'file a'),
+    toolMsg('read-b', 'file b'),
+  ]
+
+  it('extends the summary boundary to keep the user instruction and the whole parallel exchange', async () => {
+    const strategy = new SummarizationCompaction(new MockProvider([
+      [{ type: 'text', text: 'Previous task complete.' }, { type: 'done' }],
+    ]), { keepRecentN: 2 })
+    const messages: Message[] = [userMsg('Old task'), { role: 'assistant', content: 'Old response' }, ...parallelTurn]
+    const compacted = await strategy.compact(messages, 100)
+    expect(compacted.slice(-4)).toEqual(parallelTurn)
+    expect(compacted.slice(0, -4).some(m => m.role === 'user' && String(m.content).includes('Previous task complete.'))).toBe(true)
+  })
+
+  it('includes tool name, arguments, result identity, and system task context in summary input', async () => {
+    const provider = new MockProvider([[{ type: 'text', text: 'Saved details.' }, { type: 'done' }]])
+    const messages: Message[] = [
+      { role: 'system', content: 'Do not deploy without authorization' },
+      userMsg('Create the requested file'),
+      { role: 'assistant', content: '', toolCalls: [{ id: 'write-file', name: 'Write', input: { path: 'example.ts', content: 'export const answer = 42' } }] },
+      toolMsg('write-file', 'Write succeeded'),
+      userMsg('Now explain the result'),
+    ]
+    await new SummarizationCompaction(provider, { keepRecentN: 1 }).compact(messages, 100)
+    const transcript = provider.getCalls()[0].messages.map(m => String(m.content)).join('\n')
+    expect(transcript).toContain('Write')
+    expect(transcript).toContain('example.ts')
+    expect(transcript).toContain('export const answer = 42')
+    expect(transcript).toContain('write-file')
+    expect(transcript).toContain('Do not deploy without authorization')
+    expect(transcript).toContain('Create the requested file')
+  })
+
+  it('retains the latest complete turn when summary keepRecentN is zero', async () => {
+    const messages: Message[] = [userMsg('old'), { role: 'assistant', content: 'done' }, userMsg('current request')]
+    const compacted = await new SummarizationCompaction(new MockProvider([
+      [{ type: 'text', text: 'Old task done.' }, { type: 'done' }],
+    ]), { keepRecentN: 0 }).compact(messages, 100)
+    expect(compacted.at(-1)).toEqual(userMsg('current request'))
+    expect(compacted).not.toContainEqual(userMsg('old'))
+  })
+
+  it('sliding window keeps the user and every result when retaining a parallel exchange', () => {
+    const messages: Message[] = [userMsg('Old task '.repeat(100)), { role: 'assistant', content: 'Old response' }, ...parallelTurn]
+    expect(new SlidingWindowCompaction().compact(messages, 26)).toEqual(parallelTurn)
+  })
+
+  it('sliding window preserves the latest task even when the system already exceeds the target', () => {
+    const messages: Message[] = [{ role: 'system', content: 'constraint '.repeat(100) }, ...parallelTurn]
+    expect(new SlidingWindowCompaction().compact(messages, 1)).toEqual(messages)
+  })
+
+  it('layered micro and summary retain the complete latest exchange', async () => {
+    const messages: Message[] = [userMsg('Old task '.repeat(100)), { role: 'assistant', content: 'Old response' }, ...parallelTurn]
+    const layered = new LayeredCompaction([
+      new MicroCompaction({ keepRecentN: 1 }),
+      new SummarizationCompaction(new MockProvider([[{ type: 'text', text: 'Old task done.' }, { type: 'done' }]]), { keepRecentN: 2 }),
+    ])
+    const compacted = await layered.compact(messages, 100)
+    expect(compacted.slice(-4).map(m => m.role)).toEqual(['user', 'assistant', 'tool', 'tool'])
+    expect(compacted.at(-3)).toEqual(parallelTurn[1])
+    expect(compacted.at(-1)).toEqual(parallelTurn[3])
+  })
+})
+
+describe('Compaction failure and cancellation', () => {
+  const messages: Message[] = [userMsg('old'), { role: 'assistant', content: 'reply' }, userMsg('current')]
+
+  it('propagates provider error chunks instead of discarding history for an empty summary', async () => {
+    const failure = new Error('Summary provider failed')
+    const strategy = new SummarizationCompaction(new MockProvider([[{ type: 'error', error: failure }]]), { keepRecentN: 1 })
+    await expect(strategy.compact(messages, 10)).rejects.toThrow('Summary provider failed')
+  })
+
+  it('rejects an empty summary instead of dropping the only remaining task context', async () => {
+    const strategy = new SummarizationCompaction(new MockProvider([[{ type: 'done' }]]), { keepRecentN: 1 })
+    await expect(strategy.compact(messages, 10)).rejects.toThrow(/empty summary/i)
+  })
+
+  it('passes cancellation to the summary provider and stops after an abort', async () => {
+    const controller = new AbortController()
+    let receivedSignal: AbortSignal | undefined
+    const strategy = new SummarizationCompaction({
+      async *chat(options) {
+        receivedSignal = options.signal
+        yield { type: 'text', text: 'partial' }
+        controller.abort(new Error('Cancelled compaction'))
+        yield { type: 'text', text: 'late' }
+      },
+    }, { keepRecentN: 1 })
+    await expect(strategy.compact(messages, 10, controller.signal)).rejects.toThrow('Cancelled compaction')
+    expect(receivedSignal).toBe(controller.signal)
+  })
+
+  it('settles cancellation while an abort-ignoring summary provider is waiting', async () => {
+    const controller = new AbortController()
+    let started!: () => void
+    let release!: () => void
+    const pending = new Promise<void>(resolve => { release = resolve })
+    const ready = new Promise<void>(resolve => { started = resolve })
+    const strategy = new SummarizationCompaction({
+      async *chat() {
+        started()
+        await pending
+        yield { type: 'text', text: 'late summary' }
+      },
+    }, { keepRecentN: 1 })
+    const result = strategy.compact(messages, 10, controller.signal)
+    await ready
+    controller.abort(new Error('Cancelled waiting'))
+    const outcome = await Promise.race([
+      result.then(() => 'resolved', error => error.message),
+      new Promise<string>(resolve => setTimeout(() => resolve('still waiting'), 30)),
+    ])
+    release()
+    await result.catch(() => {})
+    expect(outcome).toBe('Cancelled waiting')
+  })
+
+  it('stops the layered fallback after cancellation', async () => {
+    const controller = new AbortController()
+    let fallbackRan = false
+    const strategy = new LayeredCompaction([
+      { compact: () => { controller.abort(new Error('Cancelled')); return messages } },
+      { compact: () => { fallbackRan = true; return [] } },
+    ])
+    await expect(strategy.compact(messages, 0, controller.signal)).rejects.toThrow('Cancelled')
+    expect(fallbackRan).toBe(false)
+  })
+})
+
+describe('ContextManager provider replacement', () => {
+  it('uses the replacement provider for token counting', async () => {
+    const provider = new MockProvider([])
+    const manager = new ContextManager({ provider })
+    const messages: Message[] = [userMsg('abcd')]
+    expect(await manager.countTokens(messages)).toBe(1)
+    manager.setProvider({ async *chat() {}, countTokens: async () => 7 })
+    expect(await manager.countTokens(messages)).toBe(7)
   })
 })

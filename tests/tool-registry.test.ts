@@ -164,3 +164,60 @@ describe('ToolRegistry', () => {
     expect(execMock.mock.calls[0]![0]).toMatchObject({ num: 21 })
   })
 })
+
+
+describe('ToolRegistry bounded execution', () => {
+  it('returns a timeout error even when a tool ignores its signal', async () => {
+    const registry = new ToolRegistry()
+    const tool = makeTool('stuck', async () => new Promise(() => {}))
+    tool.timeout = 10
+    registry.register(tool)
+    const result = await registry.execute('stuck', {}, makeContext())
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/timed out/i)
+  }, 500)
+
+  it('returns an abort error and ignores late success', async () => {
+    const registry = new ToolRegistry()
+    let finish!: (value: { content: string }) => void
+    const tool = makeTool('late', async () => new Promise(resolve => { finish = resolve }))
+    registry.register(tool)
+    const controller = new AbortController()
+    const pending = registry.execute('late', {}, { ...makeContext(), abortSignal: controller.signal })
+    await Promise.resolve()
+    controller.abort()
+    const result = await pending
+    finish({ content: 'late success' })
+    expect(result.isError).toBe(true)
+    expect(result.content).toMatch(/aborted/i)
+  }, 500)
+
+  it('does not invoke an already aborted tool', async () => {
+    const registry = new ToolRegistry()
+    const execute = vi.fn(async () => ({ content: 'bad' }))
+    registry.register(makeTool('never', execute))
+    const controller = new AbortController()
+    controller.abort()
+    expect((await registry.execute('never', {}, { ...makeContext(), abortSignal: controller.signal })).isError).toBe(true)
+    expect(execute).not.toHaveBeenCalled()
+  })
+})
+
+
+it('isolates saved tool arguments from late mutation after abort', async () => {
+  const registry = new ToolRegistry()
+  let mutate!: () => void
+  const tool: ToolDefinition<{ nested: { value: string } }> = {
+    name: 'late-mutation', description: 'late mutation', inputSchema: z.object({ nested: z.unknown() }) as never,
+    execute: async input => new Promise(() => { mutate = () => { input.nested.value = 'mutated' } }),
+  }
+  registry.register(tool)
+  const controller = new AbortController()
+  const input = { nested: { value: 'original' } }
+  const pending = registry.execute(tool.name, input, { ...makeContext(), abortSignal: controller.signal })
+  await Promise.resolve()
+  controller.abort()
+  await pending
+  mutate()
+  expect(input.nested.value).toBe('original')
+})

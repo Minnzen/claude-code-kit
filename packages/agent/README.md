@@ -15,8 +15,16 @@ Headless agent framework for building LLM-powered tools and applications. Provid
 
 ## API status
 
-- Stable in `v0.3.x`: `Agent`, providers, permissions, sessions, compaction, `ToolRegistry`
-- Experimental in `v0.3.x`: `MCPClient` and MCP-backed dynamic tool discovery
+- Supported core surface: `Agent`, providers, permissions, sessions, compaction, `ToolRegistry`
+- Experimental: `MCPClient` and MCP-backed dynamic tool discovery
+
+## Installation and runtime
+
+```bash
+pnpm add @claude-code-kit/agent@0.4.0 @anthropic-ai/sdk@0.82.0 zod@4.3.6
+```
+
+Version `0.4.0` requires Node.js 22+. Provider SDKs are optional peers: install `openai` for OpenAI-compatible APIs or `@modelcontextprotocol/sdk` for MCP. Use an ESM app for top-level-await examples, or compile TypeScript first. Root exports support ESM and CommonJS.
 
 ## Quick start
 
@@ -26,12 +34,13 @@ import { z } from 'zod'
 
 const agent = new Agent({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
-  model: 'claude-sonnet-4-20250514',
+  model: process.env.ANTHROPIC_MODEL!,
   systemPrompt: 'You are a helpful assistant.',
   tools: [{
     name: 'get_weather',
     description: 'Get weather for a city',
     inputSchema: z.object({ city: z.string() }),
+    isReadOnly: true,
     async execute({ city }) {
       return { content: `Weather in ${city}: 72F, sunny` }
     },
@@ -70,7 +79,7 @@ import { OpenAIProvider } from '@claude-code-kit/agent'
 const openai = new OpenAIProvider({ apiKey: '...' })
 
 // Ollama
-const ollama = new OpenAIProvider({ baseURL: 'http://localhost:11434/v1' })
+const ollama = new OpenAIProvider({ apiKey: 'ollama', baseURL: 'http://localhost:11434/v1' })
 
 // Groq
 const groq = new OpenAIProvider({ apiKey: '...', baseURL: 'https://api.groq.com/openai/v1' })
@@ -105,14 +114,13 @@ const agent = new Agent({
 })
 ```
 
+In `0.4.0`, `PermissionResult` has `{ decision: 'allow' | 'deny', reason?, approvalRequired? }`. Only an explicit `allow` executes a tool in the headless Agent. `approvalRequired: true` marks a denial caused by missing approval so an interactive host may ask. Default read-only denial and the permission-factory fallback set that flag; `alwaysDeny` and custom denials without it remain absolute. The UI bridge evaluates the existing policy first and cannot override those explicit denials. There is no additional `ask` decision.
+
 ## Context compaction
 
-The agent ships four compaction strategies, all implementing the same
+The agent ships four reducing compaction strategies, plus the default `NoopCompaction`, all implementing the same
 `CompactionStrategy` interface. Pass one to `AgentConfig.compactionStrategy`
-(or use `LayeredCompaction` to combine several). The defaults and naming
-mirror Claude Code's own compaction subsystem
-([`src/services/compact/microCompact.ts`](https://github.com/anthropics/claude-code))
-so behavior stays predictable for users coming from there.
+(or use `LayeredCompaction` to combine several). Context reduction is opt-in; no summary call runs with the default strategy.
 
 | Strategy | Cost | Information loss | When to use |
 |---|---|---|---|
@@ -138,14 +146,7 @@ Mirrors Claude Code's microcompact strategy:
   carried over for parity, and is harmless if unused.
 - Idempotent: results that have already been cleared are returned by reference.
 
-When using `MicroCompaction`, it is recommended to instruct the model in your
-system prompt to record any important information from tool results in its
-own response, since the original output may later be cleared. Claude Code
-ships this exact instruction:
-
-> When working with tool results, write down any important information you
-> might need later in your response, as the original tool result may be
-> cleared later.
+When using `MicroCompaction`, instruct the model to preserve important findings in its own response, since old tool output can later be cleared.
 
 ### Recommended layered stack
 
@@ -163,10 +164,10 @@ const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }
 
 const agent = new Agent({
   provider,
-  model: 'claude-sonnet-4-20250514',
+  model: process.env.ANTHROPIC_MODEL!,
   compactionStrategy: new LayeredCompaction([
     new MicroCompaction(),                              // free, lossless for decisions
-    new SummarizationCompaction(provider),              // one LLM call, lossy
+    new SummarizationCompaction(provider, { summaryModel: process.env.ANTHROPIC_MODEL! }),
     new SlidingWindowCompaction(),                      // free, very lossy fallback
   ]),
 })
@@ -175,6 +176,33 @@ const agent = new Agent({
 `LayeredCompaction` re-estimates tokens after each layer and short-circuits
 once the budget is met, so the more expensive layers only run when the
 cheaper ones cannot recover enough room.
+
+Summary and sliding strategies retain complete user turns, including assistant tool calls and every corresponding result. `keepRecentN` is a minimum message count extended to the start of a turn. Summaries include tool name/input and task constraints. The newest turn and system messages survive even when they exceed the target; token budgets are best effort. Reactive compaction stops with an error when it cannot reduce context rather than retrying indefinitely. Optional cancellation signals flow to summaries and layered strategies; summary errors or empty output propagate.
+
+## Lifecycle in 0.4.0
+
+An `Agent` permits one active run. Continue consuming or close its async iterator to release that run. `abort()` signals immediately; `await agent.cancel()` signals and waits for cleanup; `waitForIdle()` only waits. `clearMessages()` and provider/tool/permission changes require idle. `chat()` rejects provider failures; the streaming API emits an `error` event rather than successful completion.
+
+```typescript
+await agent.cancel()
+agent.clearMessages()
+```
+
+## File sessions
+
+`FileSession.setMessages()` and `clear()` only update memory. Call `save()` or `FileSessionStore.save()` explicitly to persist the history. `append()` persists one new message and does not save other unsaved in-memory changes; load existing history first when this instance needs it in memory.
+
+`FileSessionStore.load()` returns null only when the file is absent. JSON corruption and filesystem errors propagate. IDs must start with a letter or digit and contain only letters, digits, dots, underscores, or hyphens. Session files must be regular files; file symlinks and directory redirection after opening are rejected.
+
+```typescript
+import { FileSessionStore } from '@claude-code-kit/agent'
+
+const store = new FileSessionStore('./sessions')
+const session = await store.load('my-session') ?? store.create('my-session')
+const agentWithSession = new Agent({ provider, model: process.env.ANTHROPIC_MODEL!, session })
+await agentWithSession.chat('Continue the task')
+await store.save('my-session', session)
+```
 
 ### Known divergence from Claude Code
 

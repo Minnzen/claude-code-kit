@@ -1,14 +1,16 @@
 {
   "name": "@claude-code-kit/ui",
-  "version": "0.3.2",
-  "description": "Terminal UI component library for claude-code-kit — Spinner, ProgressBar, Divider and more",
+  "version": "0.4.0",
+  "description": "Terminal UI component library for claude-code-kit \u2014 Spinner, ProgressBar, Divider and more",
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "exports": {
     ".": {
@@ -25,17 +27,17 @@
   "dependencies": {
     "@claude-code-kit/ink-renderer": "workspace:*",
     "@claude-code-kit/shared": "workspace:*",
-    "chalk": "*",
-    "chokidar": "*",
-    "figures": "*",
-    "marked": "*",
-    "strip-ansi": "*",
+    "chalk": "5.6.2",
+    "chokidar": "4.0.3",
+    "figures": "6.1.0",
+    "marked": "17.0.5",
+    "strip-ansi": "7.2.0",
     "usehooks-ts": "^3.1.1",
-    "zod": ">=3.20.0"
+    "zod": "4.3.6"
   },
   "peerDependencies": {
-    "react": ">=18.0.0",
-    "@claude-code-kit/agent": ">=0.1.0"
+    "react": "~19.2.0",
+    "@claude-code-kit/agent": "^0.4.0"
   },
   "peerDependenciesMeta": {
     "@claude-code-kit/agent": {
@@ -44,10 +46,10 @@
   },
   "devDependencies": {
     "@claude-code-kit/agent": "workspace:*",
-    "@types/marked": "*",
-    "react": "*",
-    "tsup": "*",
-    "typescript": "*"
+    "@types/marked": "6.0.0",
+    "react": "~19.2.4",
+    "tsup": "8.5.1",
+    "typescript": "5.9.3"
   },
   "repository": {
     "type": "git",
@@ -69,7 +71,7 @@
     "ai-agent"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.0.0"
   },
   "publishConfig": {
     "access": "public"

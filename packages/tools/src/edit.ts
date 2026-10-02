@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
-import * as path from "node:path";
 import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
+import { resolveContainedPath } from "./path-safety.js";
 
 export const inputSchema = z.object({
   file_path: z.string().describe("Absolute or relative file path to edit"),
@@ -23,17 +23,8 @@ type Input = z.infer<typeof inputSchema>;
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
 
-  const filePath = path.resolve(ctx.workingDirectory, input.file_path);
-
-  // Prevent path traversal outside the working directory
-  if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
-    return {
-      content: `Error: path traversal denied — ${input.file_path} escapes working directory`,
-      isError: true,
-    };
-  }
-
   try {
+    const filePath = await resolveContainedPath(ctx.workingDirectory, input.file_path);
     const content = await fs.readFile(filePath, "utf-8");
 
     const occurrences = content.split(input.old_string).length - 1;
@@ -53,6 +44,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     } else {
       updated = content.replace(input.old_string, input.new_string);
     }
+    if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
     await fs.writeFile(filePath, updated, "utf-8");
 
     const replacedCount = input.replace_all ? occurrences : 1;

@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
+import { resolveContainedPath } from "./path-safety.js";
 
 export const inputSchema = z.object({
   notebook_path: z.string().describe("Absolute or relative path to a .ipynb notebook file"),
@@ -71,14 +72,11 @@ function makeCell(cellType: string, source: string): NotebookCell {
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
 
-  const filePath = path.resolve(ctx.workingDirectory, input.notebook_path);
-
-  // Path traversal check
-  if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
-    return {
-      content: `Error: path traversal denied — ${input.notebook_path} escapes working directory`,
-      isError: true,
-    };
+  let filePath: string;
+  try {
+    filePath = await resolveContainedPath(ctx.workingDirectory, input.notebook_path);
+  } catch (error) {
+    return { content: `Error editing notebook: ${(error as Error).message}`, isError: true };
   }
 
   // Extension check
@@ -180,6 +178,7 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
       }
     }
 
+    if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
     await fs.writeFile(filePath, `${JSON.stringify(notebook, null, 1)}\n`, "utf-8");
 
     const totalCells = cells.length;

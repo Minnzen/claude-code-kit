@@ -543,12 +543,17 @@ function processKeysInBatch(
       app.handleSuspend();
       continue;
     }
-    app.handleInput(sequence);
     const event = new InputEvent(item);
     app.internal_eventEmitter.emit("input", event);
 
+    // A busy application can consume Ctrl+C to cancel before the default exit.
+    if (!event.didStopImmediatePropagation()) {
+      const defaultInput = item.name === "c" && item.ctrl ? "\x03" : sequence;
+      app.handleInput(defaultInput);
+    }
+
     // Also dispatch through the DOM tree so onKeyDown handlers fire.
-    app.props.dispatchKeyboardEvent(item);
+    if (!event.didStopImmediatePropagation()) app.props.dispatchKeyboardEvent(item);
   }
 }
 

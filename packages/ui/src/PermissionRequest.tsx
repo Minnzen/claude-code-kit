@@ -124,6 +124,11 @@ export function PermissionRequest({
   );
 
   useInput((input, key) => {
+    if (key.escape) {
+      decide("deny");
+      return;
+    }
+    if (key.ctrl || key.meta || key.super) return;
     if (input === "y") {
       decide("allow");
       return;
@@ -132,7 +137,7 @@ export function PermissionRequest({
       decide("always_allow");
       return;
     }
-    if (input === "n" || key.escape) {
+    if (input === "n") {
       decide("deny");
       return;
     }

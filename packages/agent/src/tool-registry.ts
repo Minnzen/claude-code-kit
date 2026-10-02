@@ -51,7 +51,7 @@ export class ToolRegistry {
     }
 
     // Validate input against schema
-    const parsed = tool.inputSchema.safeParse(input);
+    const parsed = tool.inputSchema.safeParse(structuredClone(input));
     if (!parsed.success) {
       return {
         content: `Invalid input for tool "${name}": ${parsed.error.message}`,
@@ -59,18 +59,56 @@ export class ToolRegistry {
       };
     }
 
-    // Execute with optional timeout
-    const timeout = tool.timeout ?? 120_000;
-    const timeoutSignal = AbortSignal.timeout(timeout);
-    const combinedSignal = AbortSignal.any([context.abortSignal, timeoutSignal]);
+    if (context.abortSignal.aborted) {
+      return { content: `Tool "${name}" aborted`, isError: true };
+    }
 
-    const toolContext: ToolContext = { ...context, abortSignal: combinedSignal };
+    const timeout = tool.timeout ?? 120_000;
+    if (!Number.isFinite(timeout) || timeout < 0 || timeout > 2_147_483_647) {
+      return { content: `Invalid timeout for tool "${name}"`, isError: true };
+    }
+    const timeoutController = new AbortController();
+    const combinedSignal = AbortSignal.any([context.abortSignal, timeoutController.signal]);
+    const toolContext: ToolContext = {
+      ...context,
+      abortSignal: combinedSignal,
+      // A timed-out tool may still run physically, but must not publish stale progress.
+      onProgress: context.onProgress
+        ? (progress) => {
+            if (!combinedSignal.aborted) context.onProgress?.(progress);
+          }
+        : undefined,
+    };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let onAbort: (() => void) | undefined;
+    const interrupted = new Promise<ToolResult>((resolve) => {
+      onAbort = () =>
+        resolve({
+          content:
+            timeoutController.signal.aborted && !context.abortSignal.aborted
+              ? `Tool "${name}" timed out after ${timeout}ms; execution may still be running`
+              : `Tool "${name}" aborted; execution may still be running`,
+          isError: true,
+        });
+      combinedSignal.addEventListener("abort", onAbort, { once: true });
+      timer = setTimeout(() => timeoutController.abort(), timeout);
+    });
 
     try {
-      return await tool.execute(parsed.data, toolContext);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return { content: `Tool "${name}" failed: ${message}`, isError: true };
+      const execution = Promise.resolve()
+        .then(() => {
+          if (combinedSignal.aborted) return interrupted;
+          return tool.execute(parsed.data, toolContext);
+        })
+        .catch((error: unknown) => ({
+          content: `Tool "${name}" failed: ${error instanceof Error ? error.message : String(error)}`,
+          isError: true,
+        }));
+      const result = await Promise.race([execution, interrupted]);
+      return combinedSignal.aborted ? await interrupted : result;
+    } finally {
+      if (timer) clearTimeout(timer);
+      if (onAbort) combinedSignal.removeEventListener("abort", onAbort);
     }
   }
 

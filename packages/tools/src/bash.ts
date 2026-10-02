@@ -1,4 +1,4 @@
-import { exec, spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -34,7 +34,19 @@ export const inputSchema = z.object({
 
 type Input = z.infer<typeof inputSchema>;
 
+function terminate(child: ChildProcess): void {
+  if (child.pid === undefined) return;
+  try {
+    // Shell-only termination leaves its children running after cancellation.
+    if (process.platform !== "win32") process.kill(-child.pid, "SIGKILL");
+    else child.kill("SIGKILL");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+  }
+}
+
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
+  if (ctx.abortSignal.aborted) return { content: "Command aborted", isError: true };
   const cwd = input.cwd ?? ctx.workingDirectory;
   const timeout = Math.min(input.timeout ?? DEFAULT_TIMEOUT, MAX_TIMEOUT);
   const sandboxed = !input.dangerously_disable_sandbox;
@@ -44,55 +56,98 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
       os.tmpdir(),
       `cck-bg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.log`,
     );
-    const out = fs.openSync(outFile, "w");
+    const out = fs.openSync(outFile, "wx", 0o600);
     const child = spawn("sh", ["-c", input.command], {
       cwd,
       env: { ...process.env, ...ctx.env },
       detached: true,
       stdio: ["ignore", out, out],
     });
-    child.unref();
-    const pid = child.pid;
     fs.closeSync(out);
-    return {
-      content: `Background process started (PID: ${pid})\nOutput file: ${outFile}`,
-      metadata: { pid, outputFile: outFile, sandboxed },
-    };
+    return new Promise((resolve) => {
+      const onAbort = () => terminate(child);
+      const cleanup = () => ctx.abortSignal.removeEventListener("abort", onAbort);
+      ctx.abortSignal.addEventListener("abort", onAbort, { once: true });
+      child.once("exit", cleanup);
+      child.once("error", (error) => {
+        cleanup();
+        resolve({
+          content: ctx.abortSignal.aborted ? "Command aborted" : error.message,
+          isError: true,
+          metadata: { sandboxed },
+        });
+      });
+      child.once("spawn", () => {
+        if (ctx.abortSignal.aborted) {
+          terminate(child);
+          resolve({ content: "Command aborted", isError: true, metadata: { sandboxed } });
+          return;
+        }
+        child.unref();
+        const pid = child.pid;
+        resolve({
+          content: `Background process started (PID: ${pid})\nOutput file: ${outFile}`,
+          metadata: { pid, outputFile: outFile, sandboxed },
+        });
+      });
+    });
   }
 
   return new Promise((resolve) => {
-    const onAbort = () => {
-      child.kill("SIGTERM");
-      resolve({ content: "Command aborted", isError: true, metadata: { sandboxed } });
+    const child = spawn("sh", ["-c", input.command], {
+      cwd,
+      env: { ...process.env, ...ctx.env },
+      detached: process.platform !== "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk: string) => {
+      stdout = (stdout + chunk).slice(0, MAX_RESULT_SIZE);
+    });
+    child.stderr?.on("data", (chunk: string) => {
+      stderr = (stderr + chunk).slice(0, MAX_RESULT_SIZE);
+    });
+    const onAbort = () => terminate(child);
+    const timer =
+      timeout > 0
+        ? setTimeout(() => {
+            timedOut = true;
+            terminate(child);
+          }, timeout)
+        : undefined;
+    const cleanup = () => {
+      if (timer !== undefined) clearTimeout(timer);
+      ctx.abortSignal.removeEventListener("abort", onAbort);
     };
-
-    const child = exec(
-      input.command,
-      { cwd, timeout, env: { ...process.env, ...ctx.env } },
-      (err, stdout, stderr) => {
-        // Clean up abort listener to avoid leaking event handlers
-        ctx.abortSignal.removeEventListener("abort", onAbort);
-
-        const output = (stdout + (stderr ? `\n${stderr}` : "")).slice(0, MAX_RESULT_SIZE);
-        if (err?.killed) {
-          resolve({
-            content: `Command timed out after ${timeout}ms\n${output}`,
-            isError: true,
-            metadata: { sandboxed },
-          });
-          return;
-        }
-        if (err) {
-          resolve({
-            content: output || err.message,
-            isError: true,
-            metadata: { exitCode: err.code, sandboxed },
-          });
-          return;
-        }
+    child.once("error", (error) => {
+      cleanup();
+      resolve({ content: error.message, isError: true, metadata: { sandboxed } });
+    });
+    child.once("close", (exitCode) => {
+      cleanup();
+      const output = `${stdout}${stderr ? `\n${stderr}` : ""}`.slice(0, MAX_RESULT_SIZE);
+      if (ctx.abortSignal.aborted) {
+        resolve({ content: "Command aborted", isError: true, metadata: { sandboxed } });
+      } else if (timedOut) {
+        resolve({
+          content: `Command timed out after ${timeout}ms\n${output}`,
+          isError: true,
+          metadata: { sandboxed },
+        });
+      } else if (exitCode !== 0) {
+        resolve({
+          content: output || `Command exited with code ${exitCode}`,
+          isError: true,
+          metadata: { exitCode, sandboxed },
+        });
+      } else {
         resolve({ content: output || "(no output)", metadata: { sandboxed } });
-      },
-    );
+      }
+    });
 
     if (ctx.abortSignal.aborted) {
       onAbort();

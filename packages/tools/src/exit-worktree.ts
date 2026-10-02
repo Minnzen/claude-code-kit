@@ -1,7 +1,7 @@
-import { exec } from "node:child_process";
 import * as path from "node:path";
 import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
+import { runGit } from "./git-process.js";
 
 const DEFAULT_TIMEOUT = 30_000;
 
@@ -19,6 +19,10 @@ export const inputSchema = z.object({
 type Input = z.infer<typeof inputSchema>;
 
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
+  if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
+  if (!input.path.trim() || input.path.includes("\0")) {
+    return { content: "Error: invalid worktree path", isError: true };
+  }
   const worktreePath = path.resolve(ctx.workingDirectory, input.path);
 
   if (input.keep) {
@@ -28,21 +32,18 @@ async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
     };
   }
 
-  const cmd = `git worktree remove ${JSON.stringify(worktreePath)} --force`;
-
-  return new Promise((resolve) => {
-    exec(cmd, { cwd: ctx.workingDirectory, timeout: DEFAULT_TIMEOUT }, (err, stdout, stderr) => {
-      const output = (stdout + (stderr ? `\n${stderr}` : "")).trim();
-      if (err) {
-        resolve({ content: output || err.message, isError: true });
-        return;
-      }
-      resolve({
-        content: `Worktree removed: ${worktreePath}`,
-        metadata: { path: worktreePath, kept: false },
-      });
-    });
-  });
+  try {
+    await runGit(["worktree", "remove", "--force", "--", worktreePath], ctx.workingDirectory, ctx);
+    return {
+      content: `Worktree removed: ${worktreePath}`,
+      metadata: { path: worktreePath, kept: false },
+    };
+  } catch (error) {
+    return {
+      content: ctx.abortSignal.aborted ? "Aborted" : (error as Error).message,
+      isError: true,
+    };
+  }
 }
 
 export const exitWorktreeTool: ToolDefinition<Input> = {

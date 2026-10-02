@@ -1,6 +1,13 @@
 import { Box, type Key, Text, useInput } from "@claude-code-kit/ink-renderer";
 import type React from "react";
-import { useCallback, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   lineOffset as computeLineOffset,
   cursorLineIndex,
@@ -41,7 +48,18 @@ export function PromptInput({
   vimMode = false,
   multiline = false,
 }: PromptInputProps): React.ReactNode {
-  const [cursor, setCursor] = useState(0);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const [cursor, setCursorState] = useState(0);
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
+  const setCursor: Dispatch<SetStateAction<number>> = useCallback((next) => {
+    cursorRef.current = typeof next === "function" ? next(cursorRef.current) : next;
+    setCursorState(cursorRef.current);
+  }, []);
+  useLayoutEffect(() => {
+    if (cursor > value.length) setCursor(value.length);
+  }, [cursor, value.length, setCursor]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -59,17 +77,20 @@ export function PromptInput({
 
   const updateValue = useCallback(
     (nv: string, nc?: number) => {
+      valueRef.current = nv;
       onChange(nv);
       setCursor(nc ?? nv.length);
       setHistoryIndex(-1);
       setShowSuggestions(nv.startsWith("/"));
       setSuggestionIndex(0);
     },
-    [onChange],
+    [onChange, setCursor],
   );
 
   const insertNewline = () => {
-    updateValue(`${value.slice(0, cursor)}\n${value.slice(cursor)}`, cursor + 1);
+    const current = valueRef.current;
+    const position = cursorRef.current;
+    updateValue(`${current.slice(0, position)}\n${current.slice(position)}`, position + 1);
   };
 
   const moveLine = (dir: -1 | 1) => {
@@ -87,6 +108,7 @@ export function PromptInput({
       const ni = historyIndex + 1;
       setHistoryIndex(ni);
       const hv = history[ni]!;
+      valueRef.current = hv;
       onChange(hv);
       setCursor(hv.length);
     }
@@ -96,10 +118,12 @@ export function PromptInput({
       const ni = historyIndex - 1;
       setHistoryIndex(ni);
       const hv = history[ni]!;
+      valueRef.current = hv;
       onChange(hv);
       setCursor(hv.length);
     } else if (historyIndex === 0) {
       setHistoryIndex(-1);
+      valueRef.current = "";
       onChange("");
       setCursor(0);
     }
@@ -108,6 +132,12 @@ export function PromptInput({
   useInput(
     (input: string, key: Key) => {
       if (disabled) return;
+      // Multiple parsed keys share one React batch, so read edits made by earlier keys.
+      const value = valueRef.current;
+      const cursor = cursorRef.current;
+      const lines = multiline ? value.split("\n") : [value];
+      const cursorLine = multiline ? cursorLineIndex(lines, cursor) : 0;
+      const lineOffset = (line: number) => computeLineOffset(lines, line);
 
       if (isVimNormal) {
         if (input !== "d") setPendingD(false);

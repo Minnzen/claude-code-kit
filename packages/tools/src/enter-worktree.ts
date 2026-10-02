@@ -1,8 +1,9 @@
-import { exec } from "node:child_process";
-import * as fs from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
+import { runGit } from "./git-process.js";
+import { resolveContainedPath } from "./path-safety.js";
 
 const DEFAULT_TIMEOUT = 30_000;
 
@@ -30,51 +31,47 @@ function generateBranchName(): string {
 }
 
 /** Resolve the git top-level directory for the given cwd. */
-function getRepoRoot(cwd: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    exec("git rev-parse --show-toplevel", { cwd }, (err, stdout) => {
-      if (err) {
-        reject(new Error("Not inside a git repository"));
-        return;
-      }
-      resolve(stdout.trim());
-    });
-  });
+function getRepoRoot(cwd: string, ctx: ToolContext): Promise<string> {
+  return runGit(["rev-parse", "--show-toplevel"], cwd, ctx);
 }
 
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
+  if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
   const cwd = ctx.workingDirectory;
 
   let repoRoot: string;
   try {
-    repoRoot = await getRepoRoot(cwd);
+    repoRoot = await getRepoRoot(cwd, ctx);
   } catch {
-    return { content: "Not inside a git repository", isError: true };
+    return {
+      content: ctx.abortSignal.aborted ? "Aborted" : "Not inside a git repository",
+      isError: true,
+    };
   }
 
   const branch = input.branch ?? generateBranchName();
-  const worktreePath = input.path
-    ? path.resolve(cwd, input.path)
-    : path.join(repoRoot, ".worktrees", branch);
-
-  // Ensure parent directory exists
-  fs.mkdirSync(path.dirname(worktreePath), { recursive: true });
-
-  const cmd = `git worktree add ${JSON.stringify(worktreePath)} -b ${JSON.stringify(branch)}`;
-
-  return new Promise((resolve) => {
-    exec(cmd, { cwd: repoRoot, timeout: DEFAULT_TIMEOUT }, (err, stdout, stderr) => {
-      const output = (stdout + (stderr ? `\n${stderr}` : "")).trim();
-      if (err) {
-        resolve({ content: output || err.message, isError: true });
-        return;
-      }
-      resolve({
-        content: `Worktree created.\nBranch: ${branch}\nPath: ${worktreePath}`,
-        metadata: { branch, path: worktreePath },
-      });
-    });
-  });
+  try {
+    await runGit(["check-ref-format", "--branch", branch], repoRoot, ctx);
+    if (input.path !== undefined && (!input.path.trim() || input.path.includes("\0"))) {
+      return { content: "Error: invalid worktree path", isError: true };
+    }
+    const worktreePath =
+      input.path !== undefined
+        ? path.resolve(cwd, input.path)
+        : await resolveContainedPath(repoRoot, path.join(".worktrees", branch));
+    ctx.abortSignal.throwIfAborted();
+    await fs.mkdir(path.dirname(worktreePath), { recursive: true });
+    await runGit(["worktree", "add", "-b", branch, "--", worktreePath], repoRoot, ctx);
+    return {
+      content: `Worktree created.\nBranch: ${branch}\nPath: ${worktreePath}`,
+      metadata: { branch, path: worktreePath },
+    };
+  } catch (error) {
+    return {
+      content: ctx.abortSignal.aborted ? "Aborted" : (error as Error).message,
+      isError: true,
+    };
+  }
 }
 
 export const enterWorktreeTool: ToolDefinition<Input> = {

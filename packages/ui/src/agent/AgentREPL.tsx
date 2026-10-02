@@ -34,9 +34,21 @@ function AgentREPLInner({
   welcome,
   placeholder,
   onExit,
-}: Pick<AgentREPLProps, "commands" | "welcome" | "placeholder" | "onExit">): React.ReactNode {
-  const { messages, isLoading, streamingContent, permissionRequest, submit, model, clearMessages } =
-    useAgentContext();
+  onError,
+}: Pick<
+  AgentREPLProps,
+  "commands" | "welcome" | "placeholder" | "onExit" | "onError"
+>): React.ReactNode {
+  const {
+    messages,
+    isLoading,
+    streamingContent,
+    permissionRequest,
+    submit,
+    model,
+    clearMessages,
+    cancel,
+  } = useAgentContext();
 
   // Build permission request state for the REPL overlay
   const permissionState = useMemo(() => {
@@ -46,7 +58,7 @@ function AgentREPLInner({
       description: permissionRequest.description,
       details: permissionRequest.details,
       onDecision: (action: PermissionAction) => {
-        permissionRequest.resolve(action === "deny" ? "deny" : "allow");
+        permissionRequest.resolve(action);
       },
     };
   }, [permissionRequest]);
@@ -65,7 +77,7 @@ function AgentREPLInner({
 
   const handleSubmit = useCallback(
     async (input: string) => {
-      submit(input);
+      await submit(input);
     },
     [submit],
   );
@@ -73,6 +85,8 @@ function AgentREPLInner({
   return (
     <REPL
       onSubmit={handleSubmit}
+      onCancel={cancel}
+      onError={onError}
       onExit={onExit}
       messages={messages}
       isLoading={isLoading}
@@ -106,6 +120,7 @@ export function AgentREPL({
         welcome={welcome}
         placeholder={placeholder}
         onExit={onExit}
+        onError={onError}
       />
     </AgentProvider>
   );

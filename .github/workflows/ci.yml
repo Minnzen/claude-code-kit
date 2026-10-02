@@ -5,54 +5,46 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22.12.0, 24]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm smoke
+      - run: pnpm smoke:packed
 
-  # Cross-environment smoke test: catches regressions where a published
-  # package fails to import under a specific Node version or loader.
-  # Motivated by 0.3.1 #1 (`Dynamic require of "semver" is not supported`)
-  # and the ESM-only ansi-tokenize / marked CJS-require crash discovered
-  # alongside it. Runs each built package through ESM, CJS, and tsx loaders
-  # on every supported Node version.
-  #
-  # Node 18 was dropped in 0.3.2: one of our transitive deps
-  # (`supports-hyperlinks@4`) requires Node ≥ 20, and our packages declare
-  # `engines.node: ">=20"`.
-  #
-  # Node 20.16.0 is pinned (instead of just "20") because Node 20.17 added
-  # stable require-of-ESM support. Using the floating "20" tag would resolve
-  # to the latest 20.x patch (currently ≥ 20.17), which would silently mask
-  # any future ESM-only dep that leaks into our CJS bundle as a top-level
-  # require(). 20.16.0 is the last patch where that crash actually happens,
-  # so it is our true worst-case for the floor of `engines.node: ">=20"`.
-  smoke:
+  # Build tooling requires Node 22.12; published runtime packages support 22.0.
+  # Build on 22.12, then pack, install and exercise tarballs on the minimum
+  # runtime. No workspace links are available to this job's isolated smoke.
+  runtime-floor:
     runs-on: ubuntu-latest
-    needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [20.16.0, 22, 24]
-        loader: [esm, cjs, tsx]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 22.12.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm --filter smoke-imports smoke:${{ matrix.loader }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.0.0
+      - run: node scripts/packed-smoke.mjs

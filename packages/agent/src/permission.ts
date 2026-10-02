@@ -6,46 +6,37 @@ import type {
 } from "./types.js";
 
 /**
- * Create a tiered permission handler from a configuration object.
- *
- * Permission tiers (checked in order):
- *  1. Always allow list — tool is unconditionally allowed
- *  2. Always deny list — tool is unconditionally denied
- *  3. Session approved — tool was approved earlier in this session
- *  4. Read-only auto-approve — if enabled, read-only tools are allowed
- *  5. Callback — delegate to a custom handler (e.g. prompt the user)
- *  6. Default — allow (no permission handler = auto-approve everything)
+ * Explicit denial overrides all approval rules. Without an explicit approval
+ * route, tools are denied; safe read-only tools can be opted into automatic approval.
  */
 export function createPermissionHandler(config: PermissionConfig): PermissionHandler {
   return async (request: PermissionRequest): Promise<PermissionResult> => {
-    // Tier 1: always allow list
-    if (config.alwaysAllow?.includes(request.tool)) {
-      return { decision: "allow" };
-    }
-
-    // Tier 2: always deny list
     if (config.alwaysDeny?.includes(request.tool)) {
-      return { decision: "deny", reason: `Tool "${request.tool}" is in the deny list` };
+      return {
+        decision: "deny",
+        reason: `Tool "${request.tool}" is in the deny list`,
+        approvalRequired: false,
+      };
     }
-
-    // Tier 3: session approved
-    if (config.sessionApproved?.has(request.tool)) {
+    if (config.alwaysAllow?.includes(request.tool) || config.sessionApproved?.has(request.tool)) {
       return { decision: "allow" };
     }
-
-    // Tier 4: read-only auto-approve
-    if (config.autoApproveReadOnly && request.isReadOnly) {
+    if (config.autoApproveReadOnly && isSafeReadOnly(request)) {
       return { decision: "allow" };
     }
-
-    // Tier 5: callback
     if (config.onPermission) {
       return config.onPermission(request);
     }
-
-    // Tier 6: default allow
-    return { decision: "allow" };
+    return {
+      decision: "deny",
+      reason: "No explicit approval configured for this tool",
+      approvalRequired: true,
+    };
   };
+}
+
+function isSafeReadOnly(request: PermissionRequest): boolean {
+  return request.isReadOnly === true && !request.isDestructive && !request.requiresConfirmation;
 }
 
 /**
@@ -58,12 +49,13 @@ export const allowAll: PermissionHandler = async () => ({ decision: "allow" });
  * Used when no permissionHandler is configured in AgentConfig.
  */
 export const allowReadOnly: PermissionHandler = async (request) => {
-  if (request.isReadOnly) {
+  if (isSafeReadOnly(request)) {
     return { decision: "allow" };
   }
   return {
     decision: "deny",
     reason: "No permission handler configured. Set permissionHandler in AgentConfig.",
+    approvalRequired: true,
   };
 };
 

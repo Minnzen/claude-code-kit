@@ -32,6 +32,10 @@ export async function executeToolCalls(
     maxConcurrent = DEFAULT_MAX_CONCURRENT,
   } = options;
 
+  if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1) {
+    throw new Error("maxConcurrent must be a positive integer");
+  }
+
   // Pre-resolve each call to its result (preserving order via index)
   const results = new Array<ToolResultMessage>(toolCalls.length);
 
@@ -81,13 +85,9 @@ type ExecutionGroup =
 /**
  * Build an execution plan that groups tool calls into parallel or sequential steps.
  *
- * Strategy: Only tools explicitly marked `isReadOnly: true` are eligible for
- * parallel execution. All others (including unknown tools and tools with
- * isReadOnly unset) execute sequentially for safety.
- *
- * We intentionally do not branch on `isDestructive` separately — tools with
- * isReadOnly unset are already untrusted and run sequentially. `isDestructive`
- * is advisory metadata for UI/logging and does not change the execution plan.
+ * Only tools explicitly marked read-only without destructive or confirmation
+ * flags are eligible for parallel execution. Unknown tools and contradictory
+ * safety annotations execute sequentially.
  */
 function buildExecutionPlan(toolCalls: ToolCall[], registry: ToolRegistry): ExecutionGroup[] {
   const groups: ExecutionGroup[] = [];
@@ -96,7 +96,8 @@ function buildExecutionPlan(toolCalls: ToolCall[], registry: ToolRegistry): Exec
   for (let i = 0; i < toolCalls.length; i++) {
     const tc = toolCalls[i]!;
     const toolDef = registry.get(tc.name);
-    const isReadOnly = toolDef?.isReadOnly === true;
+    const isReadOnly =
+      toolDef?.isReadOnly === true && !toolDef.isDestructive && !toolDef.requiresConfirmation;
 
     if (isReadOnly) {
       currentParallelBatch.push({ index: i, toolCall: tc });
@@ -171,16 +172,26 @@ async function executeSingleToolCall(
     };
   }
 
+  if (context.abortSignal.aborted) {
+    return { role: "tool", toolCallId: tc.id, content: `Tool "${tc.name}" aborted`, isError: true };
+  }
+
   try {
     const toolDef = toolRegistry.get(tc.name);
 
-    const permissionResult = await permissionHandler({
-      tool: tc.name,
-      input: tc.input,
-      isReadOnly: toolDef?.isReadOnly,
-    });
+    const permissionResult = await permissionWithAbort(
+      permissionHandler,
+      {
+        tool: tc.name,
+        input: structuredClone(tc.input),
+        isReadOnly: toolDef?.isReadOnly,
+        isDestructive: toolDef?.isDestructive,
+        requiresConfirmation: toolDef?.requiresConfirmation,
+      },
+      context.abortSignal,
+    );
 
-    if (permissionResult.decision === "deny") {
+    if (permissionResult.decision !== "allow") {
       return {
         role: "tool",
         toolCallId: tc.id,
@@ -189,6 +200,14 @@ async function executeSingleToolCall(
       };
     }
 
+    if (toolRegistry.get(tc.name) !== toolDef) {
+      return {
+        role: "tool",
+        toolCallId: tc.id,
+        content: `Tool "${tc.name}" changed while permission approval was pending`,
+        isError: true,
+      };
+    }
     const result = await toolRegistry.execute(tc.name, tc.input, context);
 
     return {
@@ -204,5 +223,23 @@ async function executeSingleToolCall(
       content: `Permission error: ${error instanceof Error ? error.message : String(error)}`,
       isError: true,
     };
+  }
+}
+
+async function permissionWithAbort(
+  handler: PermissionHandler,
+  request: Parameters<PermissionHandler>[0],
+  signal: AbortSignal,
+): ReturnType<PermissionHandler> {
+  if (signal.aborted) throw new Error("Permission request aborted");
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(new Error("Permission request aborted"));
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    return await Promise.race([handler(request), aborted]);
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
   }
 }

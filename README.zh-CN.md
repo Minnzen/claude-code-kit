@@ -8,8 +8,8 @@
 [![npm downloads](https://img.shields.io/npm/dm/@claude-code-kit/ui.svg?style=flat-square)](https://www.npmjs.com/package/@claude-code-kit/ui)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-339933.svg?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/React-18+-61DAFB.svg?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-22+-339933.svg?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-19.2.x-61DAFB.svg?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 
 **终端 UI 工具包 + 无头 Agent 框架，用于构建功能丰富的 CLI 应用程序。**
 **灵感来源于 Claude Code 的架构设计。**
@@ -28,7 +28,7 @@
 
 - **React 组件模型** -- 像构建 Web UI 一样构建终端 UI。组件、Hooks、状态、副作用。
 - **Flexbox 布局** -- 纯 TypeScript Yoga 布局引擎，无需原生绑定。
-- **零闪烁渲染** -- 差量终端输出，只重写发生变化的区域。
+- **差量渲染** -- 差量终端输出，只重写发生变化的区域。
 - **丰富的组件库** -- REPL、Select、MultiSelect、PromptInput、Spinner、StreamingText、MessageList 等。
 - **无头 Agent 框架** -- 基于 AsyncGenerator 的 Agent 循环，多 Provider 支持（Anthropic、OpenAI、Ollama），分级权限模型。
 - **现成内置工具** -- `builtinTools` 提供 10 个可直接接入的工具：Bash、Read、Edit、Write、Glob、Grep、WebFetch、WebSearch、EnterWorktree、ExitWorktree。
@@ -40,13 +40,19 @@
 
 ## 当前状态
 
-- `v0.3.0` 包已发布
-- 当前 monorepo 的 `build`、`typecheck`、`test`、`lint` 已全部通过
+- 当前 checkout 为 `0.4.0` 发布候选版；最近核验的 npm 版本仍为 `0.3.1`，候选版尚未发布。
+- `0.4.0` 候选版于 2026-10-03 通过本地 `pnpm release:check`，包含 34 个文件、719 项测试；Node.js 22.0.0 与 24.13.0 的独立打包安装检查通过。
+- 本地验证和远端 CI 分开记录：最近检查到的 5 月 12 日远端 CI 失败。当前代码用 `pnpm release:check` 验证，不能把已配置的 smoke matrix 当作远端全绿结果。
+- `0.4.0` 候选版的运行时要求为 Node.js 22+、React 19.2.x、react-reconciler 0.33.x；提供 ESM 与 CommonJS 入口。
+- 仓库开发工具要求 Node.js 22.12+；打包后的运行时包支持 Node.js 22.0+。
+- 候选版版本调整前，本地独立 tarball 安装已在 Node 22.0 和 24.13 验证 ESM/CJS/tsx、无头 mock agent、挂载终端输入输出 fixture。它们不等同于真实 provider 或用户终端验收。
 - 维护中的标准示例有 3 个：`hello-world`、`agent-cli`、`alt-screen-dashboard`
+
+详见 [API 契约](./EXPORTS.md)、[路线图](./docs/roadmap.md) 和 [迁移与发布流程](./RELEASE.md)。新增安全修复、生命周期与历史视口 API 对应 `0.4.0` 候选版，npm `0.3.1` 尚未包含这些修复。下面的已发布无头示例只接入只读工具，使用 Agent 默认权限。
 
 ## API 状态
 
-### v0.3.x 稳定面
+### 支持的核心 API
 
 - `@claude-code-kit/shared`、`@claude-code-kit/ink-renderer`、核心 `@claude-code-kit/ui` 组件
 - Agent loop、Anthropic/OpenAI/Mock provider、permissions、sessions、compaction
@@ -62,11 +68,11 @@
 
 | 包名 | npm 状态 | 描述 |
 |------|---------|------|
-| `@claude-code-kit/shared` | 已发布 | Yoga 布局引擎（纯 TS 移植版）、文字测量、ANSI 工具 |
-| `@claude-code-kit/ink-renderer` | 已发布 | 终端渲染引擎 -- React reconciler、布局、差量输出、输入处理 |
-| `@claude-code-kit/ui` | 已发布 | UI 组件、commands、keybindings，以及可选的 agent bridge UI |
-| `@claude-code-kit/agent` | 已发布 | 无头 Agent 框架 -- providers、permissions、sessions、compaction、实验性 MCP |
-| `@claude-code-kit/tools` | 已发布 | 10 个现成工具 + 高级工具工厂 |
+| `@claude-code-kit/shared` | 0.3.1 已发布 | Yoga 布局引擎（纯 TS 移植版）、文字测量、ANSI 工具 |
+| `@claude-code-kit/ink-renderer` | 0.3.1 已发布 | 终端渲染引擎 -- React reconciler、布局、差量输出、输入处理 |
+| `@claude-code-kit/ui` | 0.3.1 已发布 | UI 组件、commands、keybindings，以及可选的 agent bridge UI |
+| `@claude-code-kit/agent` | 0.3.1 已发布 | 无头 Agent 框架 -- providers、permissions、sessions、compaction、实验性 MCP |
+| `@claude-code-kit/tools` | 0.3.1 已发布 | 10 个现成工具 + 高级工具工厂 |
 
 ## 快速开始
 
@@ -75,15 +81,19 @@
 从 npm 安装：
 
 ```bash
-pnpm add @claude-code-kit/ui react
+pnpm init --init-type module
+pnpm add @claude-code-kit/ui@0.3.1 @claude-code-kit/ink-renderer@0.3.1 react@19.2.4 react-reconciler@0.33.0
+pnpm add -D tsx@4.21.0
 ```
+
+这些命令安装已发布的稳定版 `0.3.1`。将下面示例保存为 `app.tsx` 后运行 `pnpm exec tsx app.tsx`；尚未发布的 `0.4.0` 候选版用仓库示例验证，先执行 `pnpm install && pnpm build`。
 
 构建一个调用自己后端的 REPL：
 
 ```tsx
 import { render, Box } from "@claude-code-kit/ink-renderer";
 import { REPL, type Message } from "@claude-code-kit/ui";
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -92,7 +102,7 @@ function App() {
   const handleSubmit = useCallback(async (text: string) => {
     setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", content: text }]);
     setIsLoading(true);
-    const response = await callYourApi(text);
+    const response = `You wrote: ${text}`;
     setMessages((prev) => [
       ...prev,
       { id: (Date.now() + 1).toString(), role: "assistant", content: response },
@@ -123,25 +133,27 @@ await render(<App />);
 从 npm 安装 agent 和 tools：
 
 ```bash
-pnpm add @claude-code-kit/agent @claude-code-kit/tools
+pnpm add @claude-code-kit/agent@0.3.1 @claude-code-kit/tools@0.3.1 @anthropic-ai/sdk@0.82.0
 ```
 
 接入无头 Agent 和工具：
 
 ```typescript
 import { Agent, AnthropicProvider } from "@claude-code-kit/agent";
-import { readTool, globTool, grepTool, bashTool } from "@claude-code-kit/tools";
+import { readTool, globTool, grepTool } from "@claude-code-kit/tools";
 
 const agent = new Agent({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
-  model: "claude-sonnet-4-20250514",
-  tools: [readTool, globTool, grepTool, bashTool],
+  model: process.env.ANTHROPIC_MODEL!,
+  tools: [readTool, globTool, grepTool],
   systemPrompt: "你是一个简洁的编程助手。",
 });
 
 const result = await agent.chat("src 目录下有哪些文件？");
 console.log(result);
 ```
+
+设置 `ANTHROPIC_API_KEY` 和账号可用的 `ANTHROPIC_MODEL`。Anthropic 需要可选 peer SDK `@anthropic-ai/sdk`；OpenAI 兼容 provider 需要 `openai`。`0.4.0` 候选版的 `autoApproveReadOnly` 仅批准只读工具，写操作需显式回调或 allow list；这条 factory 兜底修复尚未发布到 npm `0.3.1`。
 
 用 `AgentREPL` 将 Agent 连接到终端 UI：
 
@@ -153,7 +165,7 @@ import { readTool, globTool, grepTool, bashTool, editTool, writeTool } from "@cl
 
 const agent = new Agent({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
-  model: "claude-sonnet-4-20250514",
+  model: process.env.ANTHROPIC_MODEL!,
   tools: [bashTool, readTool, editTool, writeTool, globTool, grepTool],
   permissionHandler: createPermissionHandler({ autoApproveReadOnly: true }),
 });
@@ -226,15 +238,15 @@ await render(<AgentREPL agent={agent} placeholder="问我关于代码库的任�
 | `readTool` | 自动批准 | 读取文件内容 |
 | `globTool` | 自动批准 | 按 glob 模式查找文件 |
 | `grepTool` | 自动批准 | 用正则搜索文件内容 |
-| `bashTool` | 询问用户 | 执行 shell 命令 |
-| `editTool` | 询问用户 | 编辑已有文件 |
-| `writeTool` | 询问用户 | 写入新文件 |
+| `bashTool` | 默认拒绝；显式授权后执行 | 执行 shell 命令 |
+| `editTool` | 默认拒绝；显式授权后执行 | 编辑已有文件 |
+| `writeTool` | 默认拒绝；显式授权后执行 | 写入新文件 |
 | `webFetchTool` | 自动批准 | HTTP 获取，支持 HTML 转 Markdown、缓存与 HTTPS 升级 |
 | `webSearchTool` | 自动批准 | Web 搜索，支持域名 allow/block |
-| `enterWorktreeTool` | 询问用户 | 创建并进入 git worktree |
-| `exitWorktreeTool` | 询问用户 | 清理并退出 git worktree |
+| `enterWorktreeTool` | 默认拒绝；显式授权后执行 | 创建并进入 git worktree |
+| `exitWorktreeTool` | 默认拒绝；显式授权后执行 | 清理并退出 git worktree |
 
-这些工具都包含在 `builtinTools` 中，属于 `v0.3.x` 的默认稳定面。
+这些工具都包含在 `builtinTools` 中，属于支持的默认工具集合。
 
 ### 高级工具工厂（仍在演进）
 
@@ -250,7 +262,7 @@ await render(<AgentREPL agent={agent} placeholder="问我关于代码库的任�
 ```typescript
 import { createPermissionHandler } from "@claude-code-kit/agent";
 
-// 只读工具自动批准，其余需要确认
+// Read-only tools are approved; other tools are denied by default.
 const handler = createPermissionHandler({ autoApproveReadOnly: true });
 
 // 始终允许指定工具
@@ -261,11 +273,11 @@ const handler = createPermissionHandler({ alwaysAllow: ["Glob", "Grep", "Read"] 
 
 ### `examples/agent-cli`
 
-约 120 行代码实现的迷你编程助手，是工具包的全栈 demo。
+带认证、工具与权限对话框的迷你编程助手，是工具包的全栈 demo。
 
 - 自动检测 API Key：Anthropic、OpenAI、DeepSeek、Groq、SiliconFlow、Ollama
 - 没有 Key 时自动切换到逼真的 mock 演示模式
-- 只读工具（Glob、Grep、Read）自动批准，写入工具需要确认
+- UI 继承已有权限策略：只读自动批准，缺少批准时询问；明确拒绝不会被对话框覆盖
 - `AgentREPL` 处理全部 UI，包括流式输出、工具调用展示和权限对话框
 
 ```bash
@@ -280,15 +292,10 @@ pnpm --filter agent-cli-example start
 
 终端备用缓冲区内的系统监控仪表盘，含轮询指标和实时图表。
 
-## 来源说明
-
-渲染引擎（`@claude-code-kit/ink-renderer`）提取自 Claude Code 的终端 UI 层并为独立使用做了适配。Yoga 布局引擎（`@claude-code-kit/shared`）是纯 TypeScript 移植版，无需原生绑定。
-
-所有 UI 组件（`@claude-code-kit/ui`）和 Agent 框架（`@claude-code-kit/agent`、`@claude-code-kit/tools`）均为本工具包的原创实现。
-
-这是一个独立的社区项目，与 Anthropic 没有关联，也未获得 Anthropic 的背书。
 
 ## 开发
+
+使用 Node.js 22.12+ 和仓库固定的 pnpm 版本。验证包含独立目录中的 tarball 安装与导入，和源码测试分开覆盖。
 
 ```bash
 pnpm install
@@ -301,3 +308,5 @@ pnpm test
 ## 许可证
 
 MIT
+
+这是一个独立的社区项目，与 Anthropic 没有关联，也未获得 Anthropic 的背书。

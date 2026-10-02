@@ -7,8 +7,12 @@ Part of [claude-code-kit](https://github.com/Minnzen/claude-code-kit).
 ## Installation
 
 ```bash
-pnpm add @claude-code-kit/ink-renderer react
+pnpm add @claude-code-kit/ink-renderer@0.4.0 react@19.2.4 react-reconciler@0.33.0
 ```
+
+Version `0.4.0` supports Node.js 22+, React 19.2.x, and react-reconciler 0.33.x. Use the React/reconciler pairing shown above.
+
+Use an ESM app (`"type": "module"` in `package.json`) and a TSX runner, or compile TypeScript before running it. Package-root imports support both ESM and CommonJS. Import `ThemeProvider` and the stateful `useTheme` from `@claude-code-kit/ui`; the renderer's former no-op theme hook is removed in the checkout.
 
 ## Quick Start
 

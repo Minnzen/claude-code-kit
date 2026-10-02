@@ -39,7 +39,10 @@ export class Agent {
   private permissionHandler: PermissionHandler;
   private workingDirectory: string;
   private maxConcurrentTools: number;
-  private abortController: AbortController | null = null;
+  private activeRun?: { controller: AbortController; idle: Promise<void> };
+  private mcpErrors: Error[] = [];
+  private mcpOwnedTools = new Map<MCPClient, Map<string, ToolDefinition>>();
+  private mcpUnsubscribe = new Map<MCPClient, Array<() => void>>();
   private mcpClients: MCPClient[] = [];
   private mcpConfig?: MCPConfig;
   private mcpInitialized = false;
@@ -84,26 +87,59 @@ export class Agent {
    * 6. If end_turn: yield done event with full message history
    */
   async *run(input: string | Message[]): AsyncGenerator<AgentEvent> {
-    this.abortController = new AbortController();
+    if (this.activeRun) {
+      yield { type: "error", error: new Error("Agent is already running") };
+      yield { type: "done", messages: this.getMessages() };
+      return;
+    }
+    const controller = new AbortController();
+    let resolveIdle!: () => void;
+    const idle = new Promise<void>((resolve) => {
+      resolveIdle = resolve;
+    });
+    const activeRun = { controller, idle };
+    this.activeRun = activeRun;
+    try {
+      yield* this.runLoop(input, controller.signal);
+    } catch (error) {
+      yield { type: "error", error: error instanceof Error ? error : new Error(String(error)) };
+      yield { type: "done", messages: this.getMessages() };
+    } finally {
+      if (this.activeRun === activeRun) this.activeRun = undefined;
+      resolveIdle();
+    }
+  }
 
+  private async *runLoop(
+    input: string | Message[],
+    signal: AbortSignal,
+  ): AsyncGenerator<AgentEvent> {
     // Connect to MCP servers on first run (lazy initialization, race-safe)
     if (this.mcpConfig && !this.mcpInitialized) {
-      this.mcpInitPromise ??= this.initializeMCP();
-      await this.mcpInitPromise;
+      this.mcpInitPromise ??= this.initializeMCP(signal).finally(() => {
+        this.mcpInitPromise = undefined;
+      });
+      await withAbort(this.mcpInitPromise, signal);
+      signal.throwIfAborted();
     }
 
+    for (const error of this.mcpErrors.splice(0)) yield { type: "error", error };
+    signal.throwIfAborted();
+
     // Step 1: Add user message(s)
-    const messages = this.session.getMessages();
+    const messages = this.getMessages();
     if (typeof input === "string") {
       messages.push({ role: "user", content: input });
     } else {
-      messages.push(...input);
+      messages.push(...structuredClone(input));
     }
     this.session.setMessages(messages);
 
     let turns = 0;
 
     while (turns < this.maxTurns) {
+      signal.throwIfAborted();
+      for (const error of this.mcpErrors.splice(0)) yield { type: "error", error };
       turns++;
 
       // Step 2: Check compaction. Wrap in try/catch so a strategy that
@@ -111,15 +147,20 @@ export class Agent {
       // NOT escape Agent.run() as a raw rejection — the contract is that
       // run() always yields error/done events.
       try {
-        const currentMessages = await this.contextManager.maybeCompact(this.session.getMessages());
+        const currentMessages = await withAbort(
+          this.contextManager.maybeCompact(this.getMessages(), signal),
+          signal,
+        );
+        signal.throwIfAborted();
         this.session.setMessages(currentMessages);
       } catch (error) {
+        signal.throwIfAborted();
         const err = error instanceof Error ? error : new Error(String(error));
         yield {
           type: "error",
           error: new Error(`Compaction failed: ${err.message}`),
         };
-        yield { type: "done", messages: this.session.getMessages() };
+        yield { type: "done", messages: this.getMessages() };
         return;
       }
 
@@ -129,23 +170,23 @@ export class Agent {
       let accumulatedText = "";
       const accumulatedToolCalls: ToolCall[] = [];
       const toolParseErrors = new Map<string, string>();
-      let currentToolId: string | undefined;
-      let currentToolName: string | undefined;
-      let currentToolArgs = "";
+      const streamedTools = new Map<string, { name: string; args: string; ended: boolean }>();
+      let legacyToolId: string | undefined;
 
       try {
         const stream = this.provider.chat({
           model: this.model,
-          messages: this.session.getMessages(),
+          messages: this.getMessages(),
           tools: providerTools.length > 0 ? providerTools : undefined,
           systemPrompt: this.systemPrompt,
           maxTokens: this.maxTokens,
           temperature: this.temperature,
-          signal: this.abortController.signal,
+          signal,
         });
 
         // Step 4: Stream chunks
-        for await (const chunk of stream) {
+        for await (const chunk of streamWithAbort(stream, signal)) {
+          signal.throwIfAborted();
           switch (chunk.type) {
             case "text":
               if (chunk.text) {
@@ -154,44 +195,26 @@ export class Agent {
               }
               break;
 
-            case "tool_use_start":
-              if (chunk.toolCall) {
-                currentToolId = chunk.toolCall.id;
-                currentToolName = chunk.toolCall.name;
-                currentToolArgs = "";
+            case "tool_use_start": {
+              const { id, name } = chunk.toolCall;
+              if (!id || !name || streamedTools.has(id)) {
+                throw new Error(`Invalid or duplicate streamed tool call: ${id}`);
               }
+              streamedTools.set(id, { name, args: "", ended: false });
+              legacyToolId = id;
               break;
+            }
 
-            case "tool_use_delta":
-              if (chunk.text) {
-                currentToolArgs += chunk.text;
-              }
+            case "tool_use_delta": {
+              const id = resolveStreamedToolId(chunk.id, legacyToolId, streamedTools);
+              streamedTools.get(id)!.args += chunk.text;
               break;
+            }
 
             case "tool_use_end": {
-              if (currentToolId && currentToolName) {
-                let input: Record<string, unknown>;
-                try {
-                  input = currentToolArgs ? JSON.parse(currentToolArgs) : {};
-                } catch (err) {
-                  input = {};
-                  toolParseErrors.set(
-                    currentToolId,
-                    `Failed to parse tool input JSON: ${err instanceof Error ? err.message : String(err)}. Raw input: ${currentToolArgs}`,
-                  );
-                }
-
-                const toolCall: ToolCall = {
-                  id: currentToolId,
-                  name: currentToolName,
-                  input,
-                };
-                accumulatedToolCalls.push(toolCall);
-                yield { type: "tool_call", toolCall };
-              }
-              currentToolId = undefined;
-              currentToolName = undefined;
-              currentToolArgs = "";
+              const id = resolveStreamedToolId(chunk.id, legacyToolId, streamedTools);
+              streamedTools.get(id)!.ended = true;
+              if (legacyToolId === id) legacyToolId = undefined;
               break;
             }
 
@@ -211,12 +234,35 @@ export class Agent {
               }
               break;
 
+            case "error":
+              throw chunk.error;
+
             case "done":
-              // Provider signals end of response
               break;
           }
         }
+        signal.throwIfAborted();
+        for (const [id, entry] of streamedTools) {
+          if (!entry.ended) throw new Error(`Incomplete streamed tool call: ${id}`);
+          let toolInput: Record<string, unknown> = {};
+          try {
+            const parsed: unknown = entry.args ? JSON.parse(entry.args) : {};
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+              throw new Error("Tool input must be a JSON object");
+            }
+            toolInput = parsed as Record<string, unknown>;
+          } catch (error) {
+            toolParseErrors.set(
+              id,
+              `Failed to parse tool input JSON: ${error instanceof Error ? error.message : String(error)}. Raw input: ${entry.args}`,
+            );
+          }
+          const toolCall = { id, name: entry.name, input: toolInput };
+          accumulatedToolCalls.push(toolCall);
+          yield { type: "tool_call", toolCall: structuredClone(toolCall) };
+        }
       } catch (error) {
+        signal.throwIfAborted();
         // Handle context too long errors with reactive compaction.
         //
         // Built-in compaction strategies are best-effort: they do NOT honor
@@ -229,23 +275,24 @@ export class Agent {
         //   - measuring before/after token counts and bailing if compaction
         //     did not strictly reduce the count.
         if (isContextTooLongError(error)) {
-          const before = this.session.getMessages();
-          const beforeTokens = await this.contextManager.countTokens(before);
+          const before = this.getMessages();
+          const beforeTokens = await withAbort(this.contextManager.countTokens(before), signal);
 
           let compacted: Message[];
           try {
-            compacted = await this.contextManager.forceCompact(before);
+            compacted = await withAbort(this.contextManager.forceCompact(before, signal), signal);
           } catch (compactErr) {
+            signal.throwIfAborted();
             const err = compactErr instanceof Error ? compactErr : new Error(String(compactErr));
             yield {
               type: "error",
               error: new Error(`Forced compaction failed after context-too-long: ${err.message}`),
             };
-            yield { type: "done", messages: this.session.getMessages() };
+            yield { type: "done", messages: this.getMessages() };
             return;
           }
 
-          const afterTokens = await this.contextManager.countTokens(compacted);
+          const afterTokens = await withAbort(this.contextManager.countTokens(compacted), signal);
           if (afterTokens >= beforeTokens) {
             yield {
               type: "error",
@@ -253,19 +300,22 @@ export class Agent {
                 `Context too long and compaction made no progress (${beforeTokens} -> ${afterTokens} tokens). Cannot continue.`,
               ),
             };
-            yield { type: "done", messages: this.session.getMessages() };
+            yield { type: "done", messages: this.getMessages() };
             return;
           }
 
+          signal.throwIfAborted();
           this.session.setMessages(compacted);
           continue; // Retry the loop with compacted messages
         }
 
         const err = error instanceof Error ? error : new Error(String(error));
         yield { type: "error", error: err };
-        yield { type: "done", messages: this.session.getMessages() };
+        yield { type: "done", messages: this.getMessages() };
         return;
       }
+
+      signal.throwIfAborted();
 
       // Add assistant message to history
       const assistantMessage: AssistantMessage = {
@@ -274,7 +324,7 @@ export class Agent {
         ...(accumulatedToolCalls.length > 0 ? { toolCalls: accumulatedToolCalls } : {}),
       };
 
-      const msgs = this.session.getMessages();
+      const msgs = this.getMessages();
       msgs.push(assistantMessage);
       this.session.setMessages(msgs);
 
@@ -286,14 +336,14 @@ export class Agent {
           permissionHandler: this.permissionHandler,
           context: {
             workingDirectory: this.workingDirectory,
-            abortSignal: this.abortController?.signal ?? AbortSignal.timeout(120_000),
+            abortSignal: signal,
           },
           parseErrors: toolParseErrors,
           maxConcurrent: this.maxConcurrentTools,
         });
 
         // Yield tool results and add to history
-        const currentMsgs = this.session.getMessages();
+        const currentMsgs = this.getMessages();
         for (const result of toolResults) {
           yield {
             type: "tool_result",
@@ -307,12 +357,13 @@ export class Agent {
         }
         this.session.setMessages(currentMsgs);
 
+        signal.throwIfAborted();
         // Loop back for next turn
         continue;
       }
 
       // Step 6: No tool calls — end turn
-      yield { type: "done", messages: this.session.getMessages() };
+      yield { type: "done", messages: this.getMessages() };
       return;
     }
 
@@ -321,7 +372,7 @@ export class Agent {
       type: "error",
       error: new Error(`Agent exceeded maximum turns (${this.maxTurns})`),
     };
-    yield { type: "done", messages: this.session.getMessages() };
+    yield { type: "done", messages: this.getMessages() };
   }
 
   /**
@@ -342,36 +393,62 @@ export class Agent {
 
   /** Abort the current run. */
   abort(): void {
-    this.abortController?.abort();
+    this.activeRun?.controller.abort();
+  }
+
+  /** Abort and wait until the consumed run stops mutating agent state. */
+  async cancel(): Promise<void> {
+    this.abort();
+    await this.waitForIdle();
+  }
+
+  /** Wait for the active iterator to finish; callers must keep consuming or close it. */
+  async waitForIdle(): Promise<void> {
+    await this.activeRun?.idle;
+  }
+
+  private assertIdle(): void {
+    if (this.activeRun) throw new Error("Agent is running; await cancel() before changing state");
   }
 
   /** Replace the provider (e.g. to switch models mid-conversation). */
   setProvider(provider: LLMProvider): void {
+    this.assertIdle();
     this.provider = provider;
+    this.contextManager.setProvider(provider);
   }
 
   /** Get the full message history. */
   getMessages(): Message[] {
-    return this.session.getMessages();
+    return structuredClone(this.session.getMessages());
   }
 
   /** Clear the message history. */
   clearMessages(): void {
+    this.assertIdle();
     this.session.clear();
   }
 
   /** Add a tool to the registry. */
   addTool(tool: ToolDefinition): void {
+    this.assertIdle();
     this.toolRegistry.register(tool);
   }
 
   /** Remove a tool from the registry. */
   removeTool(name: string): boolean {
+    this.assertIdle();
     return this.toolRegistry.unregister(name);
+  }
+
+  /** Get the current permission policy for temporary UI overrides. */
+  getPermissionHandler(): PermissionHandler {
+    return this.permissionHandler;
   }
 
   /** Replace the permission handler at runtime. */
   setPermissionHandler(handler: PermissionHandler): void {
+    this.assertIdle();
     this.permissionHandler = handler;
   }
 
@@ -385,18 +462,17 @@ export class Agent {
    * Call this when the agent is no longer needed.
    */
   async disconnectMCP(): Promise<void> {
-    // Collect tool names BEFORE disconnecting (disconnect clears client._tools)
-    const toolNames: string[] = [];
-    for (const client of this.mcpClients) {
-      for (const tool of client.tools) {
-        toolNames.push(tool.name);
+    this.assertIdle();
+    for (const callbacks of this.mcpUnsubscribe.values()) {
+      for (const unsubscribe of callbacks) unsubscribe();
+    }
+    this.mcpUnsubscribe.clear();
+    for (const owned of this.mcpOwnedTools.values()) {
+      for (const [name, definition] of owned) {
+        if (this.toolRegistry.get(name) === definition) this.toolRegistry.unregister(name);
       }
     }
-
-    // Unregister tools from the registry first
-    for (const name of toolNames) {
-      this.toolRegistry.unregister(name);
-    }
+    this.mcpOwnedTools.clear();
 
     // Then disconnect all clients
     const errors: Error[] = [];
@@ -424,7 +500,7 @@ export class Agent {
    * Connect to configured MCP servers and register their tools.
    * Servers that fail to connect are skipped with a warning (non-fatal).
    */
-  private async initializeMCP(): Promise<void> {
+  private async initializeMCP(signal: AbortSignal): Promise<void> {
     if (!this.mcpConfig?.servers.length) {
       this.mcpInitialized = true;
       return;
@@ -433,28 +509,58 @@ export class Agent {
     const results = await Promise.allSettled(
       this.mcpConfig.servers.map(async (serverConfig) => {
         const client = new MCPClient(serverConfig);
-        await client.connect();
+        await client.connect(signal);
         return client;
       }),
     );
 
-    for (const result of results) {
+    if (signal.aborted) {
+      for (const result of results) {
+        if (result.status === "fulfilled") void result.value.disconnect().catch(() => {});
+      }
+      signal.throwIfAborted();
+    }
+    for (let index = 0; index < results.length; index++) {
+      const result = results[index]!;
       if (result.status === "fulfilled") {
         const client = result.value;
         this.mcpClients.push(client);
-
-        // Register all discovered tools from this server
-        for (const tool of client.tools) {
-          if (!this.toolRegistry.has(tool.name)) {
-            this.toolRegistry.register(tool);
-          }
-        }
+        this.reconcileMCPTools(client, client.tools);
+        this.mcpUnsubscribe.set(client, [
+          client.onToolsChanged((tools) => this.reconcileMCPTools(client, tools)),
+          client.onError((error) => this.reportMCPError(error)),
+        ]);
+      } else {
+        const error =
+          result.reason instanceof Error ? result.reason : new Error(String(result.reason));
+        this.mcpErrors.push(
+          new Error(`MCP server "${this.mcpConfig.servers[index]!.name}" failed: ${error.message}`),
+        );
       }
-      // Rejected servers are silently skipped — the agent can still
-      // function with its built-in tools + any servers that did connect.
     }
 
     this.mcpInitialized = true;
+  }
+
+  private reportMCPError(error: Error): void {
+    if (this.activeRun) this.activeRun.controller.abort(error);
+    else this.mcpErrors.push(error);
+  }
+
+  private reconcileMCPTools(client: MCPClient, tools: ToolDefinition[]): void {
+    const previous = this.mcpOwnedTools.get(client) ?? new Map<string, ToolDefinition>();
+    for (const tool of tools) {
+      const existing = this.toolRegistry.get(tool.name);
+      if (existing && existing !== previous.get(tool.name)) {
+        this.reportMCPError(new Error(`MCP tool "${tool.name}" conflicts with an existing tool`));
+        return;
+      }
+    }
+    for (const [name, definition] of previous) {
+      if (this.toolRegistry.get(name) === definition) this.toolRegistry.unregister(name);
+    }
+    for (const tool of tools) this.toolRegistry.register(tool);
+    this.mcpOwnedTools.set(client, new Map(tools.map((tool) => [tool.name, tool])));
   }
 }
 
@@ -467,4 +573,52 @@ function isContextTooLongError(error: unknown): boolean {
     msg.includes("too many tokens") ||
     msg.includes("request too large")
   );
+}
+
+function resolveStreamedToolId(
+  id: string | undefined,
+  legacyId: string | undefined,
+  tools: Map<string, { ended: boolean }>,
+): string {
+  if (!id && Array.from(tools.values()).filter((tool) => !tool.ended).length > 1) {
+    throw new Error("Interleaved tool stream requires tool call IDs");
+  }
+  const resolved = id ?? legacyId;
+  if (!resolved || !tools.has(resolved) || tools.get(resolved)!.ended) {
+    throw new Error(`Tool delta/end references an unknown or ended tool: ${resolved}`);
+  }
+  return resolved;
+}
+
+async function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    void promise.catch(() => {});
+    signal.throwIfAborted();
+  }
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(signal.reason ?? new DOMException("Operation aborted", "AbortError"));
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    return await Promise.race([promise, aborted]);
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
+}
+
+async function* streamWithAbort<T>(
+  stream: AsyncGenerator<T>,
+  signal: AbortSignal,
+): AsyncGenerator<T> {
+  try {
+    while (true) {
+      const next = await withAbort(stream.next(), signal);
+      if (next.done) return;
+      yield next.value;
+    }
+  } finally {
+    // An abort-ignoring iterator can remain stuck in next(); never wait on its cleanup.
+    void stream.return(undefined as never).catch(() => {});
+  }
 }

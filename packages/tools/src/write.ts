@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ToolContext, ToolDefinition, ToolResult } from "@claude-code-kit/agent";
 import { z } from "zod";
+import { resolveContainedPath } from "./path-safety.js";
 
 export const inputSchema = z.object({
   file_path: z.string().describe("Absolute or relative file path to write"),
@@ -13,17 +14,9 @@ type Input = z.infer<typeof inputSchema>;
 async function execute(input: Input, ctx: ToolContext): Promise<ToolResult> {
   if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
 
-  const filePath = path.resolve(ctx.workingDirectory, input.file_path);
-
-  // Prevent path traversal outside the working directory
-  if (!filePath.startsWith(ctx.workingDirectory + path.sep) && filePath !== ctx.workingDirectory) {
-    return {
-      content: `Error: path traversal denied — ${input.file_path} escapes working directory`,
-      isError: true,
-    };
-  }
-
   try {
+    const filePath = await resolveContainedPath(ctx.workingDirectory, input.file_path);
+    if (ctx.abortSignal.aborted) return { content: "Aborted", isError: true };
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, input.content, "utf-8");
 
